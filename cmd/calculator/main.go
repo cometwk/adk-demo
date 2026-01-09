@@ -1,7 +1,8 @@
-// Package main provides a minimal ADK agent with a custom Go function tool.
+// Package main provides a minimal ADK agent using an OpenAI-compatible API,
+// with a custom Go function tool.
 //
 // It demonstrates:
-// - Creating a Gemini model (via GOOGLE_API_KEY)
+// - Creating an ADK model backed by OpenAI-compatible Chat Completions
 // - Defining a custom tool using functiontool.New
 // - Running an LLM agent with that tool through ADK's launcher
 package main
@@ -13,15 +14,14 @@ import (
 	"os"
 	"strings"
 
-	"google.golang.org/genai"
-
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/full"
-	"google.golang.org/adk/model/gemini"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
+
+	"adk-demo/model/openai_compat"
 )
 
 type calcInput struct {
@@ -37,8 +37,13 @@ type calcOutput struct {
 func main() {
 	ctx := context.Background()
 
-	model, err := gemini.NewModel(ctx, "gemini-2.5-flash", &genai.ClientConfig{
-		APIKey: os.Getenv("GOOGLE_API_KEY"),
+	modelName := strings.TrimSpace(os.Getenv("OPENAI_MODEL"))
+	if modelName == "" {
+		modelName = "gpt-4o-mini"
+	}
+	model, err := openai_compat.NewModel(modelName, openai_compat.Config{
+		BaseURL: os.Getenv("OPENAI_BASE_URL"),
+		APIKey:  os.Getenv("OPENAI_API_KEY"),
 	})
 	if err != nil {
 		log.Fatalf("Failed to create model: %v", err)
@@ -90,4 +95,3 @@ func main() {
 		log.Fatalf("Run failed: %v\n\n%s", err, l.CommandLineSyntax())
 	}
 }
-
