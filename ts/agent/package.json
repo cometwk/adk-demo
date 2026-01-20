@@ -1,0 +1,43 @@
+{
+  "name": "agent",
+  "version": "0.1.0",
+  "description": "A VoltAgent application",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env ./src",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "biome check ./src",
+    "lint:fix": "biome check --write ./src",
+    "typecheck": "tsc --noEmit",
+    "x-chat": "tsx src/demo/chat.js",
+    "chat": "tsx --env-file=.env src/demo/chat.js",
+    "t1": "tsx --env-file=.env src/demo/t1.js",
+    "ocr": "tsx --env-file=.env src/demo/ocr-test.js",
+    "simple": "tsx --env-file=.env src/demo/simple.js",
+    "volt": "volt"
+  },
+  "dependencies": {
+    "@ai-sdk/provider-utils": "^4.0.4",
+    "@ai-sdk/openai-compatible": "^2.0.4",
+    "@voltagent/cli": "^0.1.10",
+    "@voltagent/core": "^2.0.9",
+    "@voltagent/libsql": "^2.0.2",
+    "@voltagent/logger": "^2.0.2",
+    "@voltagent/scorers": "^2.0.0",
+    "@voltagent/sdk": "^2.0.0",
+    "@voltagent/server-hono": "^2.0.3",
+    "ai": "^6.0.27",
+    "dotenv": "^16.4.7",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.1.12",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
