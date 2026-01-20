@@ -1,0 +1,11 @@
+{
+  // 让 VS Code / gopls 识别 local build
+  "go.buildTags": "local",
+  "go.testFlags": ["-tags=local", "-count=1", "-v"],
+  "go.testOnSave": false,
+  // 可选：集成测试开关
+  "go.testEnvVars": {
+    // "GOFLAGS": "-count=1"
+    "RUN_DB_TEST": "1"
+  }
+}

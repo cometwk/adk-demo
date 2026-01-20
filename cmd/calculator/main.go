@@ -21,58 +21,57 @@ import (
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
 
-	"adk-demo/model/openai_compat"
+	"adk-demo/lib/pkg/env"
+	// "adk-demo/model/openai_compat"
 )
 
 type calcInput struct {
-	A  float64 `json:"a"`
-	B  float64 `json:"b"`
-	Op string  `json:"op"` // one of: + - * /
+	A  float64 `json:"a" jsonschema:"type:number 第一个数字"`
+	B  float64 `json:"b" jsonschema:"type:number 第二个数字"`
+	Op string  `json:"op" jsonschema:"enum:['+', '-', '*', '/'] 基础四则运算"` // one of: + - * /
 }
 
 type calcOutput struct {
 	Result float64 `json:"result"`
 }
 
-func main() {
-	ctx := context.Background()
-
-	modelName := strings.TrimSpace(os.Getenv("OPENAI_MODEL"))
-	if modelName == "" {
-		modelName = "gpt-4o-mini"
+func calc(ctx tool.Context, in calcInput) (calcOutput, error) {
+	switch strings.TrimSpace(in.Op) {
+	case "+":
+		return calcOutput{Result: in.A + in.B}, nil
+	case "-":
+		return calcOutput{Result: in.A - in.B}, nil
+	case "*":
+		return calcOutput{Result: in.A * in.B}, nil
+	case "/":
+		if in.B == 0 {
+			return calcOutput{}, fmt.Errorf("invalid argument: b must not be 0 for division")
+		}
+		return calcOutput{Result: in.A / in.B}, nil
+	default:
+		return calcOutput{}, fmt.Errorf("invalid argument: op must be one of: + - * /")
 	}
-	model, err := openai_compat.NewModel(modelName, openai_compat.Config{
-		BaseURL: os.Getenv("OPENAI_BASE_URL"),
-		APIKey:  os.Getenv("OPENAI_API_KEY"),
-	})
-	if err != nil {
-		log.Fatalf("Failed to create model: %v", err)
-	}
-
+}
+func createCalcTool() tool.Tool {
 	calcTool, err := functiontool.New(functiontool.Config{
 		Name:        "calc",
 		Description: "执行基础四则运算。参数 a/b 为数字，op 为 + - * /。",
-	}, func(ctx tool.Context, in calcInput) (calcOutput, error) {
-		switch strings.TrimSpace(in.Op) {
-		case "+":
-			return calcOutput{Result: in.A + in.B}, nil
-		case "-":
-			return calcOutput{Result: in.A - in.B}, nil
-		case "*":
-			return calcOutput{Result: in.A * in.B}, nil
-		case "/":
-			if in.B == 0 {
-				return calcOutput{}, fmt.Errorf("invalid argument: b must not be 0 for division")
-			}
-			return calcOutput{Result: in.A / in.B}, nil
-		default:
-			return calcOutput{}, fmt.Errorf("invalid argument: op must be one of: + - * /")
-		}
-	})
+	}, calc)
 	if err != nil {
 		log.Fatalf("Failed to create tool: %v", err)
 	}
+	return calcTool
+}
 
+var BaseURL = env.MustString("OPENAI_API_BASE")
+var APIKey = env.MustString("OPENAI_API_KEY")
+var ModelName = env.MustString("OPENAI_MODEL")
+
+func main() {
+	ctx := context.Background()
+	calcTool := createCalcTool()
+
+	model := env.MustModel()
 	a, err := llmagent.New(llmagent.Config{
 		Name:        "calculator_agent",
 		Model:       model,

@@ -1,10 +1,22 @@
 module adk-demo
 
-go 1.24.4
+go 1.24.9
+
+toolchain go1.24.12
 
 require (
 	google.golang.org/adk v0.3.0
 	google.golang.org/genai v1.40.0
+)
+
+require (
+	github.com/huytd/adk-openai-go v0.0.0-20260106024047-56ccd9bd55fe // indirect
+	github.com/openai/openai-go v0.1.0-beta.10 // indirect
+	github.com/sashabaranov/go-openai v1.41.2 // indirect
+	github.com/tidwall/gjson v1.14.4 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 )
 
 require (
@@ -13,6 +25,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/a2aproject/a2a-go v0.3.3 // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
+	github.com/byebyebruce/adk-go-openai v0.0.0-20251208092515-f5b0ac07643e
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -25,6 +38,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/joho/godotenv v1.5.1
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
