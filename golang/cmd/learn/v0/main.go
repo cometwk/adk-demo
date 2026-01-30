@@ -48,6 +48,21 @@ func RunCommand(ctx tool.Context, input Input) (Output, error) {
 	return Output{Result: result}, nil
 }
 
+func createBashTool() tool.Tool {
+	bashTool, err := functiontool.New(functiontool.Config{
+		Name: "bash",
+		Description: `执行 shell 命令。模式：
+- 读取: cat/head/tail, grep/find/rg/ls, wc -l
+- 写入: echo 'content' > file, sed -i 's/old/new/g' file
+- 子代理: go run main.go 'task description' (spawns isolated agent, returns summary)
+`,
+	}, RunCommand)
+	if err != nil {
+		log.Fatalf("Failed to create tool: %v", err)
+	}
+	return bashTool
+}
+
 // # System prompt teaches the model HOW to use bash effectively
 // # Notice the subagent guidance - this is how we get hierarchical task decomposition
 func getSystemPrompt() string {
@@ -72,21 +87,6 @@ The subagent runs in isolation and returns only its final summary.`
 		panic(err)
 	}
 	return fmt.Sprintf(SYSTEM, wd, "go run main.go")
-}
-
-func createBashTool() tool.Tool {
-	bashTool, err := functiontool.New(functiontool.Config{
-		Name: "bash",
-		Description: `执行 shell 命令。模式：
-- 读取: cat/head/tail, grep/find/rg/ls, wc -l
-- 写入: echo 'content' > file, sed -i 's/old/new/g' file
-- 子代理: go run main.go 'task description' (spawns isolated agent, returns summary)
-`,
-	}, RunCommand)
-	if err != nil {
-		log.Fatalf("Failed to create tool: %v", err)
-	}
-	return bashTool
 }
 
 func main() {

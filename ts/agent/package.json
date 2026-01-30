@@ -4,6 +4,7 @@
   "description": "A VoltAgent application",
   "type": "module",
   "scripts": {
+    "v1": "tsx src/v1.ts",
     "dev": "tsx watch --env-file=.env ./src",
     "build": "tsc",
     "start": "node dist/index.js",
