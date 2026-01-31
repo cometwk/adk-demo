@@ -1,0 +1,11 @@
+-- DROP TABLE IF EXISTS `images`
+CREATE TABLE IF NOT EXISTS `images` (
+  `uuid`        VARCHAR(36) PRIMARY KEY NOT NULL COMMENT '主键',
+  `create_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+  `place`       INT NOT NULL DEFAULT 1 COMMENT '存储位置: 1. 数据库, 2. 文件系统',
+  `data`        MEDIUMBLOB NOT NULL COMMENT '图片数据',
+  `path`        VARCHAR(256) NOT NULL DEFAULT '' COMMENT '路径',
+  `mime`        VARCHAR(128) NOT NULL COMMENT 'MIME类型',
+  `etag`        VARCHAR(32) NOT NULL COMMENT 'ETag'
+) COMMENT='图片表';

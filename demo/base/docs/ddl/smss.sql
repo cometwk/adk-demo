@@ -1,0 +1,16 @@
+-- DROP TABLE IF EXISTS `smss`
+CREATE TABLE IF NOT EXISTS `smss` (
+  `uuid`        VARCHAR(36) PRIMARY KEY NOT NULL COMMENT '主键',
+  `create_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+  `isp`         VARCHAR(16) NOT NULL COMMENT 'ISP',
+  `isp_name`    VARCHAR(64) NOT NULL COMMENT 'ISP名称',
+  `appid`       VARCHAR(32) NOT NULL DEFAULT '' COMMENT '应用ID',
+  `secret_id`   VARCHAR(64) NOT NULL DEFAULT '' COMMENT '密钥ID',
+  `secret_key`  VARCHAR(64) NOT NULL DEFAULT '' COMMENT '密钥',
+  `prefix`      VARCHAR(32) NOT NULL DEFAULT '' COMMENT '前缀',
+  `textno1`     VARCHAR(32) NOT NULL DEFAULT '' COMMENT '文本号1',
+  `sortno`      INT UNIQUE COMMENT '排序号',
+  `nsent`       INT DEFAULT 0 COMMENT '发送次数',
+  `disabled`    BOOLEAN DEFAULT FALSE COMMENT '是否禁用'
+) COMMENT='短信服务表';

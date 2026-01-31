@@ -1,0 +1,2 @@
+- 当更新当前user后，需要重置缓存 `auth.ClearJwtCache(user.UUID)`
+- [ ] acl 修改也一样, TODO

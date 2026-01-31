@@ -1,11 +1,14 @@
 # Project Context
 
 ## Purpose
-[Describe your project's purpose and goals]
+本项目一个用于演示的web项目。包含前台和后台
 
 ## Tech Stack
-- [List your primary technologies]
-- [e.g., TypeScript, React, Node.js]
+
+- **语言**：Golang
+- **Web 框架**：Echo
+- **ORM**：XORM
+- **数据库**：MySQL
 
 ## Project Conventions
 

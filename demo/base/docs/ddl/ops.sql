@@ -1,0 +1,10 @@
+-- DROP TABLE IF EXISTS `ops`
+CREATE TABLE IF NOT EXISTS `ops` (
+  `uuid`        VARCHAR(36) PRIMARY KEY NOT NULL COMMENT '主键',
+  `create_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `user_uuid`   VARCHAR(36) NOT NULL COMMENT '用户UUID',
+  `method`      VARCHAR(16) NOT NULL COMMENT '方法',
+  `url`         VARCHAR(256) NOT NULL COMMENT 'URL',
+  `body`        TEXT NOT NULL COMMENT '请求体',
+  `audit`       VARCHAR(256) NOT NULL COMMENT '审计'
+) COMMENT='操作日志表';

@@ -1,0 +1,8 @@
+-- DROP TABLE IF EXISTS `oauth`
+CREATE TABLE IF NOT EXISTS `oauth` (
+  `provider`    VARCHAR(32) NOT NULL UNIQUE COMMENT '提供商',
+  `sortno`      INT NOT NULL DEFAULT 1 UNIQUE COMMENT '排序号',
+  `clientid`    VARCHAR(128) NOT NULL DEFAULT '' COMMENT '客户端ID',
+  `secret`      VARCHAR(128) NOT NULL DEFAULT '' COMMENT '密钥',
+  `enabled`     BOOLEAN DEFAULT FALSE COMMENT '是否启用'
+) COMMENT='OAuth配置表';
