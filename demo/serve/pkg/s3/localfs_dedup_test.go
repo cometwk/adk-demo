@@ -82,11 +82,15 @@ func TestLocalFS_ConcurrentDedupOptional(t *testing.T) {
 	}
 
 	// FS 侧：最终只应该有一个内容文件存在（按 hash 路径分桶）
-	// 用查库拿 storage_path 校验存在
+	// 用查库拿 hash + storage_path 校验存在与路径规则
 	var storage struct {
+		Hash        string `xorm:"hash"`
 		StoragePath string `xorm:"storage_path"`
 	}
-	_, _ = db.SQL("SELECT storage_path FROM file_blobs LIMIT 1").Get(&storage)
+	_, _ = db.SQL("SELECT hash, storage_path FROM file_blobs LIMIT 1").Get(&storage)
+	if storage.Hash == "" {
+		t.Fatalf("empty hash")
+	}
 	if storage.StoragePath == "" {
 		t.Fatalf("empty storage_path")
 	}
@@ -98,5 +102,13 @@ func TestLocalFS_ConcurrentDedupOptional(t *testing.T) {
 	if rel == storage.StoragePath || rel == ".." || rel == "." {
 		// not fatal, but helps catch unexpected path
 		t.Fatalf("storage_path not under root: root=%s path=%s", root, storage.StoragePath)
+	}
+	// 规则：/<root>/<hash[0:2]>/<hash[2:4]>/<hash>
+	if len(storage.Hash) != 64 {
+		t.Fatalf("invalid hash len=%d", len(storage.Hash))
+	}
+	wantPath := filepath.Join(root, storage.Hash[0:2], storage.Hash[2:4], storage.Hash)
+	if filepath.Clean(storage.StoragePath) != filepath.Clean(wantPath) {
+		t.Fatalf("storage_path=%s want=%s", storage.StoragePath, wantPath)
 	}
 }

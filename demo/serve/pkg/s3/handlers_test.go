@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cometwk/lib/pkg/serve"
@@ -66,8 +67,11 @@ func TestHandlers_RouteLevel(t *testing.T) {
 	if r1.Code != http.StatusOK {
 		t.Fatalf("download status=%d body=%s", r1.Code, r1.Body.String())
 	}
-	if got := r1.Header().Get(echo.HeaderContentDisposition); got == "" {
-		t.Fatalf("missing content-disposition")
+	if got := r1.Header().Get("Accept-Ranges"); got != "bytes" {
+		t.Fatalf("accept-ranges=%q", got)
+	}
+	if got := r1.Header().Get(echo.HeaderContentDisposition); !strings.HasPrefix(got, "attachment") {
+		t.Fatalf("content-disposition=%q", got)
 	}
 	if !bytes.Equal(r1.Body.Bytes(), payload) {
 		t.Fatalf("download body mismatch got=%q want=%q", r1.Body.Bytes(), payload)
@@ -80,8 +84,14 @@ func TestHandlers_RouteLevel(t *testing.T) {
 	if r2.Code != http.StatusPartialContent {
 		t.Fatalf("preview status=%d body=%s", r2.Code, r2.Body.String())
 	}
-	if got := r2.Header().Get("Content-Range"); got == "" {
-		t.Fatalf("missing content-range")
+	if got := r2.Header().Get("Accept-Ranges"); got != "bytes" {
+		t.Fatalf("accept-ranges=%q", got)
+	}
+	if got := r2.Header().Get(echo.HeaderContentDisposition); !strings.HasPrefix(got, "inline") {
+		t.Fatalf("content-disposition=%q", got)
+	}
+	if got := r2.Header().Get("Content-Range"); got != "bytes 0-3/16" {
+		t.Fatalf("content-range=%q", got)
 	}
 	if want := []byte("0123"); !bytes.Equal(r2.Body.Bytes(), want) {
 		t.Fatalf("range body mismatch got=%q want=%q", r2.Body.Bytes(), want)
@@ -94,8 +104,8 @@ func TestHandlers_RouteLevel(t *testing.T) {
 	if r3.Code != http.StatusRequestedRangeNotSatisfiable {
 		t.Fatalf("invalid range status=%d body=%s", r3.Code, r3.Body.String())
 	}
-	if got := r3.Header().Get("Content-Range"); got == "" {
-		t.Fatalf("missing content-range on 416")
+	if got := r3.Header().Get("Content-Range"); got != "bytes */16" {
+		t.Fatalf("content-range=%q", got)
 	}
 
 	// 5) sanity: uploaded file should exist under root
