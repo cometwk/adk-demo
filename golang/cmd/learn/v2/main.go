@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"flag"
 	"log"
 	"os"
+	"strings"
 
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
@@ -15,11 +16,18 @@ import (
 )
 
 var WORKDIR, _ = os.Getwd()
-var MODEL = env.MustModel()
 var TOOLS = lib.TOOLS
 
-func getSystemPrompt() string {
-	SYSTEM := `You are a coding agent at %s.
+func getSystemPrompt(promptFile string) string {
+	var system string
+	if promptFile != "" {
+		content, err := os.ReadFile(promptFile)
+		if err != nil {
+			log.Fatalf("Failed to read prompt file: %v", err)
+		}
+		system = string(content)
+	} else {
+		system = `You are a coding agent at {{.WORKDIR}}.
 
 Loop: plan -> act with tools -> update todos -> report.
 
@@ -28,8 +36,9 @@ Rules:
 - Mark tasks in_progress before starting, completed when done
 - Prefer tools over prose. Act, don't just explain.
 - After finishing, summarize what changed.`
+	}
 
-	return fmt.Sprintf(SYSTEM, WORKDIR, "go run main.go")
+	return strings.ReplaceAll(system, "{{.WORKDIR}}", WORKDIR)
 }
 
 // # =============================================================================
@@ -50,12 +59,12 @@ var NAG_REMINDER = "<reminder>10+ turns without todo update. Please update todos
 // Reminders are injected as part of the user message, not as
 // separate system prompts. The model sees them but doesn't
 // respond to them directly.
-func run(ctx context.Context) {
+func run(ctx context.Context, modelOverride, promptOverride string) {
 	a, err := llmagent.New(llmagent.Config{
 		Name:        "cli_agent",
-		Model:       env.MustModel(),
+		Model:       env.MustModelWithFlag(modelOverride),
 		Description: "CLI agent that can run shell commands.",
-		Instruction: getSystemPrompt(),
+		Instruction: getSystemPrompt(promptOverride),
 		Tools:       TOOLS,
 	})
 	if err != nil {
@@ -73,6 +82,10 @@ func run(ctx context.Context) {
 }
 
 func main() {
+	modelFlag := flag.String("model", "", "override OPENAI_MODEL env var")
+	promptFlag := flag.String("prompt", "", "external system prompt file")
+	flag.Parse()
+
 	ctx := context.Background()
-	run(ctx)
+	run(ctx, *modelFlag, *promptFlag)
 }
