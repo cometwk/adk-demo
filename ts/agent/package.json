@@ -4,8 +4,10 @@
   "description": "A VoltAgent application",
   "type": "module",
   "scripts": {
+    "dev": "tsx --env-file=.env ./src/demo/index.ts",
     "v1": "tsx src/v1.ts",
-    "dev": "tsx watch --env-file=.env ./src",
+    "hello": "tsx src/hello.ts",
+    "dev0": "tsx watch --env-file=.env ./src",
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "biome check ./src",
