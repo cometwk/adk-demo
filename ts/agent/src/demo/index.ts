@@ -11,6 +11,7 @@ async function main() {
 
   await runAgentLoop(
     "Assess project risk for project_1",
+    graph,
     executor,
     validator
   );

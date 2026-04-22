@@ -10,6 +10,8 @@
     "strict": true,
     "outDir": "dist",
     "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
 
     "paths": {
       // "@example/dev": ["../dev/src/index"]
