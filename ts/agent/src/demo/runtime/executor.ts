@@ -1,5 +1,6 @@
 import { Graph } from "./graph";
 import { NextAction, Observation } from "./types";
+import { AgentMethodRegistry } from "./decorator";
 
 export class Executor {
   constructor(private graph: Graph) {}
@@ -15,12 +16,31 @@ export class Executor {
         const node = this.graph.getNode(action.node);
         if (!node) throw new Error("Node not found");
 
+        const className = node.constructor.name;
+        const schema = AgentMethodRegistry.get(className, action.method);
+
+        if (!schema) {
+          throw new Error(`Method '${action.method}' not in registry`);
+        }
+
         const fn = (node as any)[action.method];
         if (typeof fn !== "function") {
           throw new Error("Invalid method");
         }
 
-        const result = fn.call(node, action.args);
+        let result;
+        if (action.args !== undefined) {
+          const parsed = schema.params.parse(action.args);
+          if (typeof parsed === "object" && parsed !== null) {
+            const argsArray = Object.values(parsed);
+            result = fn.apply(node, argsArray);
+          } else {
+            result = fn.call(node, parsed);
+          }
+        } else {
+          result = fn.call(node);
+        }
+
         return { success: true, data: result };
       }
 
