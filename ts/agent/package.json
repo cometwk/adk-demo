@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx --env-file=.env ./src/demo/index.ts",
-    "v1": "tsx src/v1.ts",
+    "llm": "tsx src/demo/agent/llm.ts",
     "hello": "tsx src/lib/hello.ts",
     "dev0": "tsx watch --env-file=.env ./src",
     "build": "tsc",
@@ -15,7 +15,6 @@
     "typecheck": "tsc --noEmit",
     "x-chat": "tsx src/demo/chat.js",
     "chat": "tsx --env-file=.env src/demo/chat.js",
-    "t1": "tsx --env-file=.env src/demo/t1.js",
     "ocr": "tsx --env-file=.env src/demo/ocr-test.js",
     "simple": "tsx --env-file=.env src/demo/simple.js",
     "volt": "volt"

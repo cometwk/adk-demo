@@ -18,3 +18,4 @@ export type Observation = {
 	data?: any;
 	error?: string;
 };
+
