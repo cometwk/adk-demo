@@ -1,20 +1,7 @@
 import { generateText, tool } from 'ai';
 import { z } from 'zod';
-import { model } from './model';
+import { model } from '../../lib/model';
 
-
-async function hello1() {
-  const { text } = await generateText({
-    model: model,
-    // prompt: '写一副春节对联，横批：福星高照',
-    prompt: '推荐顺德一道美食',
-    onStepFinish: (result) => {
-      console.log(result)
-    },
-  })
-
-  console.log(text)
-}
 
 // 1. 使用 tool() 定义你的工具
 const extractUserInfoTool = tool({
