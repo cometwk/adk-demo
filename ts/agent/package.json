@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx --env-file=.env ./src/demo/index.ts",
     "v1": "tsx src/v1.ts",
-    "hello": "tsx src/hello.ts",
+    "hello": "tsx src/lib/hello.ts",
     "dev0": "tsx watch --env-file=.env ./src",
     "build": "tsc",
     "start": "node dist/index.js",
