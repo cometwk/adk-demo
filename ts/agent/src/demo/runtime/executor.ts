@@ -1,56 +1,98 @@
-import { Graph } from "./graph";
-import { NextAction, Observation } from "./types";
 import { AgentMethodRegistry } from "./decorator";
+import type { Graph } from "./graph";
+import type { AgentState } from "./state";
+import type { NextAction, Observation } from "./types";
 
 export class Executor {
-  constructor(private graph: Graph) {}
+	constructor(
+		private graph: Graph,
+		private agentState: AgentState<any>,
+	) {}
 
-  execute(action: NextAction): Observation {
-    try {
-      if (action.op === "traverse") {
-        const result = this.graph.traverse(action.from, action.relation);
-        return { success: true, data: result };
-      }
+	execute(action: NextAction): Observation {
+		try {
+			if (action.op === "traverse") {
+				const targetIds = this.graph.traverse(action.from, action.relation);
+				const summaries = targetIds.map((id) => {
+					const node = this.graph.getNode(id);
+					if (!node)
+						return { nodeId: id, className: "Unknown", methodNames: [] };
+					const className = node.constructor.name;
+					const methods = AgentMethodRegistry.getMethodsForClass(className);
+					return {
+						nodeId: id,
+						className,
+						methodNames: methods.map((m) => m.methodName),
+					};
+				});
+				return { success: true, data: summaries };
+			}
 
-      if (action.op === "call") {
-        const node = this.graph.getNode(action.node);
-        if (!node) throw new Error("Node not found");
+			if (action.op === "read_node") {
+				const node = this.graph.getNode(action.node);
+				if (!node) {
+					throw new Error(`Node '${action.node}' not found`);
+				}
 
-        const className = node.constructor.name;
-        const schema = AgentMethodRegistry.get(className, action.method);
+				const properties = node.getProperties();
 
-        if (!schema) {
-          throw new Error(`Method '${action.method}' not in registry`);
-        }
+				const edges: Record<string, string[]> = {};
+				for (const edge of this.graph.edges) {
+					if (edge.from === action.node) {
+						if (!edges[edge.type]) {
+							edges[edge.type] = [];
+						}
+						edges[edge.type].push(edge.to);
+					}
+				}
 
-        const fn = (node as any)[action.method];
-        if (typeof fn !== "function") {
-          throw new Error("Invalid method");
-        }
+				return { success: true, data: { properties, edges } };
+			}
 
-        let result;
-        if (action.args !== undefined) {
-          const parsed = schema.params.parse(action.args);
-          if (typeof parsed === "object" && parsed !== null) {
-            const argsArray = Object.values(parsed);
-            result = fn.apply(node, argsArray);
-          } else {
-            result = fn.call(node, parsed);
-          }
-        } else {
-          result = fn.call(node);
-        }
+			if (action.op === "call") {
+				const node = this.graph.getNode(action.node);
+				if (!node) throw new Error("Node not found");
 
-        return { success: true, data: result };
-      }
+				const className = node.constructor.name;
+				const schema = AgentMethodRegistry.get(className, action.method);
 
-      if (action.op === "stop") {
-        return { success: true, data: action.reason };
-      }
+				if (!schema) {
+					throw new Error(`Method '${action.method}' not in registry`);
+				}
 
-      return { success: false, error: "Unknown op" };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  }
+				const fn = (node as any)[action.method];
+				if (typeof fn !== "function") {
+					throw new Error("Invalid method");
+				}
+
+				let result;
+				if (action.args !== undefined) {
+					const parsed = schema.params.parse(action.args);
+					if (typeof parsed === "object" && parsed !== null) {
+						const argsArray = Object.values(parsed);
+						result = fn.apply(node, argsArray);
+					} else {
+						result = fn.call(node, parsed);
+					}
+				} else {
+					result = fn.call(node);
+				}
+
+				return { success: true, data: result };
+			}
+
+			if (action.op === "update_state") {
+				this.agentState.set(action.key, action.value);
+				return { success: true, data: { updated: action.key } };
+			}
+
+			if (action.op === "stop") {
+				return { success: true, data: action.reason };
+			}
+
+			return { success: false, error: "Unknown op" };
+		} catch (err: any) {
+			return { success: false, error: err.message };
+		}
+	}
 }
