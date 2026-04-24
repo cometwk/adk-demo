@@ -1,5 +1,7 @@
 import './env'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createOpenAI } from "@ai-sdk/openai";
+
 
 function createModels() {
   if (!process.env.OPENAI_API_BASE || !process.env.OPENAI_API_KEY) {
@@ -10,7 +12,10 @@ function createModels() {
   console.log(process.env.OPENAI_API_BASE)
   console.log(process.env.OPENAI_API_KEY)
 
-  const client = createOpenAICompatible({
+  const X = createOpenAICompatible
+
+
+  const client = X({
     name: 'qwen',
     baseURL: process.env.OPENAI_API_BASE,
     apiKey: process.env.OPENAI_API_KEY,
@@ -29,3 +34,5 @@ function createModels() {
 }
 
 export const model = createModels()
+
+
