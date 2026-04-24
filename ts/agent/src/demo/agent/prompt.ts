@@ -114,14 +114,17 @@ ${lastObservation}
 
 RULES:
 - You can ONLY output ONE JSON action
-- Do NOT assume facts
-- If missing info → explore
+- Do NOT assume facts; explore via read_node or traverse first
+- Store intermediate results via update_state before calling methods
+- When calling a method, use from_state to bind args from the blackboard instead of repeating values manually in args; e.g. from_state: { "teamLoad": "teamLoad" }
+- Use args only for values not available in the blackboard
+- If a previous action returned VALIDATION_ERROR or EXECUTION_ERROR, fix the action and retry
 - If confident → stop
 
 Available actions:
 1. traverse { from, relation }
 2. read_node { node }
-3. call { node, method, args }
+3. call { node, method, from_state?: { paramName: blackboardKey }, args?: { paramName: value } }
 4. update_state { key, value }
 5. stop { reason }
 

@@ -49,37 +49,42 @@ export class Executor {
 				return { success: true, data: { properties, edges } };
 			}
 
-			if (action.op === "call") {
-				const node = this.graph.getNode(action.node);
-				if (!node) throw new Error("Node not found");
+		if (action.op === "call") {
+			const node = this.graph.getNode(action.node);
+			if (!node) throw new Error("Node not found");
 
-				const className = node.constructor.name;
-				const schema = AgentMethodRegistry.get(className, action.method);
+			const className = node.constructor.name;
+			const schema = AgentMethodRegistry.get(className, action.method);
 
-				if (!schema) {
-					throw new Error(`Method '${action.method}' not in registry`);
-				}
-
-				const fn = (node as any)[action.method];
-				if (typeof fn !== "function") {
-					throw new Error("Invalid method");
-				}
-
-				let result;
-				if (action.args !== undefined) {
-					const parsed = schema.params.parse(action.args);
-					if (typeof parsed === "object" && parsed !== null) {
-						const argsArray = Object.values(parsed);
-						result = fn.apply(node, argsArray);
-					} else {
-						result = fn.call(node, parsed);
-					}
-				} else {
-					result = fn.call(node);
-				}
-
-				return { success: true, data: result };
+			if (!schema) {
+				throw new Error(`Method '${action.method}' not in registry`);
 			}
+
+			const fn = (node as any)[action.method];
+			if (typeof fn !== "function") {
+				throw new Error("Invalid method");
+			}
+
+			// 解析最终参数：from_state 提供基础值，args 显式覆盖（与 Validator 保持一致）
+			const stateValues = this.agentState.get();
+			const fromStateArgs = action.from_state
+				? Object.fromEntries(
+						Object.entries(action.from_state).map(([argKey, stateKey]) => [
+							argKey,
+							stateValues[stateKey],
+						]),
+					)
+				: {};
+			const resolvedArgs = { ...fromStateArgs, ...(action.args ?? {}) };
+
+			const parsed = schema.params.parse(resolvedArgs);
+			const result =
+				typeof parsed === "object" && parsed !== null
+					? fn.apply(node, Object.values(parsed))
+					: fn.call(node, parsed);
+
+			return { success: true, data: result };
+		}
 
 			if (action.op === "update_state") {
 				this.agentState.set(action.key, action.value);

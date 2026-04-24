@@ -31,9 +31,18 @@ const next_action = {
         description: '调用节点方法',
         properties: {
           op: { const: 'call' },
-          node: { type: 'string' },
-          method: { type: 'string' },
-          args: { type: 'object', description: '可选参数' },
+          node: { type: 'string', description: '节点 ID' },
+          method: { type: 'string', description: '方法名' },
+          args: {
+            type: 'object',
+            description: '显式参数值（可选），优先级高于 from_state',
+            additionalProperties: true,
+          },
+          from_state: {
+            type: 'object',
+            description: '声明式黑板绑定：{ 参数名: 黑板key }，Runtime 自动读取当前值。优先使用此字段代替手动复制黑板数值',
+            additionalProperties: { type: 'string' },
+          },
         },
         required: ['op', 'node', 'method'],
         additionalProperties: false,

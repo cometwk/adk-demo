@@ -6,16 +6,17 @@ import type { Validator } from "../runtime/validator";
 import { buildPrompt } from "./prompt";
 
 // Mock LLM 返回的动作序列（用于 Demo 验证）
+// 演示 from_state 绑定：最后的 call 不再手动复制黑板数值，而是声明式绑定
 const mockActions: NextAction[] = [
 	{ op: "read_node", node: "person_1" },
-	{ op: "update_state", key: "teamLoadAccumulator", value: 60 },
+	{ op: "update_state", key: "teamLoad", value: 60 },
 	{ op: "read_node", node: "person_2" },
-	{ op: "update_state", key: "teamLoadAccumulator", value: 130 },
+	{ op: "update_state", key: "teamLoad", value: 130 },
 	{
 		op: "call",
 		node: "project_1",
 		method: "checkRiskStatus",
-		args: { teamLoad: 130 },
+		from_state: { teamLoad: "teamLoad" },   // ← 声明式绑定，Runtime 自动解析
 	},
 	{ op: "stop", reason: "Project risk is HIGH due to overloaded team" },
 ];

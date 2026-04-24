@@ -47,12 +47,38 @@ export class Validator {
 			}
 
 			const schema = AgentMethodRegistry.get(className, action.method);
-			if (schema && action.args !== undefined) {
-				const result = schema.params.safeParse(action.args);
+			if (schema) {
+				// 校验 from_state 中引用的黑板 key 是否存在
+				const schemaShape = this.agentState.getSchemaShape();
+				if (action.from_state) {
+					for (const [, stateKey] of Object.entries(action.from_state)) {
+						if (!(stateKey in schemaShape)) {
+							return {
+								valid: false,
+								error: `from_state: blackboard key '${stateKey}' not found in state schema`,
+							};
+						}
+					}
+				}
+
+				// 解析最终参数：from_state 提供基础值，args 显式覆盖
+				const stateValues = this.agentState.get();
+				const fromStateArgs = action.from_state
+					? Object.fromEntries(
+							Object.entries(action.from_state).map(([argKey, stateKey]) => [
+								argKey,
+								stateValues[stateKey],
+							]),
+						)
+					: {};
+				const resolvedArgs = { ...fromStateArgs, ...(action.args ?? {}) };
+
+				// 始终做全量校验，无论 args 是否显式传入
+				const result = schema.params.safeParse(resolvedArgs);
 				if (!result.success) {
 					return {
 						valid: false,
-						error: `Args validation failed: ${result.error.message}`,
+						error: `Args validation failed: ${JSON.stringify(result.error.issues)}`,
 					};
 				}
 			}

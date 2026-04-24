@@ -1,5 +1,6 @@
 pnpm-lock.yaml
 .dev
+tmp
 
 # Dependencies
 node_modules

@@ -8,8 +8,9 @@ import { Validator } from "./runtime/validator";
 async function main() {
 	const graph = seedGraph();
 
+	// key 命名与 checkRiskStatus 的参数名对齐，方便 from_state 直接绑定
 	const workflowSchema = z.object({
-		teamLoadAccumulator: z.number().default(0),
+		teamLoad: z.number().default(0),
 	});
 
 	const state = new AgentState(workflowSchema);
