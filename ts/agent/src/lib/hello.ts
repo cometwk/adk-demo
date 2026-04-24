@@ -1,7 +1,6 @@
-import { generateText, tool } from 'ai';
-import { z } from 'zod';
-import { model } from './model';
-
+import { generateText, ModelMessage, tool } from 'ai'
+import { z } from 'zod'
+import { model } from './model'
 
 async function hello1() {
   const { text } = await generateText({
@@ -27,34 +26,48 @@ const extractUserInfoTool = tool({
   }),
   // 如果你只是想提取数据，execute 可以返回数据本身或简单的确认
   execute: async ({ name, age, hobbies }) => {
-    console.log('正在保存到数据库...', { name, age, hobbies });
+    console.log('正在保存到数据库...', { name, age, hobbies })
     return { name, age, hobbies }
   },
-});
+})
 
-async function main() {
+async function main(history: ModelMessage[] = []) {
+  const prompt = '提取以下信息：张三，今年 25 岁，喜欢游泳和看书。'
+
+  let messages = [...history, { role: 'user', content: prompt } satisfies ModelMessage]
   const r = await generateText({
     model: model,
-    
-    // 2. 将定义好的工具放入 tools 对象
     tools: {
       extract: extractUserInfoTool,
     },
+    toolChoice: 'required',
+    messages: messages,
+  })
 
-    // 3. 关键点：强制模型必须调用这个工具，从而实现“结构化返回”
-    toolChoice: 'required', 
-
-    prompt: '提取以下信息：张三，今年 25 岁，喜欢游泳和看书。',
-  });
-
-  console.log(r)
+  // console.log(r)
 
   // 4. 获取结果
   // 由于设置了 toolChoice: 'required'，第一个 toolCall 就是你要的结构化数据
   const result = r.toolCalls[0].input
-  
-  console.log('解析后的结构化对象:', result);
+
+
+  history = [...messages, ...r.response.messages]
+  console.log('Updated History:', JSON.stringify(history))
+
+  console.log('解析后的结构化对象:', result)
   // 输出: { name: '张三', age: 25, hobbies: ['游泳', '看书'] }
+
+
+  // 再触发一次，获取完整的历史
+  messages = [...history, { role: 'user', content: "bye, you can just response with bye" } satisfies ModelMessage]
+  await generateText({
+    model: model,
+    tools: {
+      extract: extractUserInfoTool,
+    },
+    toolChoice: 'required',
+    messages: messages,
+  })
 }
 
 main()
