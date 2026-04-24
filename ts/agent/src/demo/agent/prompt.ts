@@ -1,133 +1,46 @@
-import { zodToJsonSchema } from "zod-to-json-schema";
-import {
-	AgentPropertyRegistry,
-	MethodSchema,
-	PropertySchema,
-} from "../runtime/decorator";
+import { AgentPropertyRegistry } from "../runtime/registry";
 import type { Graph } from "../runtime/graph";
-import type { AgentState } from "../runtime/state";
 
-function formatCapabilities(graph: Graph): string {
-	const lines: string[] = [];
-
-	for (const [nodeId, node] of graph.nodes) {
-		const className = node.constructor.name;
-		const capabilities = node.getCapabilities();
-
-		if (capabilities.length === 0) continue;
-
-		lines.push(`${className} (${nodeId}):`);
-
-		for (const cap of capabilities) {
-			const paramsSchema = zodToJsonSchema(cap.params) as any;
-			const paramsStr = JSON.stringify(paramsSchema.properties || {});
-			lines.push(
-				`  - ${cap.methodName}(params: ${paramsStr}, returns: ${cap.returns})`,
-			);
-			lines.push(`    ${cap.description}`);
-		}
-	}
-
-	return lines.join("\n");
-}
-
-function formatProperties(graph: Graph): string {
-	const lines: string[] = [];
-
+export function buildSystemPrompt(goal: string, graph: Graph): string {
+	// 节点目录：ID + 类型 + 属性名列表
+	const nodeLines: string[] = [];
 	for (const [nodeId, node] of graph.nodes) {
 		const className = node.constructor.name;
 		const props = AgentPropertyRegistry.getPropertiesForClass(className);
-
-		if (props.length === 0) continue;
-
-		lines.push(`${className} (${nodeId}):`);
-
-		for (const prop of props) {
-			lines.push(
-				`  - ${prop.propertyName}: ${prop.returns} — ${prop.description}`,
-			);
-		}
+		const propNames = props.map((p) => p.propertyName).join(", ");
+		const methods = node.getCapabilities().map((m) => {
+				// 简化：直接显示方法名和返回值
+				return `${m.methodName} → ${m.returns}`;
+			});
+		const methodStr =
+			methods.length > 0 ? `\n    methods: [${methods.join(", ")}]` : "";
+		nodeLines.push(
+			`  - ${nodeId} (${className}) props: [${propNames}]${methodStr}`,
+		);
 	}
 
-	return lines.join("\n");
-}
+	// 边类型目录
+	const edgeTypes = new Set(graph.edges.map((e) => e.type));
 
-function formatTopology(graph: Graph): string {
-	const lines: string[] = [];
+	return `You are a graph reasoning agent. You explore a semantic graph to answer questions.
+Please respond in chinese as much as possible.
 
-	const edgesByFrom: Record<string, Record<string, string[]>> = {};
+GOAL: ${goal}
 
-	for (const edge of graph.edges) {
-		if (!edgesByFrom[edge.from]) {
-			edgesByFrom[edge.from] = {};
-		}
-		if (!edgesByFrom[edge.from][edge.type]) {
-			edgesByFrom[edge.from][edge.type] = [];
-		}
-		edgesByFrom[edge.from][edge.type].push(edge.to);
-	}
+GRAPH OVERVIEW:
+Nodes:
+${nodeLines.join("\n")}
 
-	for (const [from, relations] of Object.entries(edgesByFrom)) {
-		for (const [relation, targets] of Object.entries(relations)) {
-			lines.push(`${from}: ${relation} → [${targets.join(", ")}]`);
-		}
-	}
+Edge types: [${[...edgeTypes].join(", ")}]
 
-	return lines.join("\n");
-}
+STRATEGY:
+1. Start by inspecting the target node to understand its connections
+2. Follow edges to discover related nodes and gather data
+3. When you have enough information, call the appropriate method to compute the answer
+4. Provide your final conclusion as a text response
 
-function formatBlackboard(state: AgentState<any>): string {
-	return state.toJSON();
-}
-
-export function buildPrompt(
-	goal: string,
-	graph: Graph,
-	state: AgentState<any>,
-	lastObservation: string,
-): string {
-	const capabilitiesBlock = formatCapabilities(graph);
-	const propertiesBlock = formatProperties(graph);
-	const topologyBlock = formatTopology(graph);
-	const blackboardBlock = formatBlackboard(state);
-
-	return `
-You are a reasoning agent.
-
-GOAL:
-${goal}
-
-AVAILABLE CAPABILITIES:
-${capabilitiesBlock || "(none)"}
-
-AVAILABLE PROPERTIES:
-${propertiesBlock || "(none)"}
-
-AVAILABLE TOPOLOGY:
-${topologyBlock || "(none)"}
-
-CURRENT BLACKBOARD STATE:
-${blackboardBlock}
-
-LAST OBSERVATION:
-${lastObservation}
-
-RULES:
-- You can ONLY output ONE JSON action
-- Do NOT assume facts; explore via read_node or traverse first
-- Store intermediate results via update_state before calling methods
-- When calling a method, use from_state to bind args from the blackboard instead of repeating values manually in args; e.g. from_state: { "teamLoad": "teamLoad" }
-- Use args only for values not available in the blackboard
-- If a previous action returned VALIDATION_ERROR or EXECUTION_ERROR, fix the action and retry
-- If confident → stop
-
-Available actions:
-1. traverse { from, relation }
-2. read_node { node }
-3. call { node, method, from_state?: { paramName: blackboardKey }, args?: { paramName: value } }
-4. update_state { key, value }
-5. stop { reason }
-
-Respond ONLY JSON:
-`;
+You have 3 tools: inspect_node, query_neighbors, call_method.
+Use inspect_node to read a node's properties, edges, and available methods.
+Use query_neighbors to find connected nodes by relation type and direction.
+Use call_method to invoke computation methods on nodes.`;
 }

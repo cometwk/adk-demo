@@ -38,9 +38,64 @@ export class Graph {
 		return this.nodes.get(id);
 	}
 
-	traverse(from: string, relation: string): string[] {
-		return this.edges
-			.filter((e) => e.from === from && e.type === relation)
-			.map((e) => e.to);
+	// 出边：from → to
+	getOutEdges(nodeId: string): Record<string, string[]> {
+		const result: Record<string, string[]> = {};
+		for (const e of this.edges) {
+			if (e.from === nodeId) {
+				(result[e.type] ??= []).push(e.to);
+			}
+		}
+		return result;
+	}
+
+	// 入边：to ← from
+	getInEdges(nodeId: string): Record<string, string[]> {
+		const result: Record<string, string[]> = {};
+		for (const e of this.edges) {
+			if (e.to === nodeId) {
+				(result[e.type] ??= []).push(e.from);
+			}
+		}
+		return result;
+	}
+
+	// 按关系和方向查询邻居
+	queryNeighbors(
+		nodeId: string,
+		relation?: string,
+		direction: "out" | "in" | "both" = "both",
+	): Array<{ nodeId: string; type: string; relation: string; direction: "out" | "in" }> {
+		const results: Array<{ nodeId: string; type: string; relation: string; direction: "out" | "in" }> = [];
+
+		if (direction === "out" || direction === "both") {
+			for (const e of this.edges) {
+				if (e.from === nodeId && (!relation || e.type === relation)) {
+					const target = this.nodes.get(e.to);
+					results.push({
+						nodeId: e.to,
+						type: target?.constructor.name ?? "Unknown",
+						relation: e.type,
+						direction: "out",
+					});
+				}
+			}
+		}
+
+		if (direction === "in" || direction === "both") {
+			for (const e of this.edges) {
+				if (e.to === nodeId && (!relation || e.type === relation)) {
+					const source = this.nodes.get(e.from);
+					results.push({
+						nodeId: e.from,
+						type: source?.constructor.name ?? "Unknown",
+						relation: e.type,
+						direction: "in",
+					});
+				}
+			}
+		}
+
+		return results;
 	}
 }
