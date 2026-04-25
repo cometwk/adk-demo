@@ -2,21 +2,10 @@
 // V5 入口点：辅助决策 Agent
 // ─────────────────────────────────────────────────────────────────────────────────
 
-import { createOpenAI } from "@ai-sdk/openai";
 import { type RunResult, runDecisionAgent } from "./agent/run";
 import { initializeConstraints } from "./ontology/constraints";
 import type { Graph } from "./runtime/graph";
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// 模型配置
-// ─────────────────────────────────────────────────────────────────────────────────
-
-export function createModel() {
-	return createOpenAI({
-		apiKey: process.env.OPENAI_API_KEY ?? process.env.LLM_API_KEY,
-		baseURL: process.env.LLM_BASE_URL ?? "https://api.openai.com/v1",
-	})("gpt-4o-mini");
-}
+import { seedGraph, defaultScenario } from "./data/seed";
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // 运行入口
@@ -40,6 +29,20 @@ export async function runV5(config: V5Config): Promise<RunResult> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
+// 默认场景运行
+// ─────────────────────────────────────────────────────────────────────────────────
+
+export async function runDefaultScenario(): Promise<RunResult> {
+	const graph = seedGraph();
+
+	return runV5({
+		goal: defaultScenario.goal,
+		entryEntities: defaultScenario.entryEntities,
+		graph,
+	});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────
 // 导出核心类型和函数
 // ─────────────────────────────────────────────────────────────────────────────────
 
@@ -54,3 +57,4 @@ export type {
 } from "./ontology/decision";
 export { DecisionWorkspace } from "./ontology/decision";
 export { BaseNode, Graph } from "./runtime/graph";
+export { seedGraph, defaultScenario } from "./data/seed";
