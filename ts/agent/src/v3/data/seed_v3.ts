@@ -67,12 +67,16 @@ export class Engineer extends BaseNode {
 // ────────── Team 节点 ─────────────────────────────────────────────
 
 export class Team extends BaseNode {
-	@agentProperty({ returns: "string", description: "Department the team belongs to" })
+	@agentProperty({
+		returns: "string",
+		description: "Department the team belongs to",
+	})
 	department: string;
 
 	@agentProperty({
 		returns: "number",
-		description: "Maximum number of concurrent project assignments the team can handle",
+		description:
+			"Maximum number of concurrent project assignments the team can handle",
 	})
 	capacity: number;
 
@@ -85,7 +89,8 @@ export class Team extends BaseNode {
 	@agentMethod({
 		params: z.object({ memberCount: z.number() }),
 		returns: "{ overloaded: boolean; surplus: number }",
-		description: "Check if the team is overloaded given the current active member count",
+		description:
+			"Check if the team is overloaded given the current active member count",
 	})
 	checkOverload(memberCount: number): { overloaded: boolean; surplus: number } {
 		const surplus = this.capacity - memberCount;
@@ -137,8 +142,10 @@ export class Project extends BaseNode {
 
 		if (teamLoad > 200) reasons.push(`team overloaded (${teamLoad}h total)`);
 		if (seniorCount === 0) reasons.push("no senior engineers assigned");
-		if (this.deadlineRisk > 0.75) reasons.push(`deadline pressure critical (${this.deadlineRisk})`);
-		else if (this.deadlineRisk > 0.5) reasons.push(`deadline pressure elevated (${this.deadlineRisk})`);
+		if (this.deadlineRisk > 0.75)
+			reasons.push(`deadline pressure critical (${this.deadlineRisk})`);
+		else if (this.deadlineRisk > 0.5)
+			reasons.push(`deadline pressure elevated (${this.deadlineRisk})`);
 
 		let risk: "HIGH" | "MEDIUM" | "LOW";
 		if (reasons.length >= 2) risk = "HIGH";
@@ -173,7 +180,7 @@ export function seedGraph(): Graph {
 
 	// 项目
 	const projectPortal = new Project("project_portal", "high", 0.85); // 高优先级，截止日期压力大
-	const projectApi = new Project("project_api", "medium", 0.55);     // 中优先级，有一定压力
+	const projectApi = new Project("project_api", "medium", 0.55); // 中优先级，有一定压力
 
 	// 添加节点
 	g.addNode(teamFrontend);

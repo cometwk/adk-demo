@@ -16,7 +16,7 @@ const mockActions: NextAction[] = [
 		op: "call",
 		node: "project_1",
 		method: "checkRiskStatus",
-		from_state: { teamLoad: "teamLoad" },   // ← 声明式绑定，Runtime 自动解析
+		from_state: { teamLoad: "teamLoad" }, // ← 声明式绑定，Runtime 自动解析
 	},
 	{ op: "stop", reason: "Project risk is HIGH due to overloaded team" },
 ];

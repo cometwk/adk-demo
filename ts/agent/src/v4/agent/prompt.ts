@@ -1,6 +1,6 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { AgentPropertyRegistry } from "../runtime/registry";
 import type { Graph } from "../runtime/graph";
+import { AgentPropertyRegistry } from "../runtime/registry";
 
 export function buildSystemPrompt(goal: string, graph: Graph): string {
 	const nodeLines: string[] = [];
@@ -14,9 +14,12 @@ export function buildSystemPrompt(goal: string, graph: Graph): string {
 			const paramsStr = JSON.stringify(schema.properties ?? {});
 			return `${m.methodName}(${paramsStr}) → ${m.returns}`;
 		});
-		const methodStr = methods.length > 0 ? `  methods: [${methods.join(", ")}]` : "";
+		const methodStr =
+			methods.length > 0 ? `  methods: [${methods.join(", ")}]` : "";
 
-		nodeLines.push(`  - ${nodeId} (${className}) props: [${propNames}]${methodStr}`);
+		nodeLines.push(
+			`  - ${nodeId} (${className}) props: [${propNames}]${methodStr}`,
+		);
 	}
 
 	const edgeTypes = [...new Set(graph.edges.map((e) => e.type))];

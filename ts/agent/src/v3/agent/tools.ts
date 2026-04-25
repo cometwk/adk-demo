@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { AgentMethodRegistry } from "../runtime/registry";
 import type { Graph } from "../runtime/graph";
+import { AgentMethodRegistry } from "../runtime/registry";
 
 export function createGraphTools(graph: Graph) {
 	const inspect_node = tool({
@@ -36,14 +36,19 @@ export function createGraphTools(graph: Graph) {
 			relation: z
 				.string()
 				.optional()
-				.describe("Filter by edge relation type (e.g. 'involved_in', 'depends_on')"),
+				.describe(
+					"Filter by edge relation type (e.g. 'involved_in', 'depends_on')",
+				),
 			direction: z
 				.enum(["out", "in", "both"])
 				.default("both")
-				.describe("Edge direction: 'out' for outgoing, 'in' for incoming, 'both' for all"),
+				.describe(
+					"Edge direction: 'out' for outgoing, 'in' for incoming, 'both' for all",
+				),
 		}),
 		execute: async ({ nodeId, relation, direction }) => {
-			if (!graph.getNode(nodeId)) return { error: `Node '${nodeId}' not found` };
+			if (!graph.getNode(nodeId))
+				return { error: `Node '${nodeId}' not found` };
 			const neighbors = graph.queryNeighbors(nodeId, relation, direction);
 			if (neighbors.length === 0) {
 				return {
@@ -73,7 +78,9 @@ export function createGraphTools(graph: Graph) {
 			const className = node.constructor.name;
 			const schema = AgentMethodRegistry.get(className, method);
 			if (!schema) {
-				const available = AgentMethodRegistry.getMethodsForClass(className).map((m) => m.methodName);
+				const available = AgentMethodRegistry.getMethodsForClass(className).map(
+					(m) => m.methodName,
+				);
 				return {
 					error: `Method '${method}' not found on ${className}. Available: [${available.join(", ")}]`,
 				};
@@ -87,7 +94,8 @@ export function createGraphTools(graph: Graph) {
 			}
 
 			const fn = (node as any)[method];
-			if (typeof fn !== "function") return { error: `${method} is not a callable function` };
+			if (typeof fn !== "function")
+				return { error: `${method} is not a callable function` };
 
 			const parsed = parseResult.data;
 			const result =
