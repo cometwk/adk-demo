@@ -13,6 +13,8 @@
     "lint": "biome check ./src",
     "lint:fix": "biome check --write ./src",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "x-chat": "tsx src/demo/chat.js",
     "chat": "tsx --env-file=.env src/demo/chat.js",
     "ocr": "tsx --env-file=.env src/demo/ocr-test.js",
@@ -32,6 +34,7 @@
     "@voltagent/server-hono": "^2.0.3",
     "ai": "^6.0.168",
     "dotenv": "^16.4.7",
+    "vitest": "^4.1.5",
     "zod": "^4.3.6",
     "zod-to-json-schema": "^3.25.2"
   },
