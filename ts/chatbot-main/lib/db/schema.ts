@@ -1,6 +1,4 @@
-import type { InferSelectModel } from "drizzle-orm";
 import {
-  boolean,
   foreignKey,
   integer,
   primaryKey,
@@ -13,14 +11,22 @@ export const user = sqliteTable("User", {
   email: text("email").notNull(),
   password: text("password"),
   name: text("name"),
-  emailVerified: integer("emailVerified", { mode: "boolean" }).notNull().default(false),
+  emailVerified: integer("emailVerified", { mode: "boolean" })
+    .notNull()
+    .default(false),
   image: text("image"),
-  isAnonymous: integer("isAnonymous", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
-  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  isAnonymous: integer("isAnonymous", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: integer("createdAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
 });
 
-export type User = InferSelectModel<typeof user>;
+export type User = typeof user.$inferSelect;
 
 export const chat = sqliteTable("Chat", {
   id: text("id").primaryKey().notNull(),
@@ -34,7 +40,7 @@ export const chat = sqliteTable("Chat", {
     .default("private"),
 });
 
-export type Chat = InferSelectModel<typeof chat>;
+export type Chat = typeof chat.$inferSelect;
 
 // SQLite 用 text 存储 JSON 数据，使用 mode: "json" 自动转换
 export const message = sqliteTable("Message_v2", {
@@ -48,7 +54,7 @@ export const message = sqliteTable("Message_v2", {
   createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
 });
 
-export type DBMessage = InferSelectModel<typeof message>;
+export type DBMessage = typeof message.$inferSelect;
 
 export const vote = sqliteTable(
   "Vote_v2",
@@ -66,7 +72,7 @@ export const vote = sqliteTable(
   })
 );
 
-export type Vote = InferSelectModel<typeof vote>;
+export type Vote = typeof vote.$inferSelect;
 
 export const document = sqliteTable(
   "Document",
@@ -87,18 +93,22 @@ export const document = sqliteTable(
   })
 );
 
-export type Document = InferSelectModel<typeof document>;
+export type Document = typeof document.$inferSelect;
 
 export const suggestion = sqliteTable(
   "Suggestion",
   {
     id: text("id").notNull(),
     documentId: text("documentId").notNull(),
-    documentCreatedAt: integer("documentCreatedAt", { mode: "timestamp" }).notNull(),
+    documentCreatedAt: integer("documentCreatedAt", {
+      mode: "timestamp",
+    }).notNull(),
     originalText: text("originalText").notNull(),
     suggestedText: text("suggestedText").notNull(),
     description: text("description"),
-    isResolved: integer("isResolved", { mode: "boolean" }).notNull().default(false),
+    isResolved: integer("isResolved", { mode: "boolean" })
+      .notNull()
+      .default(false),
     userId: text("userId")
       .notNull()
       .references(() => user.id),
@@ -113,7 +123,7 @@ export const suggestion = sqliteTable(
   })
 );
 
-export type Suggestion = InferSelectModel<typeof suggestion>;
+export type Suggestion = typeof suggestion.$inferSelect;
 
 export const stream = sqliteTable(
   "Stream",
@@ -131,4 +141,4 @@ export const stream = sqliteTable(
   })
 );
 
-export type Stream = InferSelectModel<typeof stream>;
+export type Stream = typeof stream.$inferSelect;
