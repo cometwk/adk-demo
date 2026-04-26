@@ -36,7 +36,7 @@ export async function auth() {
       type: "regular" as UserType,
       name: "Mock User",
     },
-    expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+    expires: "2099-12-31T00:00:00.000Z",
   } as any;
 }
 
