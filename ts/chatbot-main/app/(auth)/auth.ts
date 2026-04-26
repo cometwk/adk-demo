@@ -1,10 +1,5 @@
-import { compare } from "bcrypt-ts";
-import NextAuth, { type DefaultSession } from "next-auth";
+import { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
-import Credentials from "next-auth/providers/credentials";
-import { DUMMY_PASSWORD } from "@/lib/constants";
-import { createGuestUser, getUser } from "@/lib/db/queries";
-import { authConfig } from "./auth.config";
 
 export type UserType = "guest" | "regular";
 
@@ -30,70 +25,41 @@ declare module "next-auth/jwt" {
   }
 }
 
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
-  ...authConfig,
-  providers: [
-    Credentials({
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = String(credentials.email ?? "");
-        const password = String(credentials.password ?? "");
-        const users = await getUser(email);
+// 模拟 session，屏蔽认证检查
+const MOCK_USER_ID = "mock-user-001";
 
-        if (users.length === 0) {
-          await compare(password, DUMMY_PASSWORD);
-          return null;
-        }
-
-        const [user] = users;
-
-        if (!user.password) {
-          await compare(password, DUMMY_PASSWORD);
-          return null;
-        }
-
-        const passwordsMatch = await compare(password, user.password);
-
-        if (!passwordsMatch) {
-          return null;
-        }
-
-        return { ...user, type: "regular" };
-      },
-    }),
-    Credentials({
-      id: "guest",
-      credentials: {},
-      async authorize() {
-        const [guestUser] = await createGuestUser();
-        return { ...guestUser, type: "guest" };
-      },
-    }),
-  ],
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id as string;
-        token.type = user.type;
-      }
-
-      return token;
+export async function auth() {
+  return {
+    user: {
+      id: MOCK_USER_ID,
+      email: "mock@example.com",
+      type: "regular" as UserType,
+      name: "Mock User",
     },
-    session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id;
-        session.user.type = token.type;
-      }
+    expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+  } as any;
+}
 
-      return session;
-    },
-  },
-});
+// Mock signIn/signOut - 直接返回成功
+export async function signIn(_provider?: string, _options?: any) {
+  return { status: "success" };
+}
+
+export async function signOut(_options?: any) {
+  return { status: "success" };
+}
+
+// Mock GET/POST handlers for auth routes
+export async function GET(request: Request) {
+  return new Response(JSON.stringify({ mock: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+export async function POST(request: Request) {
+  return new Response(JSON.stringify({ mock: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+}

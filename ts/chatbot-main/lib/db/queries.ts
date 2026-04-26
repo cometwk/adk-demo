@@ -12,8 +12,8 @@ import {
   lt,
   type SQL,
 } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import Database from "better-sqlite3";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { ChatbotError } from "../errors";
@@ -33,8 +33,98 @@ import {
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
-const client = postgres(process.env.POSTGRES_URL ?? "");
-const db = drizzle(client);
+const sqlite = new Database("chatbot.db");
+const db = drizzle(sqlite);
+
+// 初始化数据库表和 mock 用户
+export async function initDatabase() {
+  // 创建表
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS User (
+      id TEXT PRIMARY KEY NOT NULL,
+      email TEXT NOT NULL,
+      password TEXT,
+      name TEXT,
+      emailVerified INTEGER NOT NULL DEFAULT 0,
+      image TEXT,
+      isAnonymous INTEGER NOT NULL DEFAULT 0,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS Chat (
+      id TEXT PRIMARY KEY NOT NULL,
+      createdAt INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      userId TEXT NOT NULL REFERENCES User(id),
+      visibility TEXT NOT NULL DEFAULT 'private'
+    );
+
+    CREATE TABLE IF NOT EXISTS Message_v2 (
+      id TEXT PRIMARY KEY NOT NULL,
+      chatId TEXT NOT NULL REFERENCES Chat(id),
+      role TEXT NOT NULL,
+      parts TEXT NOT NULL,
+      attachments TEXT NOT NULL,
+      createdAt INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS Vote_v2 (
+      chatId TEXT NOT NULL REFERENCES Chat(id),
+      messageId TEXT NOT NULL REFERENCES Message_v2(id),
+      isUpvoted INTEGER NOT NULL,
+      PRIMARY KEY (chatId, messageId)
+    );
+
+    CREATE TABLE IF NOT EXISTS Document (
+      id TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT,
+      kind TEXT NOT NULL DEFAULT 'text',
+      userId TEXT NOT NULL REFERENCES User(id),
+      PRIMARY KEY (id, createdAt)
+    );
+
+    CREATE TABLE IF NOT EXISTS Suggestion (
+      id TEXT NOT NULL,
+      documentId TEXT NOT NULL,
+      documentCreatedAt INTEGER NOT NULL,
+      originalText TEXT NOT NULL,
+      suggestedText TEXT NOT NULL,
+      description TEXT,
+      isResolved INTEGER NOT NULL DEFAULT 0,
+      userId TEXT NOT NULL REFERENCES User(id),
+      createdAt INTEGER NOT NULL,
+      PRIMARY KEY (id),
+      FOREIGN KEY (documentId, documentCreatedAt) REFERENCES Document(id, createdAt)
+    );
+
+    CREATE TABLE IF NOT EXISTS Stream (
+      id TEXT NOT NULL,
+      chatId TEXT NOT NULL REFERENCES Chat(id),
+      createdAt INTEGER NOT NULL,
+      PRIMARY KEY (id)
+    );
+  `);
+
+  // 确保 mock 用户存在
+  const MOCK_USER_ID = "mock-user-001";
+  const existingUser = sqlite.prepare("SELECT id FROM User WHERE id = ?").get(MOCK_USER_ID);
+
+  if (!existingUser) {
+    const hashedPassword = generateHashedPassword(generateUUID());
+    const now = Date.now();
+    sqlite.prepare(`
+      INSERT INTO User (id, email, password, name, emailVerified, isAnonymous, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(MOCK_USER_ID, "mock@example.com", hashedPassword, "Mock User", 0, 0, now, now);
+    console.log("Created mock user:", MOCK_USER_ID);
+  }
+}
+
+// 自动初始化
+initDatabase().catch(console.error);
 
 export async function getUser(email: string): Promise<User[]> {
   try {
@@ -51,7 +141,13 @@ export async function createUser(email: string, password: string) {
   const hashedPassword = generateHashedPassword(password);
 
   try {
-    return await db.insert(user).values({ email, password: hashedPassword });
+    return await db.insert(user).values({
+      id: generateUUID(),
+      email,
+      password: hashedPassword,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
   } catch (_error) {
     throw new ChatbotError("bad_request:database", "Failed to create user");
   }
@@ -60,9 +156,16 @@ export async function createUser(email: string, password: string) {
 export async function createGuestUser() {
   const email = `guest-${Date.now()}`;
   const password = generateHashedPassword(generateUUID());
+  const id = generateUUID();
 
   try {
-    return await db.insert(user).values({ email, password }).returning({
+    return await db.insert(user).values({
+      id,
+      email,
+      password,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning({
       id: user.id,
       email: user.email,
     });
@@ -582,8 +685,7 @@ export async function getMessageCountByUserId({
           gte(message.createdAt, cutoffTime),
           eq(message.role, "user")
         )
-      )
-      .execute();
+      );
 
     return stats?.count ?? 0;
   } catch (_error) {
@@ -619,8 +721,7 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
       .select({ id: stream.id })
       .from(stream)
       .where(eq(stream.chatId, chatId))
-      .orderBy(asc(stream.createdAt))
-      .execute();
+      .orderBy(asc(stream.createdAt));
 
     return streamIds.map(({ id }) => id);
   } catch (_error) {
