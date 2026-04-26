@@ -131,7 +131,7 @@ export function ImportJsonDialog({
           </Button>
         </div>
 
-        <div className="min-h-[200px]">
+        <div className="py-2">
           {mode === "file" ? (
             <button
               className={cn(
@@ -158,7 +158,7 @@ export function ImportJsonDialog({
             </button>
           ) : (
             <Textarea
-              className="min-h-[200px] font-mono text-xs"
+              className="h-[300px] overflow-auto font-mono text-xs whitespace-pre resize-y [field-sizing:fixed]"
               onChange={(e) => setJsonContent(e.target.value)}
               placeholder="Paste your JSON content here..."
               value={jsonContent}
