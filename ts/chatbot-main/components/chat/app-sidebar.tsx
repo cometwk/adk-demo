@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  FileUpIcon,
   MessageSquareIcon,
   PanelLeftIcon,
   PenSquareIcon,
@@ -13,6 +14,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
+import { ImportJsonDialog } from "@/components/chat/import-json-dialog";
 import {
   getChatHistoryPaginationKey,
   SidebarHistory,
@@ -49,6 +51,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
   const { setOpenMobile, toggleSidebar } = useSidebar();
   const { mutate } = useSWRConfig();
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   const handleDeleteAll = () => {
     setShowDeleteAllDialog(false);
@@ -117,6 +120,16 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                     <span className="font-medium">New chat</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    className="h-8 rounded-lg text-[13px] text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    onClick={() => setShowImportDialog(true)}
+                    tooltip="Import JSON"
+                  >
+                    <FileUpIcon className="size-4" />
+                    <span className="font-medium">Import JSON</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 {user && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -160,6 +173,11 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportJsonDialog
+        onOpenChange={setShowImportDialog}
+        open={showImportDialog}
+      />
     </>
   );
 }
