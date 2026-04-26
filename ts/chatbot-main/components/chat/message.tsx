@@ -1,5 +1,8 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
+import type { ToolUIPart } from "ai";
+import { ChevronDownIcon } from "lucide-react";
+import { useState } from "react";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
@@ -12,6 +15,11 @@ import {
   ToolInput,
   ToolOutput,
 } from "../ai-elements/tool";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../ui/collapsible";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
@@ -126,6 +134,21 @@ const PurePreviewMessage = ({
           <MessageResponse>{sanitizeText(part.text)}</MessageResponse>
         </MessageContent>
       );
+    }
+
+    if (type.startsWith("tool-")) {
+      const { state, input, output } = part as ToolUIPart;
+      const name = type.split("-")[1];
+      if (state === "output-available") {
+        return (
+          <ToolOutputCollapsible
+            input={input}
+            key={key}
+            name={name}
+            output={output}
+          />
+        );
+      }
     }
 
     if (type === "tool-getWeather") {
@@ -385,3 +408,45 @@ export const ThinkingMessage = () => {
     </div>
   );
 };
+
+function ToolOutputCollapsible({
+  name,
+  input,
+  output,
+}: {
+  name: string;
+  input: unknown;
+  output: unknown;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="w-[min(100%,450px)] rounded-lg border border-border/50 bg-muted/30">
+      <div className="px-3 py-2 text-sm">
+        <span className="font-medium text-foreground">{name}</span>
+        <span className="text-muted-foreground"> (</span>
+        <span className="text-muted-foreground text-xs">
+          {JSON.stringify(input)}
+        </span>
+        <span className="text-muted-foreground">)</span>
+      </div>
+
+      <Collapsible onOpenChange={setIsOpen} open={isOpen}>
+        <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <span>Output</span>
+          <ChevronDownIcon
+            className={cn(
+              "size-3 transition-transform duration-200",
+              isOpen && "rotate-180"
+            )}
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <pre className="mx-3 mb-2 p-2 rounded bg-background/50 overflow-x-auto text-xs font-mono">
+            {JSON.stringify(output, null, 2)}
+          </pre>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}
