@@ -421,32 +421,32 @@ function ToolOutputCollapsible({
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="w-[min(100%,450px)] rounded-lg border border-border/50 bg-muted/30">
-      <div className="px-3 py-2 text-sm">
-        <span className="font-medium text-foreground">{name}</span>
-        <span className="text-muted-foreground"> (</span>
-        <span className="text-muted-foreground text-xs">
-          {JSON.stringify(input)}
-        </span>
-        <span className="text-muted-foreground">)</span>
-      </div>
-
-      <Collapsible onOpenChange={setIsOpen} open={isOpen}>
-        <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <span>Output</span>
-          <ChevronDownIcon
-            className={cn(
-              "size-3 transition-transform duration-200",
-              isOpen && "rotate-180"
-            )}
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <pre className="mx-3 mb-2 p-2 rounded bg-background/50 overflow-x-auto text-xs font-mono">
-            {JSON.stringify(output, null, 2)}
-          </pre>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+    <Collapsible
+      className="w-[min(100%,450px)] rounded-lg border border-border/50 bg-muted/30"
+      onOpenChange={setIsOpen}
+      open={isOpen}
+    >
+      <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted/50 transition-colors rounded-lg">
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="font-medium text-foreground">{name}</span>
+          <span className="text-muted-foreground"> (</span>
+          <span className="text-muted-foreground text-xs truncate">
+            {JSON.stringify(input)}
+          </span>
+          <span className="text-muted-foreground">)</span>
+        </div>
+        <ChevronDownIcon
+          className={cn(
+            "size-4 text-muted-foreground transition-transform duration-200",
+            isOpen && "rotate-180"
+          )}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <pre className="mx-3 mb-2 p-2 rounded bg-background/50 overflow-x-auto text-xs font-mono">
+          {JSON.stringify(output, null, 2)}
+        </pre>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
