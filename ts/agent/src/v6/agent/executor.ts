@@ -15,6 +15,7 @@ import { createRuleTools } from "./tools/rules";
 import { createCandidateTools } from "./tools/candidates";
 import { createCounterfactualTools, resetCounterfactuals } from "./tools/counterfactual";
 import { createEventTools } from "./tools/events";
+import { model } from "../../lib/model";
 
 // ── Executor result ──
 
@@ -79,9 +80,9 @@ export async function runPredictiveExecutor(
 		...counterfactualTools,
 	};
 
-	const openai = createOpenAI({});
+	// const openai = createOpenAI({});
 	const result = await generateText({
-		model: openai(modelId),
+		model: model,
 		system: systemPrompt,
 		prompt: userMessage,
 		tools,
@@ -136,9 +137,9 @@ export async function runDiagnosticExecutor(
 		...eventTools,
 	};
 
-	const openai = createOpenAI({});
+	// const openai = createOpenAI({});
 	const result = await generateText({
-		model: openai(modelId),
+		model: model,
 		system: systemPrompt,
 		prompt: userMessage,
 		tools,

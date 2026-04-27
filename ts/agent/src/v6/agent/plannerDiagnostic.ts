@@ -4,6 +4,7 @@ import type { DecisionTask } from "../ontology/decision";
 import type { Ontology } from "../ontology/schema";
 import { buildDiagnosticPlannerPrompt } from "./prompt";
 import type { DiagnosticPlan } from "./planner";
+import { model } from "../../lib/model";
 
 // ── Diagnostic Planner ──
 //
@@ -15,11 +16,11 @@ export async function runDiagnosticPlanner(
 	ontology: Ontology,
 	modelId = "gpt-4o-mini",
 ): Promise<DiagnosticPlan> {
-	const openai = createOpenAI({});
+	// const openai = createOpenAI({});
 	const prompt = buildDiagnosticPlannerPrompt(task, ontology);
 
 	const { text } = await generateText({
-		model: openai(modelId),
+		model: model,
 		prompt,
 		temperature: 0,
 		maxOutputTokens: 512,

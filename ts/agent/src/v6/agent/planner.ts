@@ -4,6 +4,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { DecisionTask } from "../ontology/decision";
 import type { Ontology } from "../ontology/schema";
 import { buildPlannerPrompt } from "./prompt";
+import { model } from "../../lib/model";
 
 // ── ExplorationPlan ──
 
@@ -45,11 +46,11 @@ export async function runPlanner(
 	ontology: Ontology,
 	modelId = "gpt-4o-mini",
 ): Promise<ExplorationPlan> {
-	const openai = createOpenAI({});
+	// const openai = createOpenAI({});
 	const prompt = buildPlannerPrompt(task, ontology);
 
 	const { text } = await generateText({
-		model: openai(modelId),
+		model: model,
 		prompt,
 		temperature: 0,
 		maxOutputTokens: 512,
