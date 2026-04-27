@@ -77,6 +77,21 @@ export async function runDecisionAgent(config: RunConfig) {
 	console.log(`Steps: ${result.steps.length}`);
 	console.log(`Tokens: ${JSON.stringify(result.usage)}`);
 
+
+	{
+		// 再触发一次，获取完整的历史
+		const updatedHistory: ModelMessage[] = [...messages, ...result.response.messages]
+		// console.log('Updated History:', updatedHistory)
+		const m = [...updatedHistory, { role: 'user', content: 'bye, just response with bye' } satisfies ModelMessage]
+		await generateText({
+		  model: model,
+		  system: systemPrompt,
+		  messages: m,
+		  tools,
+		  stopWhen: stepCountIs(1),
+		})
+	}
+
 	return {
 		answer: result.text,
 		steps: result.steps,

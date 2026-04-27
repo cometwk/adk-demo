@@ -422,7 +422,7 @@ function ToolOutputCollapsible({
 
   return (
     <Collapsible
-      className="w-[min(100%,450px)] rounded-lg border border-border/50 bg-muted/30"
+      className="w-full rounded-lg border border-border/50 bg-muted/30"
       onOpenChange={setIsOpen}
       open={isOpen}
     >

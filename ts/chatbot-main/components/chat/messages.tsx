@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
+import { Separator } from "../ui/separator";
 
 type MessagesProps = {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
@@ -75,7 +76,7 @@ function PureMessages({
         style={isArtifactVisible ? { scrollbarWidth: "none" } : undefined}
       >
         <div className="mx-auto flex min-h-full min-w-0 max-w-4xl flex-col gap-5 px-2 py-6 md:gap-7 md:px-4">
-          {messages.map((message, index) => (
+          {/* {messages.map((message, index) => (
             <PreviewMessage
               addToolApprovalResponse={addToolApprovalResponse}
               chatId={chatId}
@@ -97,6 +98,34 @@ function PureMessages({
                   : undefined
               }
             />
+          ))} */}
+           {messages.map((message, index) => (
+            <div key={"a-" + message.id}>
+            {/* <pre>{JSON.stringify(message,null,2)}</pre> */}
+
+            <PreviewMessage
+              addToolApprovalResponse={addToolApprovalResponse}
+              chatId={chatId}
+              isLoading={
+                status === "streaming" && messages.length - 1 === index
+              }
+              isReadonly={isReadonly}
+              key={message.id}
+              message={message}
+              onEdit={onEditMessage}
+              regenerate={regenerate}
+              requiresScrollPadding={
+                hasSentMessage && index === messages.length - 1
+              }
+              setMessages={setMessages}
+              vote={
+                votes
+                  ? votes.find((vote) => vote.messageId === message.id)
+                  : undefined
+              }
+            />
+
+            </div>
           ))}
 
           {status === "submitted" && messages.at(-1)?.role !== "assistant" && (
