@@ -1,5 +1,5 @@
 # OPUS-4-7 - Generalization challenges of V5 design
-_Exported on 2026/4/27 at GMT+8 10:07:50 from Cursor (3.2.11)_
+_Exported on 2026/4/27 at GMT+8 15:32:27 from Cursor (3.2.11)_
 
 ---
 
@@ -262,4 +262,592 @@ for (const candidate of candidates) {
 > **V4 让 Agent 会用图。V5 让 Agent 会用图辅助人做决策。V6 让"Agent 辅助决策"这件事变成可工程化、可校准、可问责的系统。**
 
 如果你对其中任何一节想展开成可落地的代码骨架（比如先把 V6.0 的 `FactStore` 和 `bind_fact / lookup_fact` 工具落到 `src/v6/`），我可以接着做。
+
+---
+
+**User**
+
+另外一个问题  
+之前的讨论 都是以风险评估为基准 若 若换一个目标 ： 比如项目进度未完成被迫延期，事情发生了 ，反推查找原因 这一类的问题  
+该设计框架是否同时支持： 从风险评估（Predictive/Forward）切换到故障归因（Diagnostic/Backward）
+或者是否要做适当的调整
+
+---
+
+**Cursor**
+
+非常好的问题，而且这是检验 V6 设计是否真的"通用化"的试金石——把一个**前向预测**框架直接套到**后向归因**问题上，会暴露哪些隐含假设。我直接给结论，再展开。
+
+## 一、问题本质：两种推理模式不是同一回事
+
+| 维度 | 风险评估（Predictive / Forward） | 故障归因（Diagnostic / Backward） |
+|---|---|---|
+| 已知 | 当前事实快照（fact snapshot） | 已发生的 outcome（事件已成既定事实） |
+| 求解 | 未来某个 outcome 的概率 / 类别 | 哪些原因/事件导致了这个 outcome |
+| 推理方向 | facts → outcome（演绎/归纳） | outcome → causes（**溯因 abduction**） |
+| 时间维度 | 当下快照足够 | 必须有时间线 / 事件历史 |
+| 候选答案 | 互斥枚举（HIGH/MEDIUM/LOW） | **可共存**的原因集合（多因并存） |
+| 评分模型 | MCDA 加权（贡献度叠加） | 因果归因（必要性 + 充分性） |
+| 反事实形态 | what-if（"如果 X 改了，结论怎么变"） | **but-for**（"如果没有 X，事情还会发生吗"） |
+| 不确定性 | 缺失 fact → 置信度下降 | 多解释充分性相当 → overdetermination |
+| Planner 方向 | 从入口实体向外展开依赖 | 从 outcome 沿因果链**回溯** |
+
+最关键的两个本质差异：
+
+1. **后向推理是溯因（abductive）的**：不是"从 A 推出 B"，而是"看到 B，问 'B 最好的解释是什么 A1/A2/A3'"。多个解释可以同时成立，且没有一个能被规则系统**唯一**确定。
+2. **后向推理本质上是反事实的**：判断"alice 的倦怠是不是延期的原因"，等价于问"如果 alice 不倦怠，延期还会发生吗"。这是 **but-for** 测试，不是 what-if。
+
+V6 当前的设计是建立在前向假设之上的（看 `docs/think_v6.md` 第六节几乎所有的接口都默认 facts 是 snapshot）。
+
+---
+
+## 二、V6 框架的复用度评估：80% 复用 + 20% 必须扩展
+
+### ✅ 可以直接复用的（V6 设计的"通用骨架"）
+
+- **本体一等化（T/R/C 的抽象）** —— 类型、关系、规则的概念在两种模式下都成立
+- **FactStore 的结构化绑定** —— 只是 binding 的内容从 "current value" 扩展到 "value at time t"
+- **Evidence / CandidateAnswer / Uncertainty 三元抽象** —— 在归因里同样适用
+- **PolicyContext / PlannerPlan / Critic / Reconciliation** —— 架构骨架完全可复用
+- **双轨判决 + 冲突暴露** —— 在归因中尤其重要（多个原因互相竞争时必须 surface）
+- **渐进式实体披露 + 工具集（inspect_node / query_neighbors / ...）** —— 完全适用
+
+### ⚠️ 必须扩展或调整的（V6 的"前向假设"打破处）
+
+1. **FactStore → EventStore（时间维度）**
+2. **Ontology 加 CausalGraph（因果维度，独立于 R）**
+3. **CandidateAnswer 形态从"互斥枚举"改为"可共存集合"**
+4. **scoring.ts 加 attribution mode（因果归因，不是 MCDA）**
+5. **counterfactual.ts 加 but-for mode（与 what-if 对称）**
+6. **planner 加 backward 模式（沿因果链回溯）**
+7. **prompt 与 intent 增加 `diagnosis` 分支**
+
+下面逐项展开。
+
+---
+
+## 三、推荐的设计调整：把 V6 改成 "DecisionMode-aware" 的双模式系统
+
+### 调整 1：FactStore 升级为 EventStore（时间维度）
+
+V6 的 `FactBinding` 是"当下的值"。诊断必须有时间线：
+
+```ts
+export type FactBinding = {
+    entityId: string;
+    property: string;
+    value: unknown;
+    source: { ... };
+    confidence: number;
+
+    // 新增：时间维度
+    validFrom: string;          // ISO timestamp，从什么时候开始
+    validUntil?: string;        // 到什么时候为止；undefined = 仍然有效
+    observedAt: string;         // 这条记录被观测/记录的时间
+};
+
+export type Event = {
+    id: string;
+    type: string;               // "workload_changed" / "deadline_missed" / "scope_added" / ...
+    occurredAt: string;
+    actorId?: string;           // 谁/什么导致了这个事件
+    affectedEntities: string[];
+    payload: Record<string, unknown>;
+    derivedBindings?: FactBinding[];  // 这个事件产生了哪些 fact 变化
+};
+
+export class EventStore {
+    addEvent(e: Event): void;
+    timelineFor(entityId: string, from?: string, to?: string): Event[];
+    factsAt(entityId: string, timestamp: string): FactBinding[];
+    // 关键：时间旅行查询
+}
+```
+
+`FactStore` 变成 `EventStore` 在 `t = now` 上的投影。前向推理用投影，后向推理用完整时间线。
+
+### 调整 2：Ontology 加一个独立的 `CausalGraph`
+
+这是最重要的扩展。当前 V6 的 `R`（关系）描述的是"结构性关系"（`Engineer --member_of--> Team`），不是"因果性关系"（`high_workload --leads_to--> low_throughput`）。诊断时需要后者：
+
+```ts
+export type CausalEdge = {
+    id: string;
+    cause: { type: "event" | "fact_change" | "state"; pattern: string };
+    effect: { type: "event" | "fact_change" | "state"; pattern: string };
+    mechanism: string;          // 自然语言机制描述
+    typicalLag: string;         // "0-7 days" / "weeks" / ...
+    strength: "weak" | "moderate" | "strong";
+    counterEvidence?: string[]; // 哪些情况下机制不成立
+    relatedRuleIds: string[];
+};
+
+export type CausalGraph = {
+    edges: CausalEdge[];
+
+    // 给定 outcome event/state，列出可能的前因
+    potentialCauses(outcome: Event | FactBinding): CausalEdge[];
+
+    // 给定 cause，沿因果链向前展开（用于"this cause would lead to what"）
+    forwardChain(cause: Event | FactBinding, maxDepth: number): CausalPath[];
+
+    // 给定 outcome，沿因果链向后展开（用于诊断）
+    backwardChain(outcome: Event | FactBinding, maxDepth: number): CausalPath[];
+};
+```
+
+举例（项目延期场景）：
+
+```text
+CausalEdge: workload > burnout_threshold ──leads_to──> productivity_drop
+  mechanism: "持续超阈值工时导致疲劳累积，单位时间产出下降"
+  typicalLag: "1-3 weeks"
+  strength: "moderate"
+
+CausalEdge: dependency.delivery_slip ──leads_to──> dependent_project.blocked
+  mechanism: "依赖未交付，阻塞下游开发"
+  typicalLag: "0 days"
+  strength: "strong"
+
+CausalEdge: scope_added_late ──leads_to──> deadline_pressure_increase
+  mechanism: "范围扩张但人力不变"
+  typicalLag: "0-7 days"
+  strength: "strong"
+
+CausalEdge: productivity_drop ──leads_to──> deadline_missed
+  ...
+
+CausalEdge: deadline_pressure_increase ──leads_to──> deadline_missed
+  ...
+```
+
+诊断时，从 `deadline_missed` 反向追溯，得到一个**因果路径树**，每条路径都是一个候选解释。
+
+注意：`R`（结构关系）和 `CausalGraph`（因果关系）必须分开。同一对实体可能有结构关系（`Engineer --member_of--> Team`）但没有因果关系；也可能有因果关系（`workload --leads_to--> productivity_drop`）但根本不是 graph 里的边——它是属性变化之间的关系。
+
+### 调整 3：CandidateAnswer 形态：互斥 → 可共存
+
+V5/V6 的 candidate 是 HIGH/MEDIUM/LOW 三选一。诊断不能这样：
+
+```ts
+// V6 当前（前向）
+type CandidateAnswer = {
+    id: string;
+    label: string;              // "HIGH" / "MEDIUM" / "LOW"
+    description: string;
+    score?: number;             // 单一分数
+    // ...
+};
+
+// V6.5 新增（后向）
+type CandidateCause = {
+    id: string;
+    label: string;              // "alice_burnout" / "scope_creep_in_week3" / "api_dependency_slip"
+    description: string;
+    causalPath: CausalPath;     // 从这个 cause 到 outcome 的完整路径
+
+    // 归因维度
+    necessity: number;          // 0..1，移除该原因后 outcome 不发生的概率
+    sufficiency: number;        // 0..1，仅有该原因时 outcome 发生的概率
+    attributionScore: number;   // 综合归因分（如 Shapley-like）
+
+    // 时序证据
+    timelineEvidenceIds: string[];
+    canCoexistWith: string[];   // 与哪些其他 cause 可以同时成立
+};
+```
+
+最终输出不是"延期是因为 X"，而是：
+
+```text
+延期的归因（多因并存）：
+
+主因（attribution > 0.4）：
+  - api_dependency_slip   necessity=0.85, sufficiency=0.70, attribution=0.45
+  - scope_creep_week3     necessity=0.72, sufficiency=0.55, attribution=0.32
+
+次因（0.1 < attribution < 0.4）：
+  - alice_burnout         necessity=0.40, sufficiency=0.20, attribution=0.18
+
+边缘因素（attribution < 0.1）：
+  - team_no_buffer        necessity=0.15, sufficiency=0.05, attribution=0.05
+```
+
+### 调整 4：critic 加 attribution 模式
+
+V6 的 critic 跑 MCDA：每条规则贡献一个加权分到 candidate.normalizedScore。诊断需要不同的算法：
+
+```ts
+// 前向（V6 已有）
+function scoreCandidates_predictive(input): ScoredCandidate[];
+
+// 后向（V6.5 新增）
+function scoreCandidates_diagnostic(input: {
+    outcome: Event | FactBinding;
+    candidates: CandidateCause[];
+    causalGraph: CausalGraph;
+    eventStore: EventStore;
+    timeWindow: { from: string; to: string };
+}): AttributionResult[];
+```
+
+实现思路（不必上完整因果推断框架，简化版即可）：
+
+1. **路径完整性**：cause → outcome 的 causal path 上的每条边是否在 EventStore 中都有对应事件 / fact 变化作为证据。完整路径 → 高 score。
+2. **必要性（but-for）**：在 EventStore 上"擦除"该 cause 对应的事件，重跑因果链推断，看 outcome 是否仍然发生。不发生 → 高必要性。
+3. **充分性**：保留该 cause、擦除其他 candidate causes，看 outcome 是否仍然发生。仍发生 → 高充分性。
+4. **时序合理性**：cause.occurredAt 必须 < outcome.occurredAt，且差值在 `typicalLag` 范围内。
+
+这其中只有 (1) 和 (4) 是纯确定性的；(2)(3) 需要因果推断（最简单的实现是"如果 cause 不发生，沿 causal path 上的边按 strength 概率链式判断 outcome 是否仍触发"）。
+
+### 调整 5：counterfactual.ts 加 but-for 模式
+
+V6 的 `simulate` 是 what-if：
+
+```ts
+// V6 当前
+simulate({ overrides: [{ entityId: "alice", property: "workload", value: 60 }] })
+// → 在当前 snapshot 上替换 fact，重跑前向规则
+```
+
+诊断需要 but-for：
+
+```ts
+// V6.5 新增
+counterfactualOutcome({
+    eventStore: store,
+    timeWindow: { from, to },
+    eraseEvent: "scope_added_week3",  // 假设这个事件没发生
+    targetOutcome: "deadline_missed",
+})
+// → 在 EventStore 中移除该事件 + 它派生的 fact 变化
+// → 沿 CausalGraph 重新推演
+// → 返回 outcome 是否仍然会发生（含概率）
+```
+
+用法上，二者关系如下：
+
+- **what-if** = 改变当前 snapshot，看**未来**如何变化（前向）
+- **but-for** = 改变历史事件，看**已经发生的事**会不会消失（后向）
+
+它们共用 `simulate` 工具的接口，但内部逻辑分支不同。
+
+### 调整 6：planner 加 backward 模式
+
+V6 当前 planner 的输出（`expectedSubgraphs.relations`、`methodsToInvoke`）都是前向探索。诊断 planner 完全反过来：
+
+```ts
+// V6.5 新增
+type DiagnosticPlan = {
+    intent: "diagnosis";
+    outcomeEvent: { entityId: string; eventType: string; occurredAt: string };
+    timeWindow: { from: string; to: string };  // 回看多久
+
+    backwardChains: Array<{
+        rootOutcome: string;
+        causalEdgesToTrace: string[];
+        expectedDepth: number;
+    }>;
+
+    eventsToReconstruct: Array<{
+        entityIdHint: string | "by_type";
+        eventTypes: string[];
+        rationale: string;
+    }>;
+
+    candidateCauseSpace: string[];  // 已知的常见原因模板，用作 prior
+};
+```
+
+执行流程从"展开依赖子图"变成"沿 causal graph 反向遍历 + 在 EventStore 中查找对应事件"。
+
+### 调整 7：intent 多一类，prompt 多一份
+
+```ts
+type DecisionIntent =
+    | "risk_assessment"        // 前向，已有
+    | "prioritization"         // 前向，已有
+    | "recommendation"         // 前向，已有
+    | "diagnosis"              // 后向，新增
+    | "post_mortem"            // 后向，新增（更结构化的事件复盘）
+    | "rca"                    // 后向，新增（root cause analysis）
+    | "anomaly_explanation";   // 后向，新增
+```
+
+System prompt 也要分裂：
+
+- **前向 prompt**：当前的 V6 prompt，强调"在模糊问题下生成候选、收集事实、应用规则"
+- **后向 prompt**：新增，强调"outcome 已发生，沿因果路径回溯，识别多个并存原因，做反事实必要性判断，避免后见之明偏差"
+
+后向 prompt 必须显式约束几件事：
+
+1. **不要把相关性当因果**："看到 alice 倦怠 + 项目延期"不等于"倦怠导致延期"
+2. **要做 but-for 测试**：每个候选原因都要走一次反事实
+3. **不要漏掉单一充分原因**：当某个原因独立充分（如 deadline 已经被外部不可抗力推后），其他次要原因可能根本没有 attribution
+4. **要警惕 overdetermination**：多个原因可能各自都充分，此时不能强行选一个
+
+---
+
+## 四、统一抽象：DecisionMode 切换
+
+我建议把 V6 升级为 **"双模式" 框架**而不是另起 V7：
+
+```ts
+type DecisionMode = "predictive" | "diagnostic";
+
+type DecisionTask = {
+    mode: DecisionMode;
+    intent: DecisionIntent;
+    goal: string;
+
+    // 前向必填
+    entryEntities?: string[];
+
+    // 后向必填
+    outcome?: {
+        entityId: string;
+        eventType: string;
+        occurredAt: string;
+    };
+    timeWindow?: { from: string; to: string };
+
+    scope: { ... };
+    policyCtx: PolicyContext;
+};
+```
+
+关键设计原则：
+
+| 组件 | predictive 模式 | diagnostic 模式 |
+|---|---|---|
+| FactStore | snapshot | EventStore 在 `now` 的投影 |
+| Ontology | T + R + C | T + R + C + **CausalGraph** |
+| Planner | 沿 R 向外展开 | 沿 CausalGraph 反向回溯 |
+| Executor | 收集 fact + 提议候选 + 调方法 | 重建时间线 + 回溯因果路径 + 提议候选原因 |
+| Critic | MCDA scoring | causal attribution scoring |
+| Counterfactual | what-if | but-for |
+| Candidate | mutually exclusive | co-existing causes |
+| Output | recommendation + alternatives | ranked attributions + multiple causes |
+
+整个框架的"骨架"（双轨判决、Reconciliation、Evidence、Uncertainty、PolicyContext、工具基础集）保持不变。
+
+---
+
+## 五、走一遍诊断的例子
+
+把"project_portal 已经延期 2 周，反推原因"放到调整后的框架里跑一次：
+
+### Step F-1：前端
+
+```text
+user query: "project_portal 上周二的 demo 延期了，能帮我看看为什么吗？"
+
+frontEnd → {
+    mode: "diagnostic",
+    intent: "rca",
+    outcome: {
+        entityId: "project_portal",
+        eventType: "milestone_missed",
+        occurredAt: "2026-04-21T10:00:00Z",
+    },
+    timeWindow: { from: "2026-03-21", to: "2026-04-21" },  // 回看 30 天
+    ...
+}
+```
+
+### Step P-1：Diagnostic Planner
+
+```text
+DiagnosticPlan {
+    rootOutcome: "project_portal.milestone_missed@2026-04-21",
+    backwardChains: [
+        // 沿 CausalGraph 反向，2 步内能到的原因
+        { causalEdges: ["productivity_drop->milestone_missed", "deadline_pressure_increase->milestone_missed", "blocking_dep->milestone_missed"], depth: 2 },
+    ],
+    eventsToReconstruct: [
+        { entityIdHint: "project_portal", eventTypes: ["scope_change", "deadline_change"] },
+        { entityIdHint: "by_type:Engineer (assigned to project_portal)", eventTypes: ["workload_spike", "leave_taken", "burnout_reported"] },
+        { entityIdHint: "project_api", eventTypes: ["delivery_slip", "scope_change"] },
+    ],
+    candidateCauseSpace: ["scope_creep", "dependency_slip", "team_burnout", "external_blocker"],
+}
+```
+
+### Step E-1..N：Executor
+
+LLM 调工具流程（关键差异 vs V6）：
+
+- 用 `query_events` 而不是 `inspect_node`：拉时间线
+  - `query_events({ entityId: "project_portal", from: "2026-03-21", to: "2026-04-21" })`
+- 用 `walk_causal_graph` 反向展开：
+  - `walk_causal_graph({ outcome: "milestone_missed", direction: "backward", maxDepth: 2 })`
+- 用 `propose_causes` 而不是 `propose_candidates`：
+  ```text
+  propose_causes([
+    { label: "api_dependency_slip", causalPath: [...], rationale: "..." },
+    { label: "scope_creep_week3", causalPath: [...], rationale: "..." },
+    { label: "alice_burnout", causalPath: [...], rationale: "..." },
+  ])
+  ```
+- LLM **不打分**，只整理证据和提议候选。
+
+### Step C-1：Diagnostic Critic（确定性）
+
+对每个候选 cause 跑：
+
+1. **路径完整性**：causal path 上每条边是否在 EventStore 找到对应事件
+2. **but-for**：在 EventStore 中"擦除"该 cause，沿 CausalGraph 重新推演，看 milestone_missed 是否仍发生
+3. **充分性**：保留该 cause、擦除其他，看 outcome 是否仍发生
+4. **时序合理性**：cause.occurredAt < outcome.occurredAt，且 lag 在合理范围内
+
+输出：
+
+```text
+systemAttribution = [
+    {
+        causeId: "api_dependency_slip",
+        necessity: 0.82,         // 抹掉它，70% 概率不会延期
+        sufficiency: 0.65,
+        attributionScore: 0.42,
+        causalPath: [api_slip → portal_blocked → milestone_missed],
+        evidence: [event: "project_api delivery slipped @2026-04-15", ...],
+    },
+    {
+        causeId: "scope_creep_week3",
+        necessity: 0.55, sufficiency: 0.50, attributionScore: 0.25,
+        causalPath: [scope_added → pressure_up → milestone_missed],
+        evidence: [event: "scope_added on 2026-04-08", ...],
+    },
+    {
+        causeId: "alice_burnout",
+        necessity: 0.30, sufficiency: 0.15, attributionScore: 0.10,
+        causalPath: [workload_spike → productivity_drop → milestone_missed],
+        evidence: [...],
+    },
+]
+```
+
+### Step R-1：Reconciliation
+
+LLM 综合判断 vs system 因果归因：
+
+- 如果 LLM 也排序为 "api_dep > scope_creep > alice_burnout" → agree，简短输出
+- 如果 LLM 把 alice_burnout 排第一 → 冲突 surface：
+  - "model 倾向于 burnout，system 认为 dep_slip 必要性更高（but-for 测试中 alice 倦怠抹除后延期仍发生）"
+  - 让用户决定：是 model 直觉对，还是 system 因果链对？
+
+### Step U-1：UI 渲染
+
+```text
+延期归因（多因并存，按 attribution 排序）：
+
+主因：
+  📌 project_api 交付延期（attribution 0.42）
+     必要性 0.82 | 充分性 0.65
+     证据：2026-04-15 project_api 已知延期 4 天；portal 在 04-15 起进入 blocked 状态
+     反事实：如果 api 按时交付，portal 延期概率仅 18%
+
+  📌 第三周范围扩张（attribution 0.25）
+     必要性 0.55 | 充分性 0.50
+     证据：2026-04-08 scope_added 事件，新增 2 个需求，工作量估算 +15%
+
+次因：
+  📌 alice 倦怠（attribution 0.10）
+     单独起作用的概率较低；与上述主因叠加才显著影响
+
+[模拟：如果 api 没延期] [模拟：如果没新增 scope] [查看完整事件时间线]
+```
+
+---
+
+## 六、对 V6 文档的具体修订建议
+
+不必重写 `think_v6.md`，但建议加一节 **"十六、双模式扩展（DecisionMode-aware）"**，覆盖：
+
+1. **DecisionMode 与 intent 矩阵**：哪些 intent 是 predictive，哪些是 diagnostic
+2. **EventStore 与 CausalGraph 的最小可行接口**：FactStore 增量演化为 EventStore（`validFrom/validUntil`），Ontology 同级新增 `causal: CausalGraph`
+3. **Diagnostic critic 的简化版实现**：不上完整因果推断，先做"路径完整性 + but-for 单变量擦除"两个维度
+4. **Diagnostic prompt 的注意事项**：
+   - 强制 but-for 测试
+   - 警惕相关 ≠ 因果
+   - 多因并存而非互斥
+   - 警惕后见之明偏差
+5. **迁移路径调整**：把 V6.0~V6.4 之后加一个 V6.5（diagnostic mode）作为可选扩展，而不是放到 V7
+
+---
+
+## 一句话总结
+
+> **V6 的"骨架"（FactStore、双轨判决、Reconciliation、Planner/Executor/Critic、PolicyContext）能直接支持诊断推理；但当前的"内容物"（snapshot facts、MCDA scoring、互斥候选、what-if 反事实）是为前向假设量身定做的，必须为后向诊断补三件东西：时间维度（EventStore）、因果维度（CausalGraph）、归因维度（attribution scoring + but-for）。**  
+>   
+> **不是另起 V7，而是把 V6 升级成"DecisionMode-aware"——同一套架构，两种内核。**
+
+如果你觉得这个方向对，我可以接着把上面这一节用 V6 文档的风格落到 `docs/think_v6.md` 的第十六节，并且把 `EventStore` / `CausalGraph` / `propose_causes` / `but-for simulate` 的最小可行类型骨架写进去。要我直接做吗？
+
+---
+
+**User**
+
+OK
+
+---
+
+**Cursor**
+
+好。我把"十六、双模式扩展（DecisionMode-aware）"这一节插到 `docs/think_v6.md` 的总结之前。先确认一下当前文档的尾部结构和格式。
+
+我把新节插到第十四和原十五（总结）之间，并把第十四节第 2 条对应到 V6.5。先做第十四节第 2 条的小修正。
+
+现在把"十五、双模式扩展（V6.5 蓝图）"整节插入到原"十五、总结"之前，并把原总结编号改成"十六"。
+
+章节结构正确，文档从 1142 行扩到 1651 行，新增了完整的 V6.5 双模式扩展章节。
+
+## 修改概览
+
+`docs/think_v6.md` 的两处变化：
+
+**1. 第十四节"暂不做什么"第 2 条小修正**
+
+```1101:1102:docs/think_v6.md
+2. **不做完整的 do-calculus**  
+   V6 主体的反事实仅做"局部 fact 替换 + 重跑确定性规则"。V6.5 双模式扩展（见第十五节）会加最小可行的 `CausalGraph` 与 but-for 测试，但仍不引入 Pearl 三层因果体系或概率因果建模。
+```
+
+把原来的"不做完整因果图建模"修订为"不做完整 do-calculus"，给 V6.5 留下因果图扩展空间。
+
+**2. 新增第十五节"双模式扩展（V6.5 蓝图）"（约 500 行，15 小节）**
+
+| 小节 | 内容 |
+|---|---|
+| 1 | 为什么需要这一节（V6 全是前向假设） |
+| 2 | Predictive vs Diagnostic 核心差异表 |
+| 3 | Intent 矩阵（mode 一级分类） |
+| 4 | 必须扩展的三个维度（时间/因果/归因） |
+| 5 | 类型骨架：`DecisionMode` / `EventStore` / `CausalGraph` / `CandidateCause` / `AttributionResult` / `DiagnosticVerdict` |
+| 6 | Pipeline 多分支表（frontEnd/planner/executor/critic/simulate/reconciler 在两种模式下如何分工） |
+| 7 | Tools 演进：保留 / 新增（`query_events` / `walk_causal_graph` / `propose_causes` / `record_event`）/ 增强（`simulate(mode)` / `inspect_node(at)`）/ 有意排除（`evaluate_causes`） |
+| 8 | Diagnostic Prompt 守则（outcome 已发生 / 相关≠因果 / 多因并存 / 警惕后见之明） |
+| 9 | 完整诊断链演示（项目延期归因，从 frontEnd → planner → executor → critic → reconciliation → UI） |
+| 10 | 6 条 diagnostic-specific 关键设计决策 |
+| 11 | V6 → V6.5 四阶段迁移路径（V6.5.0 时间维度 → V6.5.1 因果维度 → V6.5.2 诊断 critic → V6.5.3 mode 路由 → V6.5.4 产品化） |
+| 12 | 测试策略补充（time travel / causal path / but-for / monotonicity / mode switching / hindsight bias / overdetermination） |
+| 13 | Diagnostic-specific 风险与缓解 |
+| 14 | V6.5 不做什么（do-calculus / 贝叶斯网络 / 因果发现 / 跨租户 / 流式） |
+| 15 | 一句话总结（forward 与 backward 是同一系统的对偶面） |
+
+**3. 第十六节"总结"扩展**
+
+把"V6.5 的关键"和"V6.5 让这套系统同时支持预测未来和解释过去"加进版本演化叙事链，与 V4/V5/V6 的总结风格保持一致。
+
+## 几个值得注意的设计取舍
+
+文档里我有意做了几个判断，写在显眼位置，便于后续 review：
+
+- **CausalGraph 与 Ontology.relations 必须分开**（决策 1）：避免把"因果"塞进 R 破坏前向 R 查询语义。
+- **but-for 走 critic 内部，不开放给 LLM**（决策 6）：防止 LLM 循环测试到自己想要的结论。
+- **attribution 不强制 sum=1**（决策 4）：多因并存时强行归一会人为制造"主原因"。
+- **critic 不能让 model 单独定罪**（决策 5）：归因结论会进复盘材料，绝不能让 LLM 一个人决定"是谁的锅"。
+- **FactStore = EventStore.factsAt(now) 的投影**（5.2）：两种模式共享同一份底层数据，不双写。
+
+如果接下来要把 V6.5 落到 `src/v6/`（或新开 `src/v6_5/`），最小可执行的第一步是 V6.5.0：把 `FactBinding` 加上 `validFrom/validUntil/observedAt` 三个字段，引入 `EventStore`，让 V6 现有功能在不改语义的前提下先获得时间维度。需要的话我可以接着写这一步的代码骨架。
 

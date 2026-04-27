@@ -1098,8 +1098,8 @@ V6 不做这些事：
 1. **不做完整多 Agent 协作**  
    V6 是"内部三段式（planner / executor / critic）+ 单一 LLM 角色"。多 LLM 并行评估、互相质询留给 V7。
 
-2. **不做完整的因果图建模**  
-   反事实仅做"局部 fact 替换 + 重跑确定性规则"，不做 do-calculus。
+2. **不做完整的 do-calculus**  
+   V6 主体的反事实仅做"局部 fact 替换 + 重跑确定性规则"。V6.5 双模式扩展（见第十五节）会加最小可行的 `CausalGraph` 与 but-for 测试，但仍不引入 Pearl 三层因果体系或概率因果建模。
 
 3. **不做规则 DSL**  
    规则仍是 TypeScript 函数（`evaluator: (ctx) => RuleResult`），不引入 Drools / 自定义 DSL。
@@ -1118,7 +1118,511 @@ V6 不做这些事：
 
 ---
 
-## 十五、总结
+## 十五、双模式扩展（V6.5 蓝图）：从 Predictive 到 Diagnostic
+
+### 1. 为什么需要这一节
+
+第一节到第十四节的所有设计都建立在一个隐含假设上：**输入是当前事实快照，求解是未来 outcome 的概率/类别**。这是**前向（predictive）**推理。
+
+但真实辅助决策场景里至少有同等比重的另一类问题：**事情已经发生了，反推为什么。**
+
+- 项目延期了，做事故归因（RCA）
+- 服务故障了，做事后复盘（post-mortem）
+- 模型指标突然下降，做异常解释
+- 季度交付未达成，做归因复盘
+
+这一类问题在认知上是**溯因（abductive）推理**，在系统上是**后向（diagnostic）**模式。如果直接把 V6 套上去，会犯几种错误：把相关性当因果、用 MCDA 加权得到"主原因"、用 what-if 代替 but-for、把多因并存压成单因。
+
+V6.5 不是另一个版本，而是 **V6 的"双模式扩展"**：架构骨架（双轨判决、Reconciliation、Planner/Executor/Critic、PolicyContext、Evidence/Uncertainty）保持不变，在三个维度上加内容——**时间、因果、归因**。
+
+### 2. 双模式核心差异
+
+| 维度 | Predictive（V6） | Diagnostic（V6.5） |
+|------|--------|---------|
+| 已知 | 当前事实快照 | 已发生的 outcome |
+| 求解 | 未来某 outcome 的概率/类别 | 哪些原因导致了 outcome |
+| 推理方向 | facts → outcome | outcome → causes（abductive） |
+| 时间维度 | snapshot 即可 | 必须有时间线 / 事件历史 |
+| 候选答案 | **互斥**枚举（HIGH/MEDIUM/LOW） | **可共存**的原因集合 |
+| 评分模型 | MCDA 加权 | causal attribution（必要性 + 充分性） |
+| 反事实 | what-if（"X 改了，结论怎么变"） | **but-for**（"没有 X，事情还会发生吗"） |
+| 不确定性 | 缺失 fact → 置信度下降 | overdetermination（多解释充分性相当） |
+| Planner 方向 | 沿 R 向外展开 | 沿 CausalGraph 反向回溯 |
+
+最关键的两个本质差异：
+
+- **后向推理是溯因的**：多个解释可以同时成立，规则系统无法**唯一**确定。
+- **后向推理本质是反事实的**："X 是不是原因"等价于 but-for 测试，与 what-if 对偶但**方向相反**。
+
+### 3. Intent 矩阵
+
+```ts
+type DecisionIntent =
+    // ── predictive ──
+    | "risk_assessment"
+    | "prioritization"
+    | "recommendation"
+    | "capacity_planning"
+    | "what_if_planning"
+
+    // ── diagnostic ──
+    | "rca"                      // root cause analysis
+    | "post_mortem"              // 结构化事后复盘
+    | "anomaly_explanation"      // 指标异常解释
+    | "regression_attribution"   // 性能/质量回归归因
+    | "incident_diagnosis";      // 实时事故诊断
+```
+
+`frontend/intent.ts` 先做 mode 一级分类（predictive vs diagnostic），再做细粒度 intent 分类，最后路由到不同的 planner / prompt / critic。
+
+### 4. 必须扩展的三个维度
+
+> **时间（EventStore）+ 因果（CausalGraph）+ 归因（attribution + but-for）。**
+
+V6 主体的所有抽象都不动，只是在三个新维度上各加一组类型与一组工具。
+
+### 5. 类型骨架（最小可行）
+
+#### 5.1 模式与任务升级
+
+```ts
+export type DecisionMode = "predictive" | "diagnostic";
+
+export type DecisionTask = {
+    mode: DecisionMode;
+    intent: DecisionIntent;
+    goal: string;
+    scope: { ... };
+    policyCtx: PolicyContext;
+
+    // predictive 模式必填
+    entryEntities?: string[];
+
+    // diagnostic 模式必填
+    outcome?: {
+        entityId: string;
+        eventType: string;            // "milestone_missed" / "incident_p1" / "metric_drop"
+        occurredAt: string;
+        details?: Record<string, unknown>;
+    };
+    timeWindow?: { from: string; to: string };
+};
+```
+
+#### 5.2 时间维度：FactBinding 升级 + EventStore
+
+```ts
+export type FactBinding = {
+    entityId: string;
+    property: string;
+    value: unknown;
+    source: { kind: "graph_property" | "method_result" | "aggregation" | "user_input" | "derived"; ref?: string };
+    confidence: number;
+
+    // V6.5 新增
+    validFrom: string;           // 该值开始生效的时间
+    validUntil?: string;         // 该值失效的时间；undefined = 仍生效
+    observedAt: string;          // 这条记录被写入的时间
+};
+
+export type Event = {
+    id: string;
+    type: string;                // "workload_changed" / "scope_added" / "deadline_missed" / ...
+    occurredAt: string;
+    actorId?: string;
+    affectedEntities: string[];
+    payload: Record<string, unknown>;
+    derivedBindings?: FactBinding[];  // 这个事件产生了哪些 fact 变化
+};
+
+export class EventStore {
+    addEvent(e: Event): void;
+    timelineFor(entityId: string, from?: string, to?: string): Event[];
+    factsAt(entityId: string, t: string): FactBinding[];      // 时间旅行查询
+    eraseEvent(eventId: string): EventStore;                   // for but-for（返回新副本）
+    snapshot(): ReadonlySet<Event>;
+}
+```
+
+predictive 与 diagnostic 模式的关系：
+
+- predictive：`FactStore = EventStore.factsAt(now)` 的投影
+- diagnostic：直接走 EventStore + 时间窗口
+
+也就是说，**FactStore 是 EventStore 的"现在"切片**。这让两种模式共享同一份底层数据，而不需要双写。
+
+#### 5.3 因果维度：CausalGraph
+
+```ts
+export type CausalEdgePattern = {
+    type: "event_type" | "fact_change" | "state";
+    matcher: string;             // "workload > 80h" / "milestone_missed" / "scope_added"
+};
+
+export type CausalEdge = {
+    id: string;
+    cause: CausalEdgePattern;
+    effect: CausalEdgePattern;
+    mechanism: string;           // 自然语言机制描述（解释模板用）
+    typicalLag: string;          // "0-7 days" / "weeks" / "immediate"
+    strength: "weak" | "moderate" | "strong";
+    counterEvidence?: string[];  // 哪些情况下机制不成立
+    relatedRuleIds: string[];    // 与 V6 的 Rule.id 关联
+};
+
+export type CausalPath = {
+    edges: CausalEdge[];
+    rootCause: CausalEdgePattern;
+    finalEffect: CausalEdgePattern;
+};
+
+export class CausalGraph {
+    edges: CausalEdge[];
+
+    potentialCauses(outcome: Event | FactBinding): CausalEdge[];
+    backwardChain(outcome: Event | FactBinding, maxDepth: number): CausalPath[];
+    forwardChain(cause: Event | FactBinding, maxDepth: number): CausalPath[];
+}
+```
+
+**关键设计原则**：`CausalGraph` 与 `Ontology.relations` **必须分开**。
+
+- `R`（关系）描述结构性事实：`Engineer --member_of--> Team`
+- `CausalGraph` 描述机制性因果：`workload > threshold ──leads_to──> productivity_drop`
+
+二者维度不同：同一对实体可能有结构关系但无因果关系；很多因果边的两端根本不是 graph node，而是属性变化或事件类型。
+
+#### 5.4 归因维度
+
+```ts
+export type CandidateCause = {
+    id: string;
+    label: string;               // human-readable 原因名（如 "api_dependency_slip"）
+    description: string;
+    causalPath: CausalPath;
+    timelineEvidenceIds: string[];
+    canCoexistWith: string[];    // 可与哪些其他 cause 同时成立
+};
+
+export type AttributionResult = {
+    causeId: string;
+    necessity: number;           // 0..1，but-for 测试强度
+    sufficiency: number;         // 0..1，单独充分性
+    pathCompleteness: number;    // 0..1，causal path 上证据完整度
+    temporalPlausibility: number; // 0..1，时序合理性（lag 是否落在 typicalLag 内）
+    attributionScore: number;    // 综合分
+    confidence: number;
+    rationale: string;
+};
+
+export type DiagnosticVerdict = {
+    source: "system" | "model";
+    rankedAttributions: AttributionResult[];
+    overdetermined: boolean;     // 是否多因充分（多个 cause 各自 sufficiency > 0.6）
+    notes: string[];
+};
+
+export type DecisionResponse_Diagnostic = Omit<DecisionResponse, "systemVerdict" | "modelVerdict"> & {
+    systemVerdict: DiagnosticVerdict;
+    modelVerdict: DiagnosticVerdict;
+    counterfactuals: ButForOffer[];
+};
+```
+
+注意 `attributionScore` **不强制归一化为 sum=1**——多个原因可以各自有 0.4、0.4、0.3 的 attribution，这正是"多因并存"的表达。
+
+### 6. Pipeline 多分支
+
+| 阶段 | predictive | diagnostic |
+|------|------------|------------|
+| frontEnd | 抽取 entryEntities | 抽取 outcome event + timeWindow |
+| planner | 前向 ExplorationPlan | 后向 DiagnosticPlan（沿 CausalGraph 回溯） |
+| executor 工具 | bind_fact / inspect_node / call_method | + query_events / walk_causal_graph / propose_causes |
+| executor prompt | "探索图、绑定事实、提议候选" | "重建时间线、回溯因果路径、提议候选原因" |
+| critic | scoreCandidates（MCDA） | scoreCauses（causal attribution + but-for） |
+| simulate | what-if（snapshot override） | but-for（event erase + replay） |
+| reconciler | candidate ranking 比较 | attribution ranking 比较，且关注 overdetermined |
+
+注意：critic 在两种模式下**都是 deterministic** 的，这是 V6 的核心设计原则在 V6.5 的延续。
+
+### 7. 工具演进
+
+```text
+保留（V6 已有，不改）：
+  inspect_schema, inspect_rules, search_nodes, inspect_node,
+  query_neighbors, describe_method, call_method, aggregate_facts,
+  bind_fact, lookup_fact, propose_candidates, record_evidence, evaluate_rule
+
+新增（V6.5）：
+  query_events(entityId, from, to, eventTypes?)
+    → 拉时间线
+
+  walk_causal_graph(seed, direction: "backward" | "forward", maxDepth)
+    → 沿因果图遍历，返回 CausalPath[]
+
+  propose_causes([{label, causalPath, rationale}])
+    → diagnostic 模式下的候选提议（替代 propose_candidates）
+
+  record_event({type, occurredAt, affectedEntities, payload})
+    → 显式登记事件（当从外部系统拉取事件流时使用）
+
+增强（V6 既有工具加 mode 参数）：
+  simulate({ mode: "what_if" | "but_for", overrides? | eraseEventId? })
+  inspect_node({ nodeId, fields?, at?: string })  ← 新增 at 做时间旅行查询
+```
+
+被有意排除的工具：
+
+- 不引入 `evaluate_causes` 这种"让 LLM 自评归因"的工具——归因是 critic 的职责，与 V6 决策 3 一致。
+
+### 8. Diagnostic Prompt 守则
+
+诊断模式 system prompt 必须明确告诉 LLM 四件事，否则 LLM 会回退到"前向叙事"：
+
+```text
+1. **outcome 已经发生**
+   你不是预测者；不要写"可能会延期"这种话术。outcome 是既定事实，
+   你的工作是回到 outcome 发生前的事实状态去找原因。
+
+2. **相关 ≠ 因果**
+   两件事在时间上接近，不能直接归因。每个候选原因必须：
+   - 在 CausalGraph 中有从 cause 到 outcome 的 causal path
+   - 通过 but-for 测试（simulate(mode="but_for") 后 outcome 不发生或概率显著下降）
+   - 时序合理（cause 早于 outcome，lag 在 typicalLag 范围内）
+
+3. **多因并存**
+   一个 outcome 可能被多个原因同时充分导致（overdetermination）。
+   不要强行选一个"最大原因"。按 attribution 排序展示，并标注是否充分。
+
+4. **警惕后见之明偏差**
+   不要用"事后看 X 早就预兆了"这种叙事。要还原 outcome 发生前的 fact 状态，
+   只用当时已知的事实做归因，不引用 outcome 之后的信息。
+```
+
+### 9. 完整诊断链演示（精简版）
+
+承接前文 demo 场景，假设 `project_portal` 已经在 `2026-04-21` 错过 milestone：
+
+#### F-1：frontEnd
+
+```text
+user: "project_portal 上周二的 demo 延期了，能帮我看看为什么吗？"
+
+→ DecisionTask {
+    mode: "diagnostic",
+    intent: "rca",
+    outcome: { entityId: "project_portal", eventType: "milestone_missed", occurredAt: "2026-04-21T10:00:00Z" },
+    timeWindow: { from: "2026-03-21", to: "2026-04-21" },
+    scope: { typeOfInterest: ["Project", "Engineer", "Team"] },
+    policyCtx: ...
+}
+```
+
+#### P-1：DiagnosticPlanner
+
+```text
+DiagnosticPlan {
+    rootOutcome: "project_portal.milestone_missed@2026-04-21",
+    backwardChains: [
+        { causalEdges: ["productivity_drop→milestone_missed",
+                        "deadline_pressure_increase→milestone_missed",
+                        "blocking_dep→milestone_missed"], depth: 2 },
+    ],
+    eventsToReconstruct: [
+        { entityIdHint: "project_portal", eventTypes: ["scope_change", "deadline_change"] },
+        { entityIdHint: "by_type:Engineer (assigned to project_portal)",
+          eventTypes: ["workload_spike", "leave_taken"] },
+        { entityIdHint: "project_api", eventTypes: ["delivery_slip", "scope_change"] },
+    ],
+    candidateCauseSpace: ["scope_creep", "dependency_slip", "team_burnout", "external_blocker"],
+}
+```
+
+#### E-1..N：Executor
+
+LLM 主要调用 `query_events` / `walk_causal_graph` / `bind_fact`，最后用 `propose_causes` 提议三个候选：`api_dependency_slip` / `scope_creep_week3` / `alice_burnout`。**executor 不做归因打分**。
+
+#### C-1：Diagnostic Critic（确定性）
+
+对每个候选执行：路径完整性 + but-for 必要性 + 充分性 + 时序合理性。
+
+```text
+systemAttribution = [
+    { causeId: "api_dependency_slip",
+      necessity: 0.82, sufficiency: 0.65, pathCompleteness: 0.95,
+      temporalPlausibility: 0.90, attributionScore: 0.42 },
+
+    { causeId: "scope_creep_week3",
+      necessity: 0.55, sufficiency: 0.50, pathCompleteness: 0.85,
+      temporalPlausibility: 0.80, attributionScore: 0.25 },
+
+    { causeId: "alice_burnout",
+      necessity: 0.30, sufficiency: 0.15, pathCompleteness: 0.70,
+      temporalPlausibility: 0.60, attributionScore: 0.10 },
+],
+overdetermined: false   // 没有任意两个 cause 都 sufficiency > 0.6
+```
+
+#### R-1：Reconciliation
+
+systemVerdict 与 modelVerdict 比较 attribution ranking。如果 model 把 alice_burnout 排第一而 system 排第三，reconciler 会 surface：
+
+```text
+⚠️ system 与 model 在归因排序上存在分歧
+  system: api_dep > scope_creep > alice_burnout
+  model:  alice_burnout > api_dep > scope_creep
+  likely cause: model 受 "alice 倦怠" 这条 evidence 的近因偏置影响；
+                system 在 but-for 测试中发现抹除 alice_burnout 后 outcome 仍然以 70% 概率发生
+```
+
+#### U-1：UI
+
+```text
+延期归因（多因并存，按 attribution 排序）
+
+📌 主因（attribution > 0.4）
+  · project_api 交付延期（0.42）
+    必要性 0.82 | 充分性 0.65
+    证据：04-15 project_api 已知延期 4 天；portal 在 04-15 起 blocked
+    反事实：如果 api 按时交付，portal 延期概率 18%
+
+📌 次因（0.1 ≤ attribution < 0.4）
+  · 第三周范围扩张（0.25）
+
+📌 边缘因素（attribution < 0.1）
+  · alice 倦怠（0.10）
+    单独起作用概率较低；与上述主因叠加才显著影响
+
+[模拟：如果 api 没延期] [模拟：如果没新增 scope] [完整事件时间线]
+```
+
+### 10. 关键设计决策（diagnostic-specific）
+
+#### 决策 1：CausalGraph 与 Ontology.relations 必须分开
+
+不要把"因果"塞进 R。结构关系（成员、所属、依赖）描述世界静态结构；因果关系描述事件机制。混在一起会破坏前向 R 查询的语义，并让因果图无法演化。
+
+#### 决策 2：归因评分不是 MCDA 的延伸
+
+attribution 必须建立在 but-for 测试之上，仅靠"规则触发计数"或"加权和"会重新犯 V5 demo 的错——只是这次的错叫"近因偏置"。
+
+#### 决策 3：but-for 优先于 path completeness
+
+如果一条 causal path 在事件层面完整、但 but-for 测试失败（抹掉 cause 后 outcome 仍发生），attribution 必须低，**不能因为路径漂亮就高分**。
+
+#### 决策 4：attribution 不强制 sum=1
+
+多因并存时强行归一化会人为制造"主原因"。allow `sum > 1` 或 `sum < 1`，并显式 surface `overdetermined` 标记。
+
+#### 决策 5：critic 不能让 model 单独定罪
+
+诊断结论会成为团队复盘材料，可能影响绩效讨论，**不能让 LLM 一个人决定"是 alice 的锅"**。systemVerdict 与 modelVerdict 必须并列；冲突必须 surface；用户可标注"哪个对"作为 calibration 输入。
+
+#### 决策 6：但-for 走 critic 内部，不开放给 LLM
+
+`simulate(mode="but_for")` 由 critic 在 attribution 计算时内部调用。不让 LLM 在 executor 阶段直接调用 but-for——否则 LLM 会循环测试到自己想要的结论。
+
+### 11. V6 → V6.5 迁移路径
+
+放在 V6.4（策略层 + 反事实 + 反馈闭环）完成之后，作为可选扩展：
+
+#### V6.5.0：时间维度
+
+1. `FactBinding` 加 `validFrom / validUntil / observedAt`
+2. 新建 `EventStore`，FactStore 改为 `EventStore.factsAt(now)` 的投影
+3. `inspect_node` 加 `at?: string` 参数
+4. 新增 `query_events` / `record_event` 工具
+
+目标：让 V6 的所有现有功能在不破坏接口的前提下获得时间维度。
+
+#### V6.5.1：因果维度
+
+1. 新建 `ontology/causal.ts`：`CausalEdge` / `CausalGraph`
+2. seed 一份小规模因果图（项目延期场景 5–10 条边）
+3. 新增 `walk_causal_graph` 工具
+
+目标：因果模型可见、可查询。
+
+#### V6.5.2：诊断 critic + but-for
+
+1. 新建 `agent/criticDiagnostic.ts`
+2. 实现 `but_for` 模式 simulate（EventStore.eraseEvent + 因果链重放）
+3. 实现 `scoreCauses`：必要性 + 充分性 + 路径完整性 + 时序合理性
+
+目标：归因可计算，与前向 critic 走同一 deterministic 原则。
+
+#### V6.5.3：Diagnostic frontEnd / planner / prompt
+
+1. `intent classifier` 加 mode 一级分类
+2. 新增 `agent/plannerDiagnostic.ts`
+3. 新增 `agent/promptDiagnostic.ts`
+4. `runDecisionAssistant` 按 mode 路由
+
+目标：完整 diagnostic 链路打通。
+
+#### V6.5.4：双模式产品化
+
+1. UI 区分 predictive vs diagnostic 渲染
+2. counterfactual offers 按模式生成（what-if vs but-for）
+3. 反馈通道复用，但 calibration 信号分组（不要让 diagnostic 的反馈影响 predictive 的权重）
+
+### 12. 测试策略补充
+
+除 V6 测试外，新增：
+
+1. **Time travel tests**：`EventStore.factsAt(t)` 在不同 t 返回的 binding 必须自洽
+2. **Causal path tests**：给定 outcome，`backwardChain(maxDepth=N)` 必须返回所有 ≤N 步的路径，无重复无遗漏
+3. **But-for tests**：抹除某事件后，沿因果图重放，outcome 概率变化必须单调
+4. **Attribution monotonicity**：抹除一个高必要性 cause，其他 cause 的 attribution 应上升或不变（不能凭空跳跃）
+5. **Mode switching tests**：同一份 seed data，predictive 和 diagnostic 输出独立合理
+6. **Hindsight bias tests**：在 t < outcomeTime 的 fact 上做归因，禁止使用 t ≥ outcomeTime 的 fact 作为 evidence
+7. **Overdetermination tests**：构造一个 outcome 由两个独立充分原因导致的场景，断言 `overdetermined: true` 且二者 attribution 都高
+
+### 13. 风险与缓解（diagnostic-specific）
+
+| 风险 | 概率 | 影响 | 缓解 |
+|------|------|------|------|
+| 后见之明偏差被无声引入 | 高 | 高 | prompt 中显式约束；critic 强制时间窗口；ev 引用做时间合法性校验 |
+| 反事实计算成本过高 | 中 | 中 | but-for 仅对 top-K 候选执行；causal chain 深度上限；缓存 |
+| 因果图建模本身需要专家 | 高 | 中 | 提供初始模板（如"项目延期"通用因果图）；允许业务专家增量补充 |
+| Overdetermination 误识别为单因 | 中 | 高 | 当 top-2 attribution 都 > 0.4，强制 overdetermined=true 并在 UI 警告 |
+| LLM 把"相关"叙述成"因果" | 高 | 高 | model rationale 必须 cite causalPath.edges；reconciler 检查每条 evidence 是否落在某条 causalEdge 上 |
+| 因果图与本体 R 长期漂移 | 中 | 中 | CausalEdge.relatedRuleIds 强制双向引用；ontology lint 检查 |
+| 反馈通道污染前向权重 | 中 | 中 | calibration log 按 mode 分桶，不混算 |
+
+### 14. 这一节暂不做什么
+
+V6.5 不做：
+
+1. **不做 do-calculus / Pearl 三层因果**  
+   仅做"局部事件擦除 + 因果链重放"的简化反事实。
+
+2. **不做概率因果建模（贝叶斯网络）**  
+   `CausalEdge.strength` 是离散标签（weak/moderate/strong），不引入条件概率表。
+
+3. **不做时序因果发现**  
+   不自动从历史数据学习 CausalEdge；因果模型由人工建模。
+
+4. **不做跨用户事件流融合**  
+   EventStore 仍是请求级单租户。
+
+5. **不做实时事件流**  
+   事件由请求时拉取或预先 seed，不引入流式订阅。
+
+### 15. 一句话总结
+
+> **V6 让 Agent 会做前向决策。V6.5 让 Agent 在同一框架下也会做后向归因。**  
+>   
+> **Predictive 与 Diagnostic 不是两个系统，是同一个决策辅助系统的对偶面：**  
+> **前者从 facts 推 outcome，后者从 outcome 推 causes；**  
+> **前者用 what-if 探索未来，后者用 but-for 解释过去；**  
+> **前者打分讲 MCDA 加权，后者打分讲必要性 + 充分性。**  
+>   
+> **共享同一份本体、同一份 EventStore、同一套双轨判决与冲突暴露机制。**
+
+---
+
+## 十六、总结
 
 V4 的关键是：**"不要手写 AI SDK 已经解决的 tool-calling loop。"**
 
@@ -1136,6 +1640,12 @@ V6 的关键是：
 3. **双轨判决 + Reconciliation** —— 让 LLM 与系统的分歧不再被掩盖
 4. **前端意图 + 后端反馈** —— 让系统真正面向用户、面向迭代
 
+V6.5 的关键是：
+
+> **决策辅助本来就有 forward 与 backward 两个对偶面。**  
+> **不是另起 V7，而是承认双模式：在同一架构下补齐时间、因果、归因三个维度。**
+
 > V4 让 Agent 会用图。  
 > V5 让 Agent 会用图辅助人做决策。  
-> V6 让"Agent 辅助决策"这件事变成可工程化、可校准、可问责的系统。
+> V6 让"Agent 辅助决策"这件事变成可工程化、可校准、可问责的系统。  
+> V6.5 让这套系统同时支持"预测未来"和"解释过去"。
