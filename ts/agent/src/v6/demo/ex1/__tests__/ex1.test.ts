@@ -1,34 +1,33 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import {
-	setupScenario,
-	seedFactStore,
-	seedEventStore,
-} from "../data/seed";
-import { evaluateSingleRule } from "../ontology/ruleDag";
-import { scoreCandidates } from "../ontology/scoring";
-import { scoreCauses } from "../ontology/attribution";
-import { runPredictiveCritic } from "../agent/criticPredictive";
-import { runDiagnosticCritic } from "../agent/criticDiagnostic";
-import { reconcilePredictive } from "../agent/reconciler";
-import { detectIntent } from "../frontend/intent";
+import { beforeEach, describe, expect, it } from "vitest";
+import { runDiagnosticCritic } from "../../../agent/criticDiagnostic";
+import { runPredictiveCritic } from "../../../agent/criticPredictive";
+import { reconcilePredictive } from "../../../agent/reconciler";
+import { detectIntent } from "../../../frontend/intent";
+import { scoreCauses } from "../../../ontology/attribution";
+import type { CandidateAnswer, ModelVerdict_Predictive, SystemVerdict_Predictive } from "../../../ontology/decision";
+import { DecisionWorkspace, resetIdCounter } from "../../../ontology/decision";
+import { evaluateSingleRule } from "../../../ontology/ruleDag";
+import type { Rule } from "../../../ontology/rules";
+import { scoreCandidates } from "../../../ontology/scoring";
+import { OPEN_POLICY } from "../../../policy/context";
+import { engineeringOntology } from "../ontology";
 import {
 	burnoutFixtures,
 	capacityFixtures,
-	teamLoadFixtures,
 	emptyGraph,
-} from "../data/ruleFixtures";
-import { DecisionWorkspace, resetIdCounter } from "../ontology/decision";
-import { OPEN_POLICY } from "../policy/context";
-import { projectOntology } from "../ontology/schema";
-import type { CandidateAnswer, SystemVerdict_Predictive, ModelVerdict_Predictive } from "../ontology/decision";
-import type { Rule } from "../ontology/rules";
-import type { EvaluatedRule } from "../ontology/ruleDag";
+	teamLoadFixtures,
+} from "../ruleFixtures";
+import {
+	seedEventStore,
+	seedFactStore,
+	setupScenario,
+} from "../seed";
 
 // ── Setup ──
 
 beforeEach(() => {
 	resetIdCounter();
-	setupScenario(); // registers rules + builds graph
+	setupScenario();
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -99,7 +98,6 @@ describe("MCDA scoreCandidates", () => {
 			{ id: "c3", label: "LOW", description: "Low risk", supportingEvidenceIds: [] },
 		];
 
-		// alice burnout triggered → risk_up → should favor HIGH
 		const aliceBurnout = evaluateSingleRule("engineer_burnout_threshold", facts, graph, "alice");
 		const highPriority = evaluateSingleRule("high_priority_pressure", facts, graph, "project_portal");
 
@@ -137,7 +135,6 @@ describe("MCDA scoreCandidates", () => {
 			vetoedLabels: new Set(),
 		});
 
-		// HIGH should rank first
 		expect(scored[0].label).toBe("HIGH");
 		expect(scored[0].rawScore).toBeGreaterThan(scored[1].rawScore);
 	});
@@ -206,14 +203,12 @@ describe("runPredictiveCritic (end-to-end)", () => {
 			facts,
 			candidates,
 			graph,
-			ontology: projectOntology,
+			ontology: engineeringOntology,
 		});
 
 		expect(verdict.source).toBe("system");
-		// HIGH should be recommended (alice burnout + high priority)
 		const topLabel = verdict.ranking[0]?.label;
 		expect(topLabel).toBe("HIGH");
-		// Ranking order: HIGH > MEDIUM > LOW
 		const labels = verdict.ranking.map((r) => r.label);
 		expect(labels.indexOf("HIGH")).toBeLessThan(labels.indexOf("MEDIUM"));
 		expect(labels.indexOf("MEDIUM")).toBeLessThan(labels.indexOf("LOW"));
@@ -227,11 +222,10 @@ describe("runPredictiveCritic (end-to-end)", () => {
 describe("precondition assertion", () => {
 	it("call_method with teamLoad:0 rejected when FactStore has 150", async () => {
 		const { graph } = setupScenario();
-		const { createMethodTools } = await import("../agent/tools/method");
-		const { resetSessionFacts, createFactTools, getSessionFactStore } = await import("../agent/tools/facts");
+		const { createMethodTools } = await import("../../../agent/tools/method");
+		const { resetSessionFacts, createFactTools, getSessionFactStore } = await import("../../../agent/tools/facts");
 		resetSessionFacts();
 
-		// Inject the real value via bind_fact tool
 		const factTools = createFactTools(OPEN_POLICY);
 		await (factTools.bind_fact.execute as Function)(
 			{
@@ -386,7 +380,6 @@ describe("EventStore.eraseEvent (but-for)", () => {
 		const counterfactual = store.eraseEvent("evt_api_delivery_slip");
 		const counterfactualTimeline = counterfactual.timelineFor("project_portal");
 
-		// api_delivery_slip removed → one fewer event in portal timeline
 		expect(counterfactualTimeline.length).toBeLessThan(originalTimeline.length);
 	});
 });

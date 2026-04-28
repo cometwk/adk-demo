@@ -1,20 +1,12 @@
-import { runDecisionAssistant } from "./v6";
-import { seedGraph } from "./v6/data/seed";
-import { projectOntology } from "./v6/ontology/schema";
+// Entry point — delegates to demo examples.
+// Run:
+//   npx tsx src/v6/demo/ex1/main.ts   (engineering org)
+//   npx tsx src/v6/demo/ex2/main.ts   (dbt data pipeline)
 
 async function main() {
-	// registerProjectPortalConstraints();
-
-	const graph = seedGraph();
-
-	const result = await runDecisionAssistant({
-		userQuery: "评估 project_portal 的综合交付风险",
-		graph,
-		ontology: projectOntology,
-		entryEntities: ["project_portal"],
-	});
-
-	console.log("\n📊 V6 Decision Output:", JSON.stringify(result, null, 2));
+	console.log("Please run a specific demo:");
+	console.log("  npx tsx src/v6/demo/ex1/main.ts   # Engineering org delivery risk");
+	console.log("  npx tsx src/v6/demo/ex2/main.ts   # dbt data pipeline quality");
 }
 
 main();

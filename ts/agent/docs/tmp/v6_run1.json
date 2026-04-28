@@ -1,0 +1,1491 @@
+{
+    "model": "glm-5",
+    "temperature": 0,
+    "messages": [
+        {
+            "role": "system",
+            "content": "你是一个结构化决策支持 Agent，当前模式：Predictive（前向推断）。\n\n# 任务\n目标：评估 project_portal 的综合交付风险\n入口实体：project_portal\nOntology 版本：1.0.0\n\n# Ontology 类型摘要\n  Engineer: workload, seniority | methods: assessBurnoutRisk\n  Team: department, capacity | methods: checkOverload\n  Project: priority | methods: evaluateRisk\n\n# 规则集摘要（共 0 条）\n\n\n# 操作规则（严格遵守）\n\n## 事实收集\n1. 每次读取节点属性或调用方法后，立即 bind_fact 将值写入 FactStore。\n2. 在调用 call_method 之前，先 lookup_fact 确认所有参数已绑定，且值来自真实读取。\n3. 数值参数严禁传 0——除非你已通过 lookup_fact 确认该属性的实际值就是 0。\n\n## 候选与证据\n4. 第一步调用 propose_candidates 声明候选答案（如 HIGH / MEDIUM / LOW）。\n5. 收集到支持某候选的证据时，调用 record_evidence 并关联对应候选。\n6. 不确定的信号调用 declare_uncertainty 记录。\n\n## 评分边界\n7. 你不负责计算最终分数，也不需要知道规则权重的数值。\n8. 你的职责是把 FactStore 填满，让 Critic 有完整数据进行 MCDA 评分。\n9. 如需查看规则是否触发，使用 evaluate_rule；不要自行推断分数。\n\n## 因果与假设\n10. 如有反事实想法（\"如果 alice 工作量减少\"），调用 simulate(mode:\"what_if\") 生成 offer，不要自己计算结论。\n\n# 输出格式\n在完成事实收集和证据记录后，用以下 JSON 结构给出你的最终判断：\n\n```json\n{\n  \"modelVerdict\": {\n    \"recommendedCandidateId\": \"<candidate_id>\",\n    \"confidence\": 0.0–1.0,\n    \"rationale\": \"一段精简的推理过程\",\n    \"citedEvidenceIds\": [\"ev_1\", \"ev_2\"],\n    \"citedRuleIds\": [\"rule_id_1\"]\n  }\n}\n```\n\n严禁在此 JSON 之外给出风险评级——等待 Critic 和 Reconciler 完成最终裁定。"
+        },
+        {
+            "role": "user",
+            "content": "请对以下实体进行决策分析：project_portal。\n目标：评估 project_portal 的综合交付风险"
+        },
+        {
+            "role": "assistant",
+            "content": "我将对 project_portal 进行综合交付风险评估。让我按照结构化决策流程进行。\n\n## 第一步：声明候选答案",
+            "reasoning_content": "用户要求对 project_portal 进行决策分析，目标是评估综合交付风险。\n\n根据操作规则，我需要：\n1. 首先调用 propose_candidates 声明候选答案（如 HIGH / MEDIUM / LOW）\n2. 收集事实并绑定到 FactStore\n3. 记录证据\n4. 最后给出判断\n\n让我开始：\n\n第一步：声明候选答案\n对于交付风险，通常的候选是 HIGH、MEDIUM、LOW\n\n第二步：收集事实\n- 需要查看 project_portal 节点的属性\n- 需要查看相关联的 Engineer 和 Team\n- 调用相关方法评估风险\n\n让我先搜索 project_portal 节点，然后查看其属性和关联。",
+            "tool_calls": [
+                {
+                    "id": "tool-3d3303292aec4a3bb753cfb4b1a9583f",
+                    "type": "function",
+                    "function": {
+                        "name": "propose_candidates",
+                        "arguments": "{\"candidates\":[{\"label\":\"HIGH\",\"description\":\"交付风险高，存在多个严重风险因素，需要立即干预\"},{\"label\":\"MEDIUM\",\"description\":\"交付风险中等，存在一些风险因素但可控，需要密切关注\"},{\"label\":\"LOW\",\"description\":\"交付风险低，项目进展顺利，风险因素较少或已得到有效管理\"}]}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-3d3303292aec4a3bb753cfb4b1a9583f",
+            "content": "{\"ok\":true,\"data\":{\"candidates\":[{\"id\":\"cand_1\",\"label\":\"HIGH\"},{\"id\":\"cand_2\",\"label\":\"MEDIUM\"},{\"id\":\"cand_3\",\"label\":\"LOW\"}],\"hint\":\"Now collect facts and evidence, then call record_evidence to link them to candidates.\"}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "好的，候选答案已声明：\n- cand_1: HIGH\n- cand_2: MEDIUM\n- cand_3: LOW\n\n现在我需要收集事实。让我先搜索 project_portal 节点。",
+            "tool_calls": [
+                {
+                    "id": "tool-9a6c8b04cafd4d7ea8d3a8c675b84863",
+                    "type": "function",
+                    "function": {
+                        "name": "search_nodes",
+                        "arguments": "{\"query\":\"project_portal\",\"limit\":20,\"offset\":0}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-9a6c8b04cafd4d7ea8d3a8c675b84863",
+            "content": "{\"ok\":true,\"data\":{\"nodes\":[{\"nodeId\":\"project_portal\",\"type\":\"Project\"}],\"page\":{\"offset\":0,\"limit\":20,\"hasMore\":false,\"total\":1}}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "找到了 project_portal 节点，类型是 Project。现在让我查看它的详细属性和关联。",
+            "tool_calls": [
+                {
+                    "id": "tool-f5407681cfc84810ad26380c2e97a245",
+                    "type": "function",
+                    "function": {
+                        "name": "inspect_node",
+                        "arguments": "{\"nodeId\":\"project_portal\",\"fields\":[\"type\",\"properties\",\"outEdges\",\"inEdges\",\"methods\"]}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-f5407681cfc84810ad26380c2e97a245",
+            "content": "{\"ok\":true,\"data\":{\"type\":\"Project\",\"properties\":{\"priority\":\"high\"},\"outEdges\":{\"owned_by\":[\"team_frontend\"],\"depends_on\":[\"project_api\"]},\"inEdges\":{\"assigned_to\":[\"alice\",\"bob\"]},\"methods\":[{\"name\":\"evaluateRisk\",\"description\":\"基于团队总负载、高级工程师数量和截止日期压力评估交付风险\",\"returns\":\"{ risk: 'HIGH' | 'MEDIUM' | 'LOW'; reasons: string[] }\",\"requiredFacts\":[\"teamLoad\",\"seniorCount\"],\"preconditions\":[{\"param\":\"teamLoad\",\"check\":\"must_be_positive\",\"description\":\"teamLoad must be aggregated from real engineer workloads\"}]}]}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "很好！我得到了 project_portal 的信息：\n\n**属性：**\n- priority: \"high\"\n\n**关联：**\n- owned_by: team_frontend\n- depends_on: project_api\n- assigned_to: alice, bob\n\n**方法：**\n- evaluateRisk: 需要参数 teamLoad 和 seniorCount\n\n现在我需要：\n1. 绑定 priority 属性\n2. 查看关联的 team_frontend（获取团队信息）\n3. 查看关联的工程师 alice 和 bob（获取他们的 workload 和 seniority）\n4. 查看依赖的项目 project_api\n5. 调用相关方法\n\n让我先绑定 priority，然后查看关联节点。",
+            "tool_calls": [
+                {
+                    "id": "tool-55553770fbf2478aa9261fd3fb0ebbde",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"project_portal\",\"property\":\"priority\",\"value\":\"high\",\"sourceKind\":\"graph_property\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-4880a3f0070e48ab8fde345ad51ada5e",
+                    "type": "function",
+                    "function": {
+                        "name": "inspect_node",
+                        "arguments": "{\"nodeId\":\"team_frontend\",\"fields\":[\"type\",\"properties\",\"outEdges\",\"inEdges\",\"methods\"]}"
+                    }
+                },
+                {
+                    "id": "tool-2dfdfea132dc4fd3af64cb69426a1812",
+                    "type": "function",
+                    "function": {
+                        "name": "inspect_node",
+                        "arguments": "{\"nodeId\":\"alice\",\"fields\":[\"type\",\"properties\",\"outEdges\",\"inEdges\",\"methods\"]}"
+                    }
+                },
+                {
+                    "id": "tool-3e9a6ae76b4643ad98935bdc473d3678",
+                    "type": "function",
+                    "function": {
+                        "name": "inspect_node",
+                        "arguments": "{\"nodeId\":\"bob\",\"fields\":[\"type\",\"properties\",\"outEdges\",\"inEdges\",\"methods\"]}"
+                    }
+                },
+                {
+                    "id": "tool-00c3deea05034d3292fac8412b43399e",
+                    "type": "function",
+                    "function": {
+                        "name": "inspect_node",
+                        "arguments": "{\"nodeId\":\"project_api\",\"fields\":[\"type\",\"properties\",\"outEdges\",\"inEdges\",\"methods\"]}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-55553770fbf2478aa9261fd3fb0ebbde",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"project_portal\",\"property\":\"priority\",\"value\":\"high\",\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-4880a3f0070e48ab8fde345ad51ada5e",
+            "content": "{\"ok\":true,\"data\":{\"type\":\"Team\",\"properties\":{\"department\":\"Product\",\"capacity\":2},\"outEdges\":{},\"inEdges\":{\"member_of\":[\"alice\",\"bob\"],\"owned_by\":[\"project_portal\"]},\"methods\":[{\"name\":\"checkOverload\",\"description\":\"检查团队是否超载\",\"returns\":\"{ overloaded: boolean; surplus: number }\",\"requiredFacts\":[\"memberCount\",\"capacity\"],\"preconditions\":[{\"param\":\"memberCount\",\"check\":\"must_be_positive\",\"description\":\"memberCount must come from a real graph query\"}]}]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-2dfdfea132dc4fd3af64cb69426a1812",
+            "content": "{\"ok\":true,\"data\":{\"type\":\"Engineer\",\"properties\":{\"workload\":85,\"seniority\":\"senior\"},\"outEdges\":{\"member_of\":[\"team_frontend\"],\"assigned_to\":[\"project_portal\"]},\"inEdges\":{},\"methods\":[{\"name\":\"assessBurnoutRisk\",\"description\":\"基于资历阈值评估倦怠风险 (senior: 80h, mid: 70h, junior: 55h)\",\"returns\":\"{ risk: 'HIGH' | 'LOW'; threshold: number }\",\"requiredFacts\":[\"workload\",\"seniority\"],\"preconditions\":[]}]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-3e9a6ae76b4643ad98935bdc473d3678",
+            "content": "{\"ok\":true,\"data\":{\"type\":\"Engineer\",\"properties\":{\"workload\":65,\"seniority\":\"mid\"},\"outEdges\":{\"member_of\":[\"team_frontend\"],\"assigned_to\":[\"project_portal\"]},\"inEdges\":{},\"methods\":[{\"name\":\"assessBurnoutRisk\",\"description\":\"基于资历阈值评估倦怠风险 (senior: 80h, mid: 70h, junior: 55h)\",\"returns\":\"{ risk: 'HIGH' | 'LOW'; threshold: number }\",\"requiredFacts\":[\"workload\",\"seniority\"],\"preconditions\":[]}]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-00c3deea05034d3292fac8412b43399e",
+            "content": "{\"ok\":true,\"data\":{\"type\":\"Project\",\"properties\":{\"priority\":\"medium\"},\"outEdges\":{\"owned_by\":[\"team_backend\"]},\"inEdges\":{\"assigned_to\":[\"carol\",\"dave\",\"eve\"],\"depends_on\":[\"project_portal\"]},\"methods\":[{\"name\":\"evaluateRisk\",\"description\":\"基于团队总负载、高级工程师数量和截止日期压力评估交付风险\",\"returns\":\"{ risk: 'HIGH' | 'MEDIUM' | 'LOW'; reasons: string[] }\",\"requiredFacts\":[\"teamLoad\",\"seniorCount\"],\"preconditions\":[{\"param\":\"teamLoad\",\"check\":\"must_be_positive\",\"description\":\"teamLoad must be aggregated from real engineer workloads\"}]}]}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "太好了！我收集到了大量信息：\n\n**team_frontend:**\n- department: \"Product\"\n- capacity: 2\n- 成员: alice, bob\n\n**alice:**\n- workload: 85\n- seniority: \"senior\"\n\n**bob:**\n- workload: 65\n- seniority: \"mid\"\n\n**project_api:**\n- priority: \"medium\"\n- 依赖 project_portal（反向依赖）\n\n现在我需要：\n1. 绑定所有这些属性到 FactStore\n2. 调用相关方法：\n   - alice.assessBurnoutRisk()\n   - bob.assessBurnoutRisk()\n   - team_frontend.checkOverload()\n   - project_portal.evaluateRisk()\n\n让我先绑定所有属性。",
+            "tool_calls": [
+                {
+                    "id": "tool-af0e7850b5fb41f5bbb4cc6a851b18e1",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"team_frontend\",\"property\":\"department\",\"value\":\"Product\",\"sourceKind\":\"graph_property\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-6c6337a57a174e118b2c04111dde6b41",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"team_frontend\",\"property\":\"capacity\",\"value\":2,\"sourceKind\":\"graph_property\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-def33e24739f468fb6e927466fbb8eb1",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"alice\",\"property\":\"workload\",\"value\":85,\"sourceKind\":\"graph_property\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-92a69bd7e21942aeb5afae7ddfe8beb3",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"alice\",\"property\":\"seniority\",\"value\":\"senior\",\"sourceKind\":\"graph_property\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-ac4216fe699e44ac8fa8b2fa103523f9",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"bob\",\"property\":\"workload\",\"value\":65,\"sourceKind\":\"graph_property\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-650a699a18c149f0a6b9994c129619dc",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"bob\",\"property\":\"seniority\",\"value\":\"mid\",\"sourceKind\":\"graph_property\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-3c91dbe220164210b1b13b4ee2b88c27",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"project_api\",\"property\":\"priority\",\"value\":\"medium\",\"sourceKind\":\"graph_property\",\"confidence\":0.9}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-af0e7850b5fb41f5bbb4cc6a851b18e1",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"team_frontend\",\"property\":\"department\",\"value\":\"Product\",\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-6c6337a57a174e118b2c04111dde6b41",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"team_frontend\",\"property\":\"capacity\",\"value\":2,\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-def33e24739f468fb6e927466fbb8eb1",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"alice\",\"property\":\"workload\",\"value\":85,\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-92a69bd7e21942aeb5afae7ddfe8beb3",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"alice\",\"property\":\"seniority\",\"value\":\"senior\",\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-ac4216fe699e44ac8fa8b2fa103523f9",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"bob\",\"property\":\"workload\",\"value\":65,\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-650a699a18c149f0a6b9994c129619dc",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"bob\",\"property\":\"seniority\",\"value\":\"mid\",\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-3c91dbe220164210b1b13b4ee2b88c27",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"project_api\",\"property\":\"priority\",\"value\":\"medium\",\"confidence\":0.9}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "好的，所有属性都已绑定。现在我需要调用方法来评估风险。\n\n让我先查看这些方法的详细描述，确保我了解参数要求：\n\n1. alice.assessBurnoutRisk - 需要 workload 和 seniority（已绑定）\n2. bob.assessBurnoutRisk - 需要 workload 和 seniority（已绑定）\n3. team_frontend.checkOverload - 需要 memberCount 和 capacity（capacity 已绑定，memberCount 需要计算）\n4. project_portal.evaluateRisk - 需要 teamLoad 和 seniorCount\n\n让我先调用 assessBurnoutRisk 方法，因为它们不需要额外参数。",
+            "tool_calls": [
+                {
+                    "id": "tool-9988c7bd0c0f4c1fae0381e7c7744f7f",
+                    "type": "function",
+                    "function": {
+                        "name": "describe_method",
+                        "arguments": "{\"nodeId\":\"alice\",\"method\":\"assessBurnoutRisk\"}"
+                    }
+                },
+                {
+                    "id": "tool-b30c27feb982401bb92cf237a466c598",
+                    "type": "function",
+                    "function": {
+                        "name": "describe_method",
+                        "arguments": "{\"nodeId\":\"team_frontend\",\"method\":\"checkOverload\"}"
+                    }
+                },
+                {
+                    "id": "tool-e8adb32ecbeb4b87bc4b9ecc589643bf",
+                    "type": "function",
+                    "function": {
+                        "name": "describe_method",
+                        "arguments": "{\"nodeId\":\"project_portal\",\"method\":\"evaluateRisk\"}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-9988c7bd0c0f4c1fae0381e7c7744f7f",
+            "content": "{\"ok\":true,\"data\":{\"methodName\":\"assessBurnoutRisk\",\"description\":\"基于资历阈值评估倦怠风险 (senior: 80h, mid: 70h, junior: 55h)\",\"params\":{},\"required\":[],\"returns\":\"{ risk: 'HIGH' | 'LOW'; threshold: number }\",\"requiredFacts\":[\"workload\",\"seniority\"],\"relatedRuleIds\":[\"engineer_burnout_threshold\"],\"preconditions\":[]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-b30c27feb982401bb92cf237a466c598",
+            "content": "{\"ok\":true,\"data\":{\"methodName\":\"checkOverload\",\"description\":\"检查团队是否超载\",\"params\":{\"memberCount\":{\"type\":\"number\"}},\"required\":[\"memberCount\"],\"returns\":\"{ overloaded: boolean; surplus: number }\",\"requiredFacts\":[\"memberCount\",\"capacity\"],\"relatedRuleIds\":[\"team_capacity_overload\"],\"preconditions\":[{\"param\":\"memberCount\",\"check\":\"must_be_positive\",\"description\":\"memberCount must come from a real graph query\"}]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-e8adb32ecbeb4b87bc4b9ecc589643bf",
+            "content": "{\"ok\":true,\"data\":{\"methodName\":\"evaluateRisk\",\"description\":\"基于团队总负载、高级工程师数量和截止日期压力评估交付风险\",\"params\":{\"teamLoad\":{\"type\":\"number\"},\"seniorCount\":{\"type\":\"number\"}},\"required\":[\"teamLoad\",\"seniorCount\"],\"returns\":\"{ risk: 'HIGH' | 'MEDIUM' | 'LOW'; reasons: string[] }\",\"requiredFacts\":[\"teamLoad\",\"seniorCount\"],\"relatedRuleIds\":[\"project_team_load\",\"senior_coverage\",\"high_priority_pressure\"],\"preconditions\":[{\"param\":\"teamLoad\",\"check\":\"must_be_positive\",\"description\":\"teamLoad must be aggregated from real engineer workloads\"}]}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "现在我了解了方法的要求：\n\n1. **assessBurnoutRisk** - 不需要参数，只需要 workload 和 seniority 已绑定\n2. **checkOverload** - 需要 memberCount 参数\n3. **evaluateRisk** - 需要 teamLoad 和 seniorCount 参数\n\n让我先调用 assessBurnoutRisk，然后计算需要的参数：\n\n- memberCount = 2 (alice 和 bob)\n- teamLoad = alice.workload + bob.workload = 85 + 65 = 150\n- seniorCount = 1 (只有 alice 是 senior)\n\n让我先调用 assessBurnoutRisk。",
+            "tool_calls": [
+                {
+                    "id": "tool-0fcaac540f0d46759fa517f8ac59eae2",
+                    "type": "function",
+                    "function": {
+                        "name": "call_method",
+                        "arguments": "{\"nodeId\":\"alice\",\"method\":\"assessBurnoutRisk\",\"args\":{}}"
+                    }
+                },
+                {
+                    "id": "tool-863f554ac48a4b71a4c4be72621ce9c7",
+                    "type": "function",
+                    "function": {
+                        "name": "call_method",
+                        "arguments": "{\"nodeId\":\"bob\",\"method\":\"assessBurnoutRisk\",\"args\":{}}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-0fcaac540f0d46759fa517f8ac59eae2",
+            "content": "{\"ok\":true,\"data\":{\"risk\":\"HIGH\",\"threshold\":80}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-863f554ac48a4b71a4c4be72621ce9c7",
+            "content": "{\"ok\":true,\"data\":{\"risk\":\"LOW\",\"threshold\":70}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "很好！方法调用结果：\n\n**alice.assessBurnoutRisk():**\n- risk: \"HIGH\"\n- threshold: 80\n- alice 的 workload 是 85，超过了 senior 的阈值 80\n\n**bob.assessBurnoutRisk():**\n- risk: \"LOW\"\n- threshold: 70\n- bob 的 workload 是 65，低于 mid 的阈值 70\n\n现在我需要绑定这些结果，然后调用其他方法。\n\n接下来：\n1. 绑定 burnout 风险结果\n2. 计算 teamLoad 和 seniorCount\n3. 调用 team_frontend.checkOverload(memberCount=2)\n4. 调用 project_portal.evaluateRisk(teamLoad=150, seniorCount=1)",
+            "tool_calls": [
+                {
+                    "id": "tool-0d3a5574ab704153a0003a98f49313f3",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"alice\",\"property\":\"burnoutRisk\",\"value\":\"HIGH\",\"sourceKind\":\"method_result\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-986dbbade0bd48ae8023e45baa30696e",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"bob\",\"property\":\"burnoutRisk\",\"value\":\"LOW\",\"sourceKind\":\"method_result\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-b426986876294b53a1a571ce36647c73",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"alice\",\"property\":\"burnoutThreshold\",\"value\":80,\"sourceKind\":\"method_result\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-4ba243f7819f4d4e8a7b1aeb32db4ac4",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"bob\",\"property\":\"burnoutThreshold\",\"value\":70,\"sourceKind\":\"method_result\",\"confidence\":0.9}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-0d3a5574ab704153a0003a98f49313f3",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"alice\",\"property\":\"burnoutRisk\",\"value\":\"HIGH\",\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-986dbbade0bd48ae8023e45baa30696e",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"bob\",\"property\":\"burnoutRisk\",\"value\":\"LOW\",\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-b426986876294b53a1a571ce36647c73",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"alice\",\"property\":\"burnoutThreshold\",\"value\":80,\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-4ba243f7819f4d4e8a7b1aeb32db4ac4",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"bob\",\"property\":\"burnoutThreshold\",\"value\":70,\"confidence\":0.9}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "现在我需要计算聚合值：\n- teamLoad = alice.workload + bob.workload = 85 + 65 = 150\n- seniorCount = 1 (alice 是 senior)\n- memberCount = 2 (alice 和 bob)\n\n让我使用 aggregate_facts 来计算 teamLoad。",
+            "tool_calls": [
+                {
+                    "id": "tool-2877a9542ab04960a56572e264cd6dc5",
+                    "type": "function",
+                    "function": {
+                        "name": "aggregate_facts",
+                        "arguments": "{\"entityIds\":[\"alice\",\"bob\"],\"property\":\"workload\",\"operation\":\"sum\"}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-2877a9542ab04960a56572e264cd6dc5",
+            "content": "{\"ok\":true,\"data\":{\"result\":150,\"operation\":\"sum\",\"property\":\"workload\",\"entityCount\":2,\"hint\":\"Bind result to the relevant entity using bind_fact(entityId, 'workloadSum', 150, 'aggregation') or similar.\"}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "很好！teamLoad = 150。现在我需要绑定这个聚合结果，然后调用方法。",
+            "tool_calls": [
+                {
+                    "id": "tool-791b84f5f8094c3ca0a6bbedbdc0be0c",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"project_portal\",\"property\":\"teamLoad\",\"value\":150,\"sourceKind\":\"aggregation\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-c6bc59bc4b3142d98b599ca107982a2c",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"project_portal\",\"property\":\"seniorCount\",\"value\":1,\"sourceKind\":\"derived\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-690ad1d4ad294557abc5d1e4433123f1",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"team_frontend\",\"property\":\"memberCount\",\"value\":2,\"sourceKind\":\"derived\",\"confidence\":0.9}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-791b84f5f8094c3ca0a6bbedbdc0be0c",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"project_portal\",\"property\":\"teamLoad\",\"value\":150,\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-c6bc59bc4b3142d98b599ca107982a2c",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"project_portal\",\"property\":\"seniorCount\",\"value\":1,\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-690ad1d4ad294557abc5d1e4433123f1",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"team_frontend\",\"property\":\"memberCount\",\"value\":2,\"confidence\":0.9}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "现在我可以调用剩余的方法了。让我先确认参数已绑定。",
+            "tool_calls": [
+                {
+                    "id": "tool-bcc999617a2b4adabba1526500d0f91a",
+                    "type": "function",
+                    "function": {
+                        "name": "lookup_fact",
+                        "arguments": "{\"entityId\":\"team_frontend\",\"property\":\"memberCount\"}"
+                    }
+                },
+                {
+                    "id": "tool-bd31a42387504d40acc44497d2e6d5b0",
+                    "type": "function",
+                    "function": {
+                        "name": "lookup_fact",
+                        "arguments": "{\"entityId\":\"team_frontend\",\"property\":\"capacity\"}"
+                    }
+                },
+                {
+                    "id": "tool-9f9a7059ca794d30a8fac2d72c638968",
+                    "type": "function",
+                    "function": {
+                        "name": "lookup_fact",
+                        "arguments": "{\"entityId\":\"project_portal\",\"property\":\"teamLoad\"}"
+                    }
+                },
+                {
+                    "id": "tool-b81ba6b363cb4d99b0de5d5c48489863",
+                    "type": "function",
+                    "function": {
+                        "name": "lookup_fact",
+                        "arguments": "{\"entityId\":\"project_portal\",\"property\":\"seniorCount\"}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-bcc999617a2b4adabba1526500d0f91a",
+            "content": "{\"ok\":true,\"data\":{\"found\":true,\"entityId\":\"team_frontend\",\"property\":\"memberCount\",\"value\":2,\"confidence\":0.9,\"source\":{\"kind\":\"derived\"},\"validFrom\":\"2026-04-27T12:26:37.134Z\",\"observedAt\":\"2026-04-27T12:26:37.134Z\"}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-bd31a42387504d40acc44497d2e6d5b0",
+            "content": "{\"ok\":true,\"data\":{\"found\":true,\"entityId\":\"team_frontend\",\"property\":\"capacity\",\"value\":2,\"confidence\":0.9,\"source\":{\"kind\":\"graph_property\"},\"validFrom\":\"2026-04-27T12:26:03.520Z\",\"observedAt\":\"2026-04-27T12:26:03.520Z\"}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-9f9a7059ca794d30a8fac2d72c638968",
+            "content": "{\"ok\":true,\"data\":{\"found\":true,\"entityId\":\"project_portal\",\"property\":\"teamLoad\",\"value\":150,\"confidence\":0.9,\"source\":{\"kind\":\"aggregation\"},\"validFrom\":\"2026-04-27T12:26:37.134Z\",\"observedAt\":\"2026-04-27T12:26:37.134Z\"}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-b81ba6b363cb4d99b0de5d5c48489863",
+            "content": "{\"ok\":true,\"data\":{\"found\":true,\"entityId\":\"project_portal\",\"property\":\"seniorCount\",\"value\":1,\"confidence\":0.9,\"source\":{\"kind\":\"derived\"},\"validFrom\":\"2026-04-27T12:26:37.134Z\",\"observedAt\":\"2026-04-27T12:26:37.134Z\"}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "完美！所有参数都已确认绑定：\n- team_frontend.memberCount = 2\n- team_frontend.capacity = 2\n- project_portal.teamLoad = 150\n- project_portal.seniorCount = 1\n\n现在可以调用方法了。",
+            "tool_calls": [
+                {
+                    "id": "tool-c988211f869649ff83a2e217025a0e32",
+                    "type": "function",
+                    "function": {
+                        "name": "call_method",
+                        "arguments": "{\"nodeId\":\"team_frontend\",\"method\":\"checkOverload\",\"args\":{\"memberCount\":2}}"
+                    }
+                },
+                {
+                    "id": "tool-7e642104d04249849f12780f1a8844a0",
+                    "type": "function",
+                    "function": {
+                        "name": "call_method",
+                        "arguments": "{\"nodeId\":\"project_portal\",\"method\":\"evaluateRisk\",\"args\":{\"teamLoad\":150,\"seniorCount\":1}}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-c988211f869649ff83a2e217025a0e32",
+            "content": "{\"ok\":true,\"data\":{\"overloaded\":false,\"surplus\":0}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-7e642104d04249849f12780f1a8844a0",
+            "content": "{\"ok\":true,\"data\":{\"risk\":\"MEDIUM\",\"reasons\":[\"截止日期压力严重 (0.85)\"]}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "太好了！方法调用结果：\n\n**team_frontend.checkOverload(memberCount=2):**\n- overloaded: false\n- surplus: 0\n- 团队没有超载，但也没有余量\n\n**project_portal.evaluateRisk(teamLoad=150, seniorCount=1):**\n- risk: \"MEDIUM\"\n- reasons: [\"截止日期压力严重 (0.85)\"]\n\n现在我需要绑定这些结果，然后记录证据。",
+            "tool_calls": [
+                {
+                    "id": "tool-6149e67bdeec4b139ef74aa8df9ebf82",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"team_frontend\",\"property\":\"overloaded\",\"value\":false,\"sourceKind\":\"method_result\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-7b25428282604040bf89b99d306a5634",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"team_frontend\",\"property\":\"surplus\",\"value\":0,\"sourceKind\":\"method_result\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-1d459894710c4b61ab6825c18ebd5c69",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"project_portal\",\"property\":\"risk\",\"value\":\"MEDIUM\",\"sourceKind\":\"method_result\",\"confidence\":0.9}"
+                    }
+                },
+                {
+                    "id": "tool-b3aeeb5536714939ac15e48b1a1361d7",
+                    "type": "function",
+                    "function": {
+                        "name": "bind_fact",
+                        "arguments": "{\"entityId\":\"project_portal\",\"property\":\"deadlinePressure\",\"value\":0.85,\"sourceKind\":\"method_result\",\"confidence\":0.9}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-6149e67bdeec4b139ef74aa8df9ebf82",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"team_frontend\",\"property\":\"overloaded\",\"value\":false,\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-7b25428282604040bf89b99d306a5634",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"team_frontend\",\"property\":\"surplus\",\"value\":0,\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-1d459894710c4b61ab6825c18ebd5c69",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"project_portal\",\"property\":\"risk\",\"value\":\"MEDIUM\",\"confidence\":0.9}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-b3aeeb5536714939ac15e48b1a1361d7",
+            "content": "{\"ok\":true,\"data\":{\"bound\":true,\"entityId\":\"project_portal\",\"property\":\"deadlinePressure\",\"value\":0.85,\"confidence\":0.9}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "现在我需要查看相关的规则，以便记录证据时可以关联规则ID。让我查看适用的规则。",
+            "tool_calls": [
+                {
+                    "id": "tool-997a0b587a3144d3993c5f7d959ddff8",
+                    "type": "function",
+                    "function": {
+                        "name": "inspect_rules",
+                        "arguments": "{\"entityType\":\"Project\"}"
+                    }
+                },
+                {
+                    "id": "tool-e983d266cc9340888bbfbc7700d348f7",
+                    "type": "function",
+                    "function": {
+                        "name": "inspect_rules",
+                        "arguments": "{\"entityType\":\"Engineer\"}"
+                    }
+                },
+                {
+                    "id": "tool-89b5f3532fe848599cd2f46b71186e73",
+                    "type": "function",
+                    "function": {
+                        "name": "inspect_rules",
+                        "arguments": "{\"entityType\":\"Team\"}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-997a0b587a3144d3993c5f7d959ddff8",
+            "content": "{\"ok\":true,\"data\":{\"rules\":[]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-e983d266cc9340888bbfbc7700d348f7",
+            "content": "{\"ok\":true,\"data\":{\"rules\":[]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-89b5f3532fe848599cd2f46b71186e73",
+            "content": "{\"ok\":true,\"data\":{\"rules\":[]}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "看起来规则集是空的。但是从方法描述中，我看到了一些相关的规则ID：\n- engineer_burnout_threshold\n- team_capacity_overload\n- project_team_load\n- senior_coverage\n- high_priority_pressure\n\n让我尝试评估这些规则。",
+            "tool_calls": [
+                {
+                    "id": "tool-50acae85936347438bce2cc0e46a3400",
+                    "type": "function",
+                    "function": {
+                        "name": "evaluate_rule",
+                        "arguments": "{\"ruleId\":\"project_team_load\",\"entityId\":\"project_portal\"}"
+                    }
+                },
+                {
+                    "id": "tool-eb3c299981d34ccd9c75b6c30a0c94a4",
+                    "type": "function",
+                    "function": {
+                        "name": "evaluate_rule",
+                        "arguments": "{\"ruleId\":\"senior_coverage\",\"entityId\":\"project_portal\"}"
+                    }
+                },
+                {
+                    "id": "tool-9e2d4818dc664bae8d20a7d58911ee12",
+                    "type": "function",
+                    "function": {
+                        "name": "evaluate_rule",
+                        "arguments": "{\"ruleId\":\"high_priority_pressure\",\"entityId\":\"project_portal\"}"
+                    }
+                },
+                {
+                    "id": "tool-f85c9fe76d604b959db427ffbaaaca83",
+                    "type": "function",
+                    "function": {
+                        "name": "evaluate_rule",
+                        "arguments": "{\"ruleId\":\"engineer_burnout_threshold\",\"entityId\":\"alice\"}"
+                    }
+                },
+                {
+                    "id": "tool-c71f0fd1549f4e8bb422609e26ac2314",
+                    "type": "function",
+                    "function": {
+                        "name": "evaluate_rule",
+                        "arguments": "{\"ruleId\":\"team_capacity_overload\",\"entityId\":\"team_frontend\"}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-50acae85936347438bce2cc0e46a3400",
+            "content": "{\"ok\":false,\"code\":\"NOT_FOUND\",\"message\":\"Rule 'project_team_load' not found\",\"retryable\":false,\"expected\":{\"availableRuleIds\":[]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-eb3c299981d34ccd9c75b6c30a0c94a4",
+            "content": "{\"ok\":false,\"code\":\"NOT_FOUND\",\"message\":\"Rule 'senior_coverage' not found\",\"retryable\":false,\"expected\":{\"availableRuleIds\":[]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-9e2d4818dc664bae8d20a7d58911ee12",
+            "content": "{\"ok\":false,\"code\":\"NOT_FOUND\",\"message\":\"Rule 'high_priority_pressure' not found\",\"retryable\":false,\"expected\":{\"availableRuleIds\":[]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-f85c9fe76d604b959db427ffbaaaca83",
+            "content": "{\"ok\":false,\"code\":\"NOT_FOUND\",\"message\":\"Rule 'engineer_burnout_threshold' not found\",\"retryable\":false,\"expected\":{\"availableRuleIds\":[]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-c71f0fd1549f4e8bb422609e26ac2314",
+            "content": "{\"ok\":false,\"code\":\"NOT_FOUND\",\"message\":\"Rule 'team_capacity_overload' not found\",\"retryable\":false,\"expected\":{\"availableRuleIds\":[]}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "规则不存在。这没关系，我可以继续记录证据，只是不关联规则ID。\n\n现在让我总结收集到的事实并记录证据：\n\n**关键发现：**\n1. 项目优先级：high\n2. 团队负载：150（alice: 85, bob: 65）\n3. 高级工程师数量：1（只有 alice）\n4. 截止日期压力：0.85（严重）\n5. alice 倦怠风险：HIGH（workload 85 > threshold 80）\n6. bob 倦怠风险：LOW（workload 65 < threshold 70）\n7. 团队超载：false，但余量为 0\n8. 项目依赖：project_api（中等优先级）\n\n**风险评估：**\n- 方法返回 MEDIUM 风险\n- 主要原因：截止日期压力严重\n\n让我记录这些证据。",
+            "tool_calls": [
+                {
+                    "id": "tool-225358a88182487090d266fc67e109c6",
+                    "type": "function",
+                    "function": {
+                        "name": "record_evidence",
+                        "arguments": "{\"sourceKind\":\"property\",\"entityIds\":[\"project_portal\"],\"relatedRuleIds\":[],\"content\":\"项目优先级为 HIGH，表明该项目具有重要性和紧迫性\",\"baseConfidence\":0.9,\"confidenceModifier\":0,\"supportsCandidateIds\":[\"cand_1\",\"cand_2\"]}"
+                    }
+                },
+                {
+                    "id": "tool-03eafbbea047432188f37b0143374c32",
+                    "type": "function",
+                    "function": {
+                        "name": "record_evidence",
+                        "arguments": "{\"sourceKind\":\"method_result\",\"entityIds\":[\"project_portal\"],\"relatedRuleIds\":[],\"content\":\"项目风险评估方法返回 MEDIUM 风险，主要原因是截止日期压力严重（0.85）\",\"baseConfidence\":0.9,\"confidenceModifier\":0,\"supportsCandidateIds\":[\"cand_2\"]}"
+                    }
+                },
+                {
+                    "id": "tool-73f9a67d80d64361b9e95efa7f4d1fec",
+                    "type": "function",
+                    "function": {
+                        "name": "record_evidence",
+                        "arguments": "{\"sourceKind\":\"method_result\",\"entityIds\":[\"alice\"],\"relatedRuleIds\":[],\"content\":\"高级工程师 alice 存在 HIGH 倦怠风险，工作量 85h 超过 senior 阈值 80h\",\"baseConfidence\":0.9,\"confidenceModifier\":0,\"supportsCandidateIds\":[\"cand_1\",\"cand_2\"]}"
+                    }
+                },
+                {
+                    "id": "tool-809a6ced80f64734add3a84519e3ff37",
+                    "type": "function",
+                    "function": {
+                        "name": "record_evidence",
+                        "arguments": "{\"sourceKind\":\"method_result\",\"entityIds\":[\"bob\"],\"relatedRuleIds\":[],\"content\":\"中级工程师 bob 倦怠风险为 LOW，工作量 65h 低于 mid 阈值 70h\",\"baseConfidence\":0.9,\"confidenceModifier\":0,\"supportsCandidateIds\":[\"cand_3\"]}"
+                    }
+                },
+                {
+                    "id": "tool-8c51f49ceac24d95876e4bc81d235374",
+                    "type": "function",
+                    "function": {
+                        "name": "record_evidence",
+                        "arguments": "{\"sourceKind\":\"aggregation\",\"entityIds\":[\"project_portal\",\"alice\",\"bob\"],\"relatedRuleIds\":[],\"content\":\"团队总负载为 150h（alice: 85h + bob: 65h），团队容量为 2 人\",\"baseConfidence\":0.9,\"confidenceModifier\":0,\"supportsCandidateIds\":[\"cand_2\"]}"
+                    }
+                },
+                {
+                    "id": "tool-30d81b7835c049b6bd838c1a0f674269",
+                    "type": "function",
+                    "function": {
+                        "name": "record_evidence",
+                        "arguments": "{\"sourceKind\":\"method_result\",\"entityIds\":[\"team_frontend\"],\"relatedRuleIds\":[],\"content\":\"团队未超载但余量为 0，表明团队处于满负荷状态，缺乏缓冲能力\",\"baseConfidence\":0.9,\"confidenceModifier\":0,\"supportsCandidateIds\":[\"cand_1\",\"cand_2\"]}"
+                    }
+                },
+                {
+                    "id": "tool-1e63fad5eca24f74984f9f1e02d9dd52",
+                    "type": "function",
+                    "function": {
+                        "name": "record_evidence",
+                        "arguments": "{\"sourceKind\":\"derived\",\"entityIds\":[\"project_portal\"],\"relatedRuleIds\":[],\"content\":\"项目仅有 1 名高级工程师（alice），高级工程师覆盖率为 50%\",\"baseConfidence\":0.9,\"supportsCandidateIds\":[\"cand_1\",\"cand_2\"]}"
+                    }
+                },
+                {
+                    "id": "tool-762d14ebe8f147b69b61dbab8f6fd867",
+                    "type": "function",
+                    "function": {
+                        "name": "record_evidence",
+                        "arguments": "{\"sourceKind\":\"property\",\"entityIds\":[\"project_api\"],\"relatedRuleIds\":[],\"content\":\"项目依赖 project_api（中等优先级），存在依赖风险\",\"baseConfidence\":0.8,\"confidenceModifier\":0,\"supportsCandidateIds\":[\"cand_2\"]}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-1e63fad5eca24f74984f9f1e02d9dd52",
+            "content": "Invalid input for tool record_evidence: Type validation failed: Value: {\"sourceKind\":\"derived\",\"entityIds\":[\"project_portal\"],\"relatedRuleIds\":[],\"content\":\"项目仅有 1 名高级工程师（alice），高级工程师覆盖率为 50%\",\"baseConfidence\":0.9,\"supportsCandidateIds\":[\"cand_1\",\"cand_2\"]}.\nError message: [\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"property\",\n      \"method_result\",\n      \"rule_evaluation\",\n      \"aggregation\",\n      \"event\",\n      \"causal_path\"\n    ],\n    \"path\": [\n      \"sourceKind\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"property\\\"|\\\"method_result\\\"|\\\"rule_evaluation\\\"|\\\"aggregation\\\"|\\\"event\\\"|\\\"causal_path\\\"\"\n  }\n]"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-225358a88182487090d266fc67e109c6",
+            "content": "{\"ok\":true,\"data\":{\"evidenceId\":\"ev_4\",\"confidence\":0.9,\"linkedCandidates\":[\"cand_1\",\"cand_2\"]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-03eafbbea047432188f37b0143374c32",
+            "content": "{\"ok\":true,\"data\":{\"evidenceId\":\"ev_5\",\"confidence\":0.9,\"linkedCandidates\":[\"cand_2\"]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-73f9a67d80d64361b9e95efa7f4d1fec",
+            "content": "{\"ok\":true,\"data\":{\"evidenceId\":\"ev_6\",\"confidence\":0.9,\"linkedCandidates\":[\"cand_1\",\"cand_2\"]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-809a6ced80f64734add3a84519e3ff37",
+            "content": "{\"ok\":true,\"data\":{\"evidenceId\":\"ev_7\",\"confidence\":0.9,\"linkedCandidates\":[\"cand_3\"]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-8c51f49ceac24d95876e4bc81d235374",
+            "content": "{\"ok\":true,\"data\":{\"evidenceId\":\"ev_8\",\"confidence\":0.9,\"linkedCandidates\":[\"cand_2\"]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-30d81b7835c049b6bd838c1a0f674269",
+            "content": "{\"ok\":true,\"data\":{\"evidenceId\":\"ev_9\",\"confidence\":0.9,\"linkedCandidates\":[\"cand_1\",\"cand_2\"]}}"
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-762d14ebe8f147b69b61dbab8f6fd867",
+            "content": "{\"ok\":true,\"data\":{\"evidenceId\":\"ev_10\",\"confidence\":0.8,\"linkedCandidates\":[\"cand_2\"]}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "有一个证据记录失败了，因为 sourceKind 不能是 \"derived\"。让我重新记录这个证据，使用正确的 sourceKind。",
+            "tool_calls": [
+                {
+                    "id": "tool-464eb45267da4594a0785c00a7b281d6",
+                    "type": "function",
+                    "function": {
+                        "name": "record_evidence",
+                        "arguments": "{\"sourceKind\":\"aggregation\",\"entityIds\":[\"project_portal\"],\"relatedRuleIds\":[],\"content\":\"项目仅有 1 名高级工程师（alice），高级工程师覆盖率为 50%\",\"baseConfidence\":0.9,\"confidenceModifier\":0,\"supportsCandidateIds\":[\"cand_1\",\"cand_2\"]}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-464eb45267da4594a0785c00a7b281d6",
+            "content": "{\"ok\":true,\"data\":{\"evidenceId\":\"ev_11\",\"confidence\":0.9,\"linkedCandidates\":[\"cand_1\",\"cand_2\"]}}"
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "很好！现在所有证据都已记录。让我查看当前的工作区状态，然后给出最终判断。\n\n让我总结一下收集到的证据：\n\n**支持 HIGH 风险的证据：**\n- ev_4: 项目优先级为 HIGH\n- ev_6: alice 存在 HIGH 倦怠风险\n- ev_9: 团队余量为 0，缺乏缓冲\n- ev_11: 高级工程师覆盖率仅 50%\n\n**支持 MEDIUM 风险的证据：**\n- ev_4: 项目优先级为 HIGH\n- ev_5: 项目风险评估方法返回 MEDIUM\n- ev_6: alice 存在 HIGH 倦怠风险\n- ev_8: 团队总负载 150h\n- ev_9: 团队余量为 0\n- ev_10: 项目依赖 project_api\n- ev_11: 高级工程师覆盖率仅 50%\n\n**支持 LOW 风险的证据：**\n- ev_7: bob 倦怠风险为 LOW\n\n综合分析：\n- 项目方法评估为 MEDIUM 风险\n- 存在多个风险因素：高优先级、截止日期压力严重、高级工程师倦怠风险、团队无余量、高级工程师覆盖率低\n- 但团队未超载，bob 的倦怠风险低\n- 存在依赖风险\n\n我认为最合理的判断是 MEDIUM 风险，因为：\n\n\n项目方法评估结果明确指向中等风险，尽管存在多个潜在挑战。关键风险因素如截止日期压力和高级工程师倦怠需要谨慎管理，但团队整体仍保持相对稳定。",
+            "tool_calls": [
+                {
+                    "id": "tool-00c219494ef74ab490742301f8cddaa8",
+                    "type": "function",
+                    "function": {
+                        "name": "list_workspace",
+                        "arguments": "{}"
+                    }
+                }
+            ]
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "tool-00c219494ef74ab490742301f8cddaa8",
+            "content": "{\"ok\":true,\"data\":{\"candidates\":[{\"id\":\"cand_1\",\"label\":\"HIGH\",\"description\":\"交付风险高，存在多个严重风险因素，需要立即干预\",\"supportingEvidenceIds\":[\"ev_4\",\"ev_6\",\"ev_9\",\"ev_11\"]},{\"id\":\"cand_2\",\"label\":\"MEDIUM\",\"description\":\"交付风险中等，存在一些风险因素但可控，需要密切关注\",\"supportingEvidenceIds\":[\"ev_4\",\"ev_5\",\"ev_6\",\"ev_8\",\"ev_9\",\"ev_10\",\"ev_11\"]},{\"id\":\"cand_3\",\"label\":\"LOW\",\"description\":\"交付风险低，项目进展顺利，风险因素较少或已得到有效管理\",\"supportingEvidenceIds\":[\"ev_7\"]}],\"evidence\":[{\"id\":\"ev_4\",\"sourceKind\":\"property\",\"content\":\"项目优先级为 HIGH，表明该项目具有重要性和紧迫性\",\"confidence\":0.9},{\"id\":\"ev_5\",\"sourceKind\":\"method_result\",\"content\":\"项目风险评估方法返回 MEDIUM 风险，主要原因是截止日期压力严重（0.85）\",\"confidence\":0.9},{\"id\":\"ev_6\",\"sourceKind\":\"method_result\",\"content\":\"高级工程师 alice 存在 HIGH 倦怠风险，工作量 85h 超过 senior 阈值 80h\",\"confidence\":0.9},{\"id\":\"ev_7\",\"sourceKind\":\"method_result\",\"content\":\"中级工程师 bob 倦怠风险为 LOW，工作量 65h 低于 mid 阈值 70h\",\"confidence\":0.9},{\"id\":\"ev_8\",\"sourceKind\":\"aggregation\",\"content\":\"团队总负载为 150h（alice: 85h + bob: 65h），团队容量为 2 人\",\"confidence\":0.9},{\"id\":\"ev_9\",\"sourceKind\":\"method_result\",\"content\":\"团队未超载但余量为 0，表明团队处于满负荷状态，缺乏缓冲能力\",\"confidence\":0.9},{\"id\":\"ev_10\",\"sourceKind\":\"property\",\"content\":\"项目依赖 project_api（中等优先级），存在依赖风险\",\"confidence\":0.8},{\"id\":\"ev_11\",\"sourceKind\":\"aggregation\",\"content\":\"项目仅有 1 名高级工程师（alice），高级工程师覆盖率为 50%\",\"confidence\":0.9}],\"uncertainties\":[],\"triggeredRuleIds\":[]}}"
+        },
+        {
+            "role": "assistant",
+            "content": "## 决策分析完成\n\n基于对 project_portal 的全面分析，我已完成事实收集和证据记录。以下是最终判断：\n\n```json\n{\n  \"modelVerdict\": {\n    \"recommendedCandidateId\": \"cand_2\",\n    \"confidence\": 0.75,\n    \"rationale\": \"项目评估方法直接返回 MEDIUM 风险，主要原因是截止日期压力严重（0.85）。虽然存在多个风险因素（高级工程师 alice 倦怠风险 HIGH、团队余量为 0、高级工程师覆盖率仅 50%、项目依赖 project_api），但团队整体未超载，bob 的倦怠风险为 LOW。风险因素需要密切关注和管理，但尚未达到需要立即干预的 HIGH 风险级别。\",\n    \"citedEvidenceIds\": [\"ev_5\", \"ev_6\", \"ev_9\", \"ev_11\"],\n    \"citedRuleIds\": []\n  }\n}\n```\n\n### 关键发现总结\n\n**风险因素：**\n- ✗ 项目优先级 HIGH，截止日期压力严重（0.85）\n- ✗ 高级工程师 alice 倦怠风险 HIGH（工作量 85h > 阈值 80h）\n- ✗ 团队余量为 0，缺乏缓冲能力\n- ✗ 高级工程师覆盖率仅 50%（2 人中仅 1 名 senior）\n- ✗ 项目依赖 project_api，存在依赖风险\n\n**缓解因素：**\n- ✓ 团队未超载（成员数 = 容量 = 2）\n- ✓ 中级工程师 bob 倦怠风险 LOW（工作量 65h < 阈值 70h）\n\n**建议：**\n1. 密切关注 alice 的工作量，考虑重新分配部分任务\n2. 监控 project_api 的交付进度\n3. 建立风险缓冲机制，应对截止日期压力",
+            "reasoning_content": "完美！现在我可以给出最终判断了。\n\n根据收集的证据：\n- MEDIUM 风险有 7 条证据支持（ev_4, ev_5, ev_6, ev_8, ev_9, ev_10, ev_11）\n- HIGH 风险有 4 条证据支持（ev_4, ev_6, ev_9, ev_11）\n- LOW 风险有 1 条证据支持（ev_7）\n\n关键证据：\n- ev_5: 项目风险评估方法返回 MEDIUM 风险（这是最直接的评估）\n- ev_6: alice 存在 HIGH 倦怠风险\n- ev_9: 团队余量为 0\n- ev_11: 高级工程师覆盖率仅 50%\n\n我的判断是 MEDIUM 风险，置信度 0.75。理由：\n1. 项目评估方法直接返回 MEDIUM 风险\n2. 存在多个风险因素，但团队未超载\n3. 主要风险是截止日期压力和高级工程师倦怠\n4. 需要密切关注但不是紧急情况"
+        }
+    ],
+    "tools": [
+        {
+            "type": "function",
+            "function": {
+                "name": "inspect_node",
+                "description": "Inspect a graph node. Fields: type, properties, outEdges, inEdges, methods. Optional `at` (ISO 8601) for time-travel: if provided and a FactStore is available, bound facts override graph properties.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "nodeId": {
+                            "type": "string",
+                            "description": "The ID of the node to inspect"
+                        },
+                        "fields": {
+                            "description": "Specific fields to return. Omit for all.",
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "type",
+                                    "properties",
+                                    "outEdges",
+                                    "inEdges",
+                                    "methods"
+                                ]
+                            }
+                        },
+                        "at": {
+                            "description": "ISO 8601 timestamp for time-travel (diagnostic mode)",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "nodeId"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "query_neighbors",
+                "description": "Query neighbors of a node with optional filtering by relation, direction, type, and pagination.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "nodeId": {
+                            "type": "string",
+                            "description": "The starting node ID"
+                        },
+                        "relation": {
+                            "description": "Filter by edge relation type",
+                            "type": "string"
+                        },
+                        "direction": {
+                            "default": "both",
+                            "description": "Edge direction filter",
+                            "type": "string",
+                            "enum": [
+                                "out",
+                                "in",
+                                "both"
+                            ]
+                        },
+                        "typeFilter": {
+                            "description": "Filter neighbors by node type name",
+                            "type": "string"
+                        },
+                        "limit": {
+                            "default": 20,
+                            "description": "Max results per page",
+                            "type": "number"
+                        },
+                        "offset": {
+                            "default": 0,
+                            "description": "Offset for pagination",
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "nodeId"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_nodes",
+                "description": "Search graph nodes by ID substring and/or type name. Returns paginated results.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "description": "Substring to match against node IDs",
+                            "type": "string"
+                        },
+                        "type": {
+                            "description": "Filter by node type name (e.g. 'Project', 'Engineer')",
+                            "type": "string"
+                        },
+                        "limit": {
+                            "default": 20,
+                            "description": "Max results per page",
+                            "type": "number"
+                        },
+                        "offset": {
+                            "default": 0,
+                            "description": "Offset for pagination",
+                            "type": "number"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "describe_method",
+                "description": "Get the full schema of a method: params, returns, description, required facts, and related rules. ALWAYS call this before call_method for unfamiliar methods.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "nodeId": {
+                            "type": "string",
+                            "description": "The node that owns the method"
+                        },
+                        "method": {
+                            "type": "string",
+                            "description": "The method name to describe"
+                        }
+                    },
+                    "required": [
+                        "nodeId",
+                        "method"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "call_method",
+                "description": "Call a registered method on a graph node. Pass arguments as named key-value pairs. IMPORTANT: populate all arguments from the FactStore (lookup_fact) or inspect_node before calling — never pass 0 for numeric arguments you haven't fetched.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "nodeId": {
+                            "type": "string",
+                            "description": "The node to call the method on"
+                        },
+                        "method": {
+                            "type": "string",
+                            "description": "The method name"
+                        },
+                        "args": {
+                            "default": {},
+                            "description": "Arguments as { paramName: value }",
+                            "type": "object",
+                            "propertyNames": {
+                                "type": "string"
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "nodeId",
+                        "method"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "bind_fact",
+                "description": "Record an entity property value into the FactStore. Call this IMMEDIATELY after reading a property from inspect_node or call_method. This is the authoritative record; do NOT assume values without binding them first.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "entityId": {
+                            "type": "string",
+                            "description": "The entity whose property is being recorded"
+                        },
+                        "property": {
+                            "type": "string",
+                            "description": "The property name (e.g. 'workload', 'seniority')"
+                        },
+                        "value": {
+                            "description": "The property value"
+                        },
+                        "sourceKind": {
+                            "default": "graph_property",
+                            "description": "Where this value came from",
+                            "type": "string",
+                            "enum": [
+                                "graph_property",
+                                "method_result",
+                                "aggregation",
+                                "user_input",
+                                "derived"
+                            ]
+                        },
+                        "sourceRef": {
+                            "description": "Optional reference (evidenceId, nodeId)",
+                            "type": "string"
+                        },
+                        "confidence": {
+                            "default": 0.9,
+                            "description": "Confidence 0..1; default 0.9 for direct reads",
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "validFrom": {
+                            "description": "ISO 8601: when this value started being true (defaults to now)",
+                            "type": "string"
+                        },
+                        "validUntil": {
+                            "description": "ISO 8601: when this value stopped being true",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "entityId",
+                        "property",
+                        "value"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "lookup_fact",
+                "description": "Look up a bound fact value for an entity property. Call this before passing values to call_method to avoid blind-zero errors. Returns null if the fact has not been bound yet.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "entityId": {
+                            "type": "string",
+                            "description": "The entity ID"
+                        },
+                        "property": {
+                            "type": "string",
+                            "description": "The property name"
+                        }
+                    },
+                    "required": [
+                        "entityId",
+                        "property"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "aggregate_facts",
+                "description": "Compute an aggregate over bound facts for a property across multiple entities. Operations: sum, avg, count, min, max. Bind the result using bind_fact after aggregation.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "entityIds": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Entity IDs to aggregate over"
+                        },
+                        "property": {
+                            "type": "string",
+                            "description": "The property to aggregate"
+                        },
+                        "operation": {
+                            "type": "string",
+                            "enum": [
+                                "sum",
+                                "avg",
+                                "count",
+                                "min",
+                                "max"
+                            ],
+                            "description": "Aggregation operation"
+                        }
+                    },
+                    "required": [
+                        "entityIds",
+                        "property",
+                        "operation"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "inspect_rules",
+                "description": "List applicable rules for a given entity type and/or intent. Returns rule metadata (id, kind, description, direction, weight, requiredFacts). Use this before calling evaluate_rule to understand which rules apply.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "entityType": {
+                            "description": "Filter by entity type (e.g. 'Engineer', 'Project')",
+                            "type": "string"
+                        },
+                        "intent": {
+                            "description": "Filter by intent keyword (e.g. 'risk_assessment', 'diagnosis')",
+                            "type": "string"
+                        },
+                        "kind": {
+                            "description": "Filter by rule kind",
+                            "type": "string",
+                            "enum": [
+                                "hard_constraint",
+                                "inference_rule",
+                                "soft_criterion",
+                                "conflict_policy",
+                                "explanation_policy"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "evaluate_rule",
+                "description": "Evaluate a single rule against the current FactStore for a specific entity. Returns triggered, severity, explanation, missingFacts. NOTE: You do NOT control scoring weights. Record evidence instead of interpreting scores.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "ruleId": {
+                            "type": "string",
+                            "description": "The rule ID to evaluate"
+                        },
+                        "entityId": {
+                            "description": "Entity ID to evaluate the rule for",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "ruleId"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "propose_candidates",
+                "description": "Propose the mutually exclusive candidate answers for the decision. Must be called once (or updated) before recording evidence. Examples: [{label:'HIGH',description:'...'},{label:'MEDIUM',...},{label:'LOW',...}]",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "candidates": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "label": {
+                                        "type": "string",
+                                        "description": "Short answer label (e.g. HIGH, MEDIUM, LOW)"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "One-sentence rationale for this candidate"
+                                    }
+                                },
+                                "required": [
+                                    "label",
+                                    "description"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    },
+                    "required": [
+                        "candidates"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "record_evidence",
+                "description": "Record a piece of evidence and link it to one or more candidate answers. Base confidence is determined by source kind; you may apply a modifier in {-0.2, 0, +0.2}. Cite the rule IDs this evidence relates to.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "sourceKind": {
+                            "type": "string",
+                            "enum": [
+                                "property",
+                                "method_result",
+                                "rule_evaluation",
+                                "aggregation",
+                                "event",
+                                "causal_path"
+                            ],
+                            "description": "Where this evidence comes from"
+                        },
+                        "entityIds": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Entity IDs this evidence pertains to"
+                        },
+                        "relatedRuleIds": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Rule IDs this evidence relates to"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "Human-readable description of the evidence"
+                        },
+                        "baseConfidence": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "description": "Base confidence 0..1"
+                        },
+                        "confidenceModifier": {
+                            "default": 0,
+                            "description": "LLM modifier ∈ {-0.2, 0, +0.2}",
+                            "type": "number",
+                            "minimum": -0.2,
+                            "maximum": 0.2
+                        },
+                        "supportsCandidateIds": {
+                            "default": [],
+                            "description": "Candidate IDs this evidence supports",
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "required": [
+                        "sourceKind",
+                        "entityIds",
+                        "relatedRuleIds",
+                        "content",
+                        "baseConfidence"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "list_workspace",
+                "description": "List current workspace state: candidates, evidence, and uncertainties.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "declare_uncertainty",
+                "description": "Record a known uncertainty — a missing fact or ambiguous signal that affects confidence. The system will surface unresolved uncertainties in the final response.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string",
+                            "description": "What is uncertain"
+                        },
+                        "impact": {
+                            "type": "string",
+                            "enum": [
+                                "low",
+                                "medium",
+                                "high"
+                            ],
+                            "description": "How much this uncertainty affects the decision"
+                        },
+                        "missingFacts": {
+                            "default": [],
+                            "description": "Property names that are missing",
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "nextQuery": {
+                            "description": "Suggested follow-up query to resolve this",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "description",
+                        "impact"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "simulate",
+                "description": "Generate a counterfactual offer to explore how the outcome changes under different conditions. For what_if: specify entity property overrides to simulate. For but_for: specify an event ID to erase from the timeline. The orchestrator may or may not execute the simulation; this call is non-blocking.",
+                "parameters": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "enum": [
+                                "what_if",
+                                "but_for"
+                            ],
+                            "description": "what_if = forward simulation; but_for = erase past event"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Natural language description of the counterfactual scenario"
+                        },
+                        "overrides": {
+                            "description": "Fact overrides for what_if mode",
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "entityId": {
+                                        "type": "string"
+                                    },
+                                    "property": {
+                                        "type": "string"
+                                    },
+                                    "value": {}
+                                },
+                                "required": [
+                                    "entityId",
+                                    "property",
+                                    "value"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "eraseEventId": {
+                            "description": "Event ID to erase from EventStore for but_for mode",
+                            "type": "string"
+                        },
+                        "impactPreview": {
+                            "description": "Preview of expected impact",
+                            "type": "object",
+                            "properties": {
+                                "before": {
+                                    "type": "string"
+                                },
+                                "estimatedAfter": {
+                                    "type": "string"
+                                },
+                                "rerunCostHint": {
+                                    "type": "string",
+                                    "enum": [
+                                        "cheap",
+                                        "moderate",
+                                        "expensive"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "before",
+                                "estimatedAfter",
+                                "rerunCostHint"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "mode",
+                        "description"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        }
+    ],
+    "tool_choice": "auto"
+}

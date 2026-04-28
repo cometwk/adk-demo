@@ -1,9 +1,9 @@
-import { FactStore } from "../runtime/eventStore";
-import { Graph } from "../runtime/graph";
-import type { FactBinding } from "../runtime/types";
+import { FactStore } from "../../runtime/eventStore";
+import { Graph } from "../../runtime/graph";
+import type { FactBinding } from "../../runtime/types";
 
-// ── Rule fixtures ──
-// Pre-built FactStores for unit-testing individual rules.
+// ── Rule fixtures for unit tests ──
+// Pre-built FactStores for testing individual engineering org rules.
 
 function fb(entityId: string, property: string, value: unknown): FactBinding {
 	const now = "2026-04-27T00:00:00.000Z";
@@ -19,10 +19,6 @@ function fb(entityId: string, property: string, value: unknown): FactBinding {
 }
 
 // ── engineer_burnout_threshold ──
-// alice: senior 85h (burnout)
-// bob: mid 65h (safe)
-// eve: junior 60h (burnout)
-
 export const burnoutFixtures = {
 	alice_senior_burnout: new FactStore([
 		fb("alice", "workload", 85),
@@ -39,10 +35,6 @@ export const burnoutFixtures = {
 };
 
 // ── team_capacity_overload ──
-// team_frontend: 2 members, capacity 2 (not overloaded)
-// team_backend: 3 members, capacity 3 (not overloaded)
-// team_overloaded: 5 members, capacity 3 (overloaded → veto LOW)
-
 export const capacityFixtures = {
 	frontend_normal: new FactStore([
 		fb("team_frontend", "memberCount", 2),
@@ -55,10 +47,6 @@ export const capacityFixtures = {
 };
 
 // ── project_team_load ──
-// portal: teamLoad 150 (safe)
-// api: teamLoad 182 (safe — < 200)
-// overloaded_project: teamLoad 220 (triggers)
-
 export const teamLoadFixtures = {
 	portal_safe: new FactStore([fb("project_portal", "teamLoad", 150)]),
 	api_safe: new FactStore([fb("project_api", "teamLoad", 182)]),
@@ -66,25 +54,19 @@ export const teamLoadFixtures = {
 };
 
 // ── senior_coverage ──
-// no_senior: seniorCount = 0 (triggers → risk_down signal missing)
-// has_senior: seniorCount = 1 (positive)
-
 export const seniorFixtures = {
 	no_senior: new FactStore([fb("project_portal", "seniorCount", 0)]),
 	has_senior: new FactStore([fb("project_portal", "seniorCount", 1)]),
 };
 
 // ── Precondition violation fixture ──
-// Simulates what happens when executor tries teamLoad:0
-
 export const preconditionFixtures = {
 	blind_zero_teamLoad: new FactStore([
-		fb("project_portal", "teamLoad", 150), // correct value IS in store
-		// executor would pass args: { teamLoad: 0 } → precondition should reject
+		fb("project_portal", "teamLoad", 150),
 	]),
 };
 
-// ── Utility: empty graph (for rules that don't need graph edges) ──
+// ── Utility: empty graph ──
 export function emptyGraph(): Graph {
 	return new Graph();
 }
