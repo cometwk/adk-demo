@@ -19,6 +19,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "v5": "tsx --env-file=.env src/v5/index.ts",
+    "v5.1:ex1": "tsx --env-file=.env src/v5.1/demo/ex1/main.ts",
+    "v5.1:ex2": "tsx --env-file=.env src/v5.1/demo/ex2/main.ts",
     "typecheck": "tsc --noEmit",
     "x-chat": "tsx src/demo/chat.js",
     "chat": "tsx --env-file=.env src/demo/chat.js",
@@ -40,7 +42,6 @@
     "ai": "^6.0.168",
     "dotenv": "^16.4.7",
     "mysql2": "^3.22.3",
-    "vitest": "^4.1.5",
     "zod": "^4.3.6",
     "zod-to-json-schema": "^3.25.2"
   },
@@ -49,7 +50,8 @@
     "@types/node": "^22.10.5",
     "@types/react": "^19.1.12",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.5"
   },
   "engines": {
     "node": ">=20.0.0"
