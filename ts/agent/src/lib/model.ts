@@ -1,9 +1,8 @@
 import './env'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAI } from '@ai-sdk/openai'
 
-
-function createModels() {
+function createProvider() {
   if (!process.env.OPENAI_API_BASE || !process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_BASE and OPENAI_API_KEY must be set')
   }
@@ -14,13 +13,17 @@ function createModels() {
 
   const X = createOpenAICompatible
 
-
   const client = X({
     name: 'qwen',
     baseURL: process.env.OPENAI_API_BASE,
     apiKey: process.env.OPENAI_API_KEY,
   })
 
+  return client
+}
+export const provider = createProvider()
+
+function createModel() {
   const MODEL =
     process.env.OPENAI_MODEL || //
     'qwen-plus-2025-09-11' ||
@@ -29,10 +32,8 @@ function createModels() {
     'qwen-plus' ||
     'gpt-4o-mini'
 
-  const model = client(MODEL)
+  const model = provider(MODEL)
   return model
 }
 
-export const model = createModels()
-
-
+export const model = createModel()

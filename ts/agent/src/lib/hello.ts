@@ -1,6 +1,6 @@
 import { generateText, ModelMessage, tool } from 'ai'
 import { z } from 'zod'
-import { model } from './model'
+import { model, provider } from './model'
 
 async function hello1() {
   const { text } = await generateText({
@@ -36,7 +36,7 @@ async function main(history: ModelMessage[] = []) {
 
   let messages = [...history, { role: 'user', content: prompt } satisfies ModelMessage]
   const r = await generateText({
-    model: model,
+    model: provider('glm-5'),
     tools: {
       extract: extractUserInfoTool,
     },
