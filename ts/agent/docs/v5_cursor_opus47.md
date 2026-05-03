@@ -1,5 +1,5 @@
 # OPUS-4-7 - Generalization challenges of V5 design
-_Exported on 2026/4/27 at GMT+8 15:32:27 from Cursor (3.2.11)_
+_Exported on 2026/4/28 at GMT+8 9:27:44 from Cursor (3.2.11)_
 
 ---
 
@@ -850,4 +850,271 @@ OK
 - **FactStore = EventStore.factsAt(now) 的投影**（5.2）：两种模式共享同一份底层数据，不双写。
 
 如果接下来要把 V6.5 落到 `src/v6/`（或新开 `src/v6_5/`），最小可执行的第一步是 V6.5.0：把 `FactBinding` 加上 `validFrom/validUntil/observedAt` 三个字段，引入 `EventStore`，让 V6 现有功能在不改语义的前提下先获得时间维度。需要的话我可以接着写这一步的代码骨架。
+
+---
+
+**User**
+
+V6 / V6.5 同时实施 如何
+
+---
+
+**Cursor**
+
+先读一下已有的需求文档和 V6 设计的关键部分，了解当前状态。
+
+让我快速看一下 V5 的源码结构，确定可复用的基础。
+
+现在我对全貌有了足够了解。需求文档 `brainstorms/2026-04-27-v6-decision-assistant-system-requirements.md` 已经把 43 条 requirements 都整理好了，V6 源文件结构也已在设计文档里定义清楚。
+
+同时实施的关键洞察是：**如果先做 V6 再做 V6.5，第一步就要重构 `FactBinding`（加时间字段）和 `EventStore`；但如果从第一行代码就把时间字段建进去，V6 的 predictive 路径和 V6.5 的 diagnostic 路径可以共享同一个底层，完全不需要"先建再改"的成本。**
+
+这决定了实施顺序：先建共享基础层（含时间字段），再分两条平行轨道实现 predictive 和 diagnostic，最后做集成。
+
+```mermaid
+flowchart TD
+    subgraph P1 [Phase 1: 共享基础]
+        F1[runtime/types + eventStore]
+        F2[ontology/schema + rules + ruleDag]
+        F3[ontology/causal + decision]
+        F4[policy/context + filters]
+    end
+
+    subgraph P2 [Phase 2: Predictive 核心]
+        G1[ontology/scoring MCDA]
+        G2[agent/criticPredictive]
+        G3[agent/tools graph+method+facts+rules]
+        G4[agent/executor + reconciler]
+        G5[agent/planner + prompt predictive]
+        G6[frontend/intent + entityLinker]
+    end
+
+    subgraph P3 [Phase 3: Diagnostic 扩展]
+        H1[ontology/attribution but-for]
+        H2[agent/criticDiagnostic]
+        H3[agent/tools events+causal]
+        H4[agent/plannerDiagnostic + prompt]
+    end
+
+    subgraph P4 [Phase 4: 集成]
+        I1[data/seed 含事件时间线+因果图]
+        I2[index.ts runDecisionAssistant]
+        I3[tests golden trace + mode switching]
+    end
+
+    P1 --> P2
+    P1 --> P3
+    P2 --> P4
+    P3 --> P4
+```
+
+P2 和 P3 可以在 P1 完成后**并行开发**（不相互依赖），P4 整合两条轨道。
+
+---
+
+**User**
+
+Implement the plan as specified, it is attached for your reference. Do NOT edit the plan file itself.
+
+To-do's from the plan have already been created. Do not create them again. Mark them as in_progress as you work, starting with the first one. Don't stop until you have completed all the to-dos.
+
+---
+
+**Cursor**
+
+先看 V5 的 runtime/types.ts 和 graph.ts，确定可复用的基础。
+
+现在开始写代码。Phase 1 各文件并行创建。
+
+Now write V5's graph.ts and registry.ts into V6 (with minor extensions):
+
+Now Phase 2 — scoring and critic:
+
+Now write all agent tools in parallel:
+
+Now Phase 3 — diagnostic attribution and tools:
+
+Now create data/seed.ts with event timeline and causal graph:
+
+Now create the main orchestrator:
+
+Now write the tests:
+
+Now run the type-check to see if there are errors:
+
+The correct params are `stopWhen: stepCountIs(n)` and `maxOutputTokens`. Let me fix the executor and planner files:
+
+Now fix the test file:
+
+Only the pre-existing V3 error remains. V6 has no TypeScript errors. Now run the tests:
+
+19/20 tests pass. The one failure is the `AgentMethodRegistry.clear()` in `setupScenario()` erasing methods registered by decorators at class-definition time. Let me fix that:
+
+**20/20 tests pass.** Let me mark the final todo complete:
+
+全部 12 个 todo 已完成，20 个测试全部通过。
+
+---
+
+## 实施成果总结
+
+### 文件清单 (`src/v6/`)
+
+| 类别 | 文件 | 功能 |
+|---|---|---|
+| **runtime** | `types.ts` | ToolResult / FactBinding（含时间字段）|
+| | `eventStore.ts` | EventStore + FactStore（factsAt 投影）|
+| | `trace.ts` | DecisionTrace 记录与审计 |
+| | `graph.ts` | Graph / BaseNode（复用 V5 改写）|
+| | `registry.ts` | MethodSchema + preconditions 字段 |
+| | `decorator.ts` | @agentMethod / @agentProperty |
+| **ontology** | `schema.ts` | Ontology + version 字段 |
+| | `rules.ts` | Rule（升级版：direction/weight/veto/dependsOn）|
+| | `ruleDag.ts` | 拓扑排序 + evaluateAll |
+| | `scoring.ts` | MCDA direction-aware，hard veto |
+| | `causal.ts` | CausalGraph / CausalEdge / backwardChain |
+| | `attribution.ts` | but-for 4 维度，overdetermined 检测 |
+| | `decision.ts` | DecisionTask (mode-aware) + 全部 verdict 类型 |
+| **policy** | `context.ts` | PolicyContext |
+| | `filters.ts` | withPolicy / redactProperties |
+| **frontend** | `intent.ts` | 关键词规则 → mode 一级分类 |
+| | `entityLinker.ts` | 实体 ID 模糊匹配 |
+| | `clarify.ts` | 结构化澄清问题生成 |
+| **agent/tools** | `graph.ts` | inspect_node（time-travel 参数 at） |
+| | `method.ts` | describe_method + call_method + precondition 断言 |
+| | `facts.ts` | bind_fact / lookup_fact / aggregate_facts |
+| | `rules.ts` | inspect_rules / evaluate_rule（细粒度）|
+| | `candidates.ts` | propose_candidates / record_evidence |
+| | `counterfactual.ts` | simulate(what_if / but_for) |
+| | `events.ts` | query_events / walk_causal_graph / propose_causes / record_event |
+| **agent** | `planner.ts` | ExplorationPlan（no tool calls）|
+| | `plannerDiagnostic.ts` | DiagnosticPlan（backward chain）|
+| | `executor.ts` | Predictive + Diagnostic executor |
+| | `prompt.ts` | buildPredictive/Diagnostic/Planner SystemPrompt |
+| | `criticPredictive.ts` | 纯 deterministic MCDA |
+| | `criticDiagnostic.ts` | 纯 deterministic attribution |
+| | `critic.ts` | mode 路由 |
+| | `reconciler.ts` | 冲突检测 + likelyCause 诊断 |
+| **data** | `seed.ts` | graph + factStore + eventStore + causalGraph |
+| | `ruleFixtures.ts` | 单测专用 FactStore |
+| **entry** | `index.ts` | `runDecisionAssistant()` 完整 pipeline |
+| **tests** | `__tests__/v6.test.ts` | 20 个 success criteria 测试 ✅ |
+
+### 关键设计决策对 V5 问题的修复
+
+| V5 问题 | V6 修复 |
+|---|---|
+| 评分数值（LOW=0.67）LLM 覆盖 | **MCDA direction-aware**：LLM 不知道分数，只收集证据 |
+| 扁平 KV facts 命名冲突 | **FactBinding**：entityId.property 命名空间 |
+| `evaluateRisk({teamLoad:0})` 盲调 | **precondition 断言**：0 但 FactStore 有真值 → PRECONDITION_FAILED |
+| 评分机制 vs 业务直觉不一致 | **rule.direction** + **directionMapping**：不靠 label 硬编码 |
+
+---
+
+**User**
+
+这个设计和实现，有一个巨大的问题： 被特化了，完全围绕者处理 seed 中 软件开发的例子 ，
+
+我的问题是：v6/ontology 目录下的文体全部是 本demo业务相关的吗？
+
+是否应该将 v6 中，跟  seed 中 软件开发的例子 相关的代码，独立到 demo/ex1 中
+
+同时考虑一个其他领域的例子，类似数据统计场景 dbt tool 的数据关联和统计的例子，写入demo/ex2
+
+ex1 和 ex2 都包含一个main.ts 可以运行demo
+
+---
+
+**Cursor**
+
+让我先读几个关键文件，了解当前代码的耦合状况。
+
+现在我完全清楚了问题所在，让我整理一下分析结果，然后制定计划。
+
+**诊断：**
+
+| 文件 | 状态 |
+|---|---|
+| `runtime/` (types, eventStore, graph, registry, trace) | 纯框架，无业务代码 |
+| `ontology/decision.ts`, `ruleDag.ts`, `scoring.ts`, `attribution.ts` | 纯框架，无业务代码 |
+| `policy/`, `frontend/`, `agent/` (所有工具+executor+critic+reconciler) | 纯框架，无业务代码 |
+| `index.ts` | 纯框架，无业务代码 |
+| **`ontology/schema.ts`** 末尾的 `projectOntology` | **业务代码混入** |
+| **`ontology/rules.ts`** 末尾的 `registerProjectPortalRules()` | **业务代码混入** |
+| **`ontology/causal.ts`** 末尾的 `buildProjectPortalCausalGraph()` | **业务代码混入** |
+| **`data/seed.ts`** (Engineer/Team/Project 类 + seed 函数) | **纯业务代码** |
+| **`data/ruleFixtures.ts`** | **纯业务代码** |
+| **`__tests__/v6.test.ts`** | **业务特定测试** |
+
+---
+
+**User**
+
+Implement the plan as specified, it is attached for your reference. Do NOT edit the plan file itself.
+
+To-do's from the plan have already been created. Do not create them again. Mark them as in_progress as you work, starting with the first one. Don't stop until you have completed all the to-dos.
+
+---
+
+**Cursor**
+
+先读完整的三个待裁剪文件，然后并行操作：
+
+现在并行执行所有修改。先裁剪三个框架文件，同时建立 demo 目录：
+
+现在读取 data/seed.ts 和 __tests__/v6.test.ts：
+
+再读 index.ts 和 agent/executor.ts 了解 runDecisionAssistant 入口：
+
+已掌握所有上下文，开始并行创建 demo 文件。先创建 ex1 和 ex2 的目录和实体文件：
+
+ex1 全部完成，开始创建 ex2：
+
+现在创建 ex2/seed.ts 和 ex2/main.ts：
+
+现在删除旧的 `data/` 和 `__tests__/` 目录：
+
+现在做 TypeScript 编译检查，验证整体无错误：
+
+需要修复几处类型错误。先快速读取相关类型定义和 src/main.ts：
+
+现在修复 main.ts 中的类型错误，并更新 src/main.ts 的导入：
+
+Now fix the type errors in ex1/main.ts and ex2/main.ts:
+
+只剩下 v3 的预存错误，v6 相关代码已无类型问题。现在运行 vitest 测试，但需先更新 v6.test.ts 的路径（旧测试已被删除，我需要确认测试文件的新位置）：
+
+根据计划，`__tests__/` 需移入 `demo/ex1`，我来创建迁移后的测试文件：
+
+20 个测试全部通过。最后验证目录结构是否符合计划：
+
+目录结构完全符合计划。所有 5 个 todo 全部完成，测试 20/20 通过。
+
+---
+
+以下是本次改动的完整总结：
+
+**框架裁剪（refactor-framework）**
+- `ontology/schema.ts`：删除末尾 `projectOntology` 常量（~55 行），框架层仅保留通用类型定义
+- `ontology/rules.ts`：删除末尾 `registerProjectPortalRules()` 函数（~220 行）
+- `ontology/causal.ts`：删除末尾 `buildProjectPortalCausalGraph()` 函数（~70 行）
+- 删除 `src/v6/data/` 和 `src/v6/__tests__/` 整个目录
+
+**demo/ex1（工程组织交付风险）**
+- `entities.ts`：`Engineer / Team / Project` 类（含 `@agentMethod` 装饰）
+- `ontology.ts`：`engineeringOntology`
+- `rules.ts`：`registerEngineeringRules()`（原 `registerProjectPortalRules` 更名）
+- `causal.ts`：`buildEngineeringCausalGraph()`（7 条因果边）
+- `seed.ts`：`seedGraph / seedFactStore / seedEventStore / setupScenario`
+- `ruleFixtures.ts`：单测用 FactStore 夹具
+- `__tests__/ex1.test.ts`：20 项单元测试，全部通过
+- `main.ts`：predictive + diagnostic 两轮可运行 demo
+
+**demo/ex2（dbt 数据管道数据质量）**
+- `entities.ts`：`DataModel / DataSource / Dashboard / DataOwner` 类
+- `ontology.ts`：`dbtOntology`（4 种关系：`depends_on / feeds / owned_by / sourced_by`）
+- `rules.ts`：`registerDbtRules()`（5 条规则：freshness violation、low test coverage、unowned model、high downstream impact、source reliability low）
+- `causal.ts`：`buildDbtCausalGraph()`（5 条因果边：source incident → late refresh → stale data → dashboard incorrect；schema drift → model failure → downstream blocked）
+- `seed.ts`：完整事件时间线（T-5d 到 T-0，CFO Dashboard 数据错误场景）
+- `main.ts`：predictive + diagnostic 两轮可运行 demo
 
