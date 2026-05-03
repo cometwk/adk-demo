@@ -1,6 +1,6 @@
 pnpm-lock.yaml
 .dev
-tmp
+/tmp
 
 # Dependencies
 node_modules
@@ -152,4 +152,4 @@ dist
 !packages/create-voltagent-app/templates/base/.env
 
 # cursor
-.cursor
+# .cursor

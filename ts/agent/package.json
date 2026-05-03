@@ -7,6 +7,10 @@
     "dev": "tsx --env-file=.env ./src/main.ts",
     "llm": "tsx src/demo/agent/llm.ts",
     "hello": "tsx src/lib/hello.ts",
+    "hello2": "tsx src/lib/hello2.ts",
+    "ex1": "tsx src/v6/demo/ex1/main.ts",
+    "ex2": "tsx src/v6/demo/ex2/main.ts",
+    "ex3": "tsx src/v6/demo/ex3/main.ts",
     "dev0": "tsx watch --env-file=.env ./src",
     "build": "tsc",
     "start": "node dist/index.js",
@@ -35,6 +39,7 @@
     "@voltagent/server-hono": "^2.0.3",
     "ai": "^6.0.168",
     "dotenv": "^16.4.7",
+    "mysql2": "^3.22.3",
     "vitest": "^4.1.5",
     "zod": "^4.3.6",
     "zod-to-json-schema": "^3.25.2"
