@@ -20,16 +20,16 @@ export function createEventTools(
 ) {
 	const query_events = tool({
 		description:
-			"Query the event timeline for one or more entities within a time window. " +
-			"Returns events sorted chronologically. Use before walk_causal_graph to understand what happened.",
+			"查询一个或多个实体在时间窗口内的事件时间线。返回按时间排序的事件。" +
+			"在调用 walk_causal_graph 之前使用，以了解发生了什么。",
 		inputSchema: z.object({
-			entityId: z.string().describe("Entity ID to query events for"),
-			from: z.string().optional().describe("ISO 8601 start time (inclusive)"),
-			to: z.string().optional().describe("ISO 8601 end time (inclusive)"),
+			entityId: z.string().describe("要查询事件的实体 ID"),
+			from: z.string().optional().describe("ISO 8601 开始时间（包含）"),
+			to: z.string().optional().describe("ISO 8601 结束时间（包含）"),
 			eventTypes: z
 				.array(z.string())
 				.optional()
-				.describe("Filter by event type strings"),
+				.describe("按事件类型字符串过滤"),
 		}),
 		execute: async ({ entityId, from, to, eventTypes }): Promise<ToolResult> => {
 			maybeLogToolCall("query_events", { entityId, from, to }, policy);
@@ -66,14 +66,14 @@ export function createEventTools(
 
 	const walk_causal_graph = tool({
 		description:
-			"Walk the causal graph backward (from outcome) or forward (from cause) to find candidate causes or effects. " +
-			"Returns CausalPaths. Use this INSTEAD of assuming causal relationships from temporal co-occurrence.",
+			"沿因果图向后（从结果）或向前（从原因）遍历，寻找候选原因或结果。返回 CausalPaths。" +
+			"使用此方法，而不是从时间共现假设因果关系。",
 		inputSchema: z.object({
-			seed: z.string().describe("Starting pattern matcher (e.g. 'milestone_missed', 'Engineer.workload > threshold')"),
+			seed: z.string().describe("起始模式匹配器（如 'milestone_missed', 'Engineer.workload > threshold'）"),
 			direction: z
 				.enum(["backward", "forward"])
-				.describe("backward: from outcome to causes; forward: from cause to effects"),
-			maxDepth: z.number().min(1).max(5).default(3).describe("Maximum chain depth"),
+				.describe("backward: 从结果找原因；forward: 从原因找结果"),
+			maxDepth: z.number().min(1).max(5).default(3).describe("最大链深度"),
 		}),
 		execute: async ({ seed, direction, maxDepth }): Promise<ToolResult> => {
 			maybeLogToolCall("walk_causal_graph", { seed, direction }, policy);
@@ -113,27 +113,26 @@ export function createEventTools(
 
 	const propose_causes = tool({
 		description:
-			"Propose candidate causes for the outcome. " +
-			"Each cause must include a causalPathRef referencing edges from walk_causal_graph. " +
-			"Causes CAN co-exist (not mutually exclusive like predictive candidates).",
+			"为结果提出候选原因。每个原因必须包含引用 walk_causal_graph 边的 causalPathRef。" +
+			"原因可以共存（不像预测候选那样互斥）。",
 		inputSchema: z.object({
 			causes: z.array(
 				z.object({
-					label: z.string().describe("Short cause label (e.g. 'API 依赖延期', '工程师超载')"),
-					description: z.string().describe("One-sentence cause description"),
+					label: z.string().describe("简短的原因标签（如 'API 依赖延期', '工程师超载'）"),
+					description: z.string().describe("一句话原因描述"),
 					causalPathRef: z.object({
-						edgeIds: z.array(z.string()).describe("Causal edge IDs supporting this cause"),
-						rootCauseMatcher: z.string().describe("The root cause event pattern"),
-						finalEffectMatcher: z.string().describe("The final effect pattern (should match the outcome)"),
+						edgeIds: z.array(z.string()).describe("支持该原因的因果边 ID"),
+						rootCauseMatcher: z.string().describe("根本原因事件模式"),
+						finalEffectMatcher: z.string().describe("最终效果模式（应与结果匹配）"),
 					}),
 					timelineEvidenceIds: z
 						.array(z.string())
 						.default([])
-						.describe("Event IDs from query_events that support this cause"),
+						.describe("来自 query_events 的支持该原因的事件 ID"),
 					canCoexistWith: z
 						.array(z.string())
 						.default([])
-						.describe("Other cause labels that can co-occur"),
+						.describe("可同时发生的原因标签"),
 				}),
 			),
 		}),
@@ -159,15 +158,15 @@ export function createEventTools(
 
 	const record_event = tool({
 		description:
-			"Record an event in the EventStore if it is not already present. " +
-			"Use when you have discovered an event from domain knowledge or user description that is not yet in the store.",
+			"如果事件尚未存在，将其记录到 EventStore 中。" +
+			"当你从领域知识或用户描述中发现一个尚未存储的事件时使用此方法。",
 		inputSchema: z.object({
-			id: z.string().describe("Unique event ID (e.g. 'evt_scope_added_2026_04_08')"),
-			type: z.string().describe("Event type string (e.g. 'scope_added', 'delivery_slip')"),
-			occurredAt: z.string().describe("ISO 8601 when this event occurred"),
-			actorId: z.string().optional().describe("Who or what triggered this event"),
-			affectedEntities: z.array(z.string()).describe("Entity IDs affected by this event"),
-			payload: z.record(z.string(), z.unknown()).default({}).describe("Event-specific data"),
+			id: z.string().describe("唯一事件 ID（如 'evt_scope_added_2026_04_08'）"),
+			type: z.string().describe("事件类型字符串（如 'scope_added', 'delivery_slip'）"),
+			occurredAt: z.string().describe("ISO 8601 事件发生时间"),
+			actorId: z.string().optional().describe("触发此事件的人或物"),
+			affectedEntities: z.array(z.string()).describe("受此事件影响的实体 ID"),
+			payload: z.record(z.string(), z.unknown()).default({}).describe("事件特定数据"),
 		}),
 		execute: async ({
 			id,

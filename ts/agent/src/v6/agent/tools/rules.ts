@@ -17,16 +17,15 @@ import { maybeLogToolCall } from "../../policy/filters";
 export function createRuleTools(facts: FactStore, graph: Graph, policy: PolicyContext) {
 	const inspect_rules = tool({
 		description:
-			"List applicable rules for a given entity type and/or intent. " +
-			"Returns rule metadata (id, kind, description, direction, weight, requiredFacts). " +
-			"Use this before calling evaluate_rule to understand which rules apply.",
+			"列出适用于给定实体类型和/或意图的规则。返回规则元数据（id, kind, description, direction, weight, requiredFacts）。" +
+			"在调用 evaluate_rule 之前使用此方法，以了解哪些规则适用。",
 		inputSchema: z.object({
-			entityType: z.string().optional().describe("Filter by entity type (e.g. 'Engineer', 'Project')"),
-			intent: z.string().optional().describe("Filter by intent keyword (e.g. 'risk_assessment', 'diagnosis')"),
+			entityType: z.string().optional().describe("按实体类型过滤（如 'Engineer', 'Project'）"),
+			intent: z.string().optional().describe("按意图关键词过滤（如 'risk_assessment', 'diagnosis'）"),
 			kind: z
 				.enum(["hard_constraint", "inference_rule", "soft_criterion", "conflict_policy", "explanation_policy"])
 				.optional()
-				.describe("Filter by rule kind"),
+				.describe("按规则类型过滤"),
 		}),
 		execute: async ({ entityType, intent, kind }): Promise<ToolResult> => {
 			maybeLogToolCall("inspect_rules", { entityType, intent, kind }, policy);
@@ -52,12 +51,12 @@ export function createRuleTools(facts: FactStore, graph: Graph, policy: PolicyCo
 
 	const evaluate_rule = tool({
 		description:
-			"Evaluate a single rule against the current FactStore for a specific entity. " +
-			"Returns triggered, severity, explanation, missingFacts. " +
-			"NOTE: You do NOT control scoring weights. Record evidence instead of interpreting scores.",
+			"针对特定实体，使用当前 FactStore 评估单个规则。" +
+			"返回 triggered, severity, explanation, missingFacts。" +
+			"注意：你无法控制评分权重。请记录证据而非解读分数。",
 		inputSchema: z.object({
-			ruleId: z.string().describe("The rule ID to evaluate"),
-			entityId: z.string().optional().describe("Entity ID to evaluate the rule for"),
+			ruleId: z.string().describe("要评估的规则 ID"),
+			entityId: z.string().optional().describe("要评估规则的实体 ID"),
 		}),
 		execute: async ({ ruleId, entityId }): Promise<ToolResult> => {
 			maybeLogToolCall("evaluate_rule", { ruleId, entityId }, policy);

@@ -1,8 +1,5 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { Graph } from "../../runtime/graph";
-import type { FactStore } from "../../runtime/eventStore";
-import { type ToolResult, toolErr, toolOk } from "../../runtime/types";
 import type { PolicyContext } from "../../policy/context";
 import {
 	checkEntityAccess,
@@ -10,6 +7,9 @@ import {
 	maybeLogToolCall,
 	redactProperties,
 } from "../../policy/filters";
+import type { FactStore } from "../../runtime/eventStore";
+import type { Graph } from "../../runtime/graph";
+import { type ToolResult, toolErr, toolOk } from "../../runtime/types";
 
 type NodeField = "type" | "properties" | "outEdges" | "inEdges" | "methods";
 const VALID_FIELDS: NodeField[] = [
@@ -27,19 +27,18 @@ export function createGraphTools(
 ) {
 	const inspect_node = tool({
 		description:
-			"Inspect a graph node. Fields: type, properties, outEdges, inEdges, methods. " +
-			"Optional `at` (ISO 8601) for time-travel: if provided and a FactStore is available, " +
-			"bound facts override graph properties.",
+			"检查图节点。字段：type, properties, outEdges, inEdges, methods。" +
+			"可选 `at` (ISO 8601) 用于时间旅行：如果提供且 FactStore 可用，绑定的事实将覆盖图属性。",
 		inputSchema: z.object({
-			nodeId: z.string().describe("The ID of the node to inspect"),
+			nodeId: z.string().describe("要检查的节点 ID"),
 			fields: z
 				.array(z.enum(["type", "properties", "outEdges", "inEdges", "methods"]))
 				.optional()
-				.describe("Specific fields to return. Omit for all."),
+				.describe("要返回的特定字段。省略则返回所有字段"),
 			at: z
 				.string()
 				.optional()
-				.describe("ISO 8601 timestamp for time-travel (diagnostic mode)"),
+				.describe("ISO 8601 时间戳用于时间旅行（诊断模式）"),
 		}),
 		execute: async ({ nodeId, fields, at }): Promise<ToolResult> => {
 			maybeLogToolCall("inspect_node", { nodeId, fields, at }, policy);
@@ -105,14 +104,14 @@ export function createGraphTools(
 
 	const query_neighbors = tool({
 		description:
-			"Query neighbors of a node with optional filtering by relation, direction, type, and pagination.",
+			"查询节点的邻居，可选按关系、方向、类型过滤和分页。",
 		inputSchema: z.object({
-			nodeId: z.string().describe("The starting node ID"),
-			relation: z.string().optional().describe("Filter by edge relation type"),
-			direction: z.enum(["out", "in", "both"]).default("both").describe("Edge direction filter"),
-			typeFilter: z.string().optional().describe("Filter neighbors by node type name"),
-			limit: z.number().optional().default(20).describe("Max results per page"),
-			offset: z.number().optional().default(0).describe("Offset for pagination"),
+			nodeId: z.string().describe("起始节点 ID"),
+			relation: z.string().optional().describe("按边关系类型过滤"),
+			direction: z.enum(["out", "in", "both"]).default("both").describe("边方向过滤"),
+			typeFilter: z.string().optional().describe("按节点类型名称过滤邻居"),
+			limit: z.number().optional().default(20).describe("每页最大结果数"),
+			offset: z.number().optional().default(0).describe("分页偏移量"),
 		}),
 		execute: async ({ nodeId, relation, direction, typeFilter, limit, offset }): Promise<ToolResult> => {
 			maybeLogToolCall("query_neighbors", { nodeId, relation, direction }, policy);
@@ -134,12 +133,12 @@ export function createGraphTools(
 	});
 
 	const search_nodes = tool({
-		description: "Search graph nodes by ID substring and/or type name. Returns paginated results.",
+		description: "按 ID 子字符串和/或类型名称搜索图节点。返回分页结果。",
 		inputSchema: z.object({
-			query: z.string().optional().describe("Substring to match against node IDs"),
-			type: z.string().optional().describe("Filter by node type name (e.g. 'Project', 'Engineer')"),
-			limit: z.number().optional().default(20).describe("Max results per page"),
-			offset: z.number().optional().default(0).describe("Offset for pagination"),
+			query: z.string().optional().describe("匹配节点 ID 的子字符串"),
+			type: z.string().optional().describe("按节点类型名称过滤（如 'Project', 'Engineer'）"),
+			limit: z.number().optional().default(20).describe("每页最大结果数"),
+			offset: z.number().optional().default(0).describe("分页偏移量"),
 		}),
 		execute: async ({ query, type, limit, offset }): Promise<ToolResult> => {
 			maybeLogToolCall("search_nodes", { query, type }, policy);

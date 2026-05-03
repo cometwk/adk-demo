@@ -72,11 +72,11 @@ function assertPreconditions(
 export function createMethodTools(graph: Graph, facts: FactStore, policy: PolicyContext) {
 	const describe_method = tool({
 		description:
-			"Get the full schema of a method: params, returns, description, required facts, and related rules. " +
-			"ALWAYS call this before call_method for unfamiliar methods.",
+			"获取方法的完整模式：参数、返回值、描述、所需事实和相关规则。" +
+			"在调用不熟悉的方法之前，务必先调用此方法。",
 		inputSchema: z.object({
-			nodeId: z.string().describe("The node that owns the method"),
-			method: z.string().describe("The method name to describe"),
+			nodeId: z.string().describe("拥有该方法的节点"),
+			method: z.string().describe("要描述的方法名称"),
 		}),
 		execute: async ({ nodeId, method }): Promise<ToolResult> => {
 			maybeLogToolCall("describe_method", { nodeId, method }, policy);
@@ -114,13 +114,13 @@ export function createMethodTools(graph: Graph, facts: FactStore, policy: Policy
 
 	const call_method = tool({
 		description:
-			"Call a registered method on a graph node. Pass arguments as named key-value pairs. " +
-			"IMPORTANT: populate all arguments from the FactStore (lookup_fact) or inspect_node " +
-			"before calling — never pass 0 for numeric arguments you haven't fetched.",
+			"调用图节点上的已注册方法。以命名键值对形式传递参数。" +
+			"重要：在调用之前，从 FactStore (lookup_fact) 或 inspect_node 获取所有参数值 —— " +
+			"切勿为尚未获取的数值参数传递 0。",
 		inputSchema: z.object({
-			nodeId: z.string().describe("The node to call the method on"),
-			method: z.string().describe("The method name"),
-			args: z.record(z.string(), z.unknown()).default({}).describe("Arguments as { paramName: value }"),
+			nodeId: z.string().describe("要调用方法的节点"),
+			method: z.string().describe("方法名称"),
+			args: z.record(z.string(), z.unknown()).default({}).describe("参数为 { paramName: value }"),
 		}),
 		execute: async ({ nodeId, method, args }): Promise<ToolResult> => {
 			maybeLogToolCall("call_method", { nodeId, method, args }, policy);

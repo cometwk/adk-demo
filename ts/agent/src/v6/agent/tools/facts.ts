@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { type ToolResult, toolErr, toolOk } from "../../runtime/types";
+import { type ToolResult, toolOk, toolErr } from "../../runtime/types";
 import type { FactBinding } from "../../runtime/types";
 import { FactStore } from "../../runtime/eventStore";
 import type { PolicyContext } from "../../policy/context";
@@ -28,32 +28,31 @@ export function resetSessionFacts(): void {
 export function createFactTools(policy: PolicyContext) {
 	const bind_fact = tool({
 		description:
-			"Record an entity property value into the FactStore. " +
-			"Call this IMMEDIATELY after reading a property from inspect_node or call_method. " +
-			"This is the authoritative record; do NOT assume values without binding them first.",
+			"将实体属性值记录到 FactStore 中。在从 inspect_node 或 call_method 读取属性后立即调用此方法。" +
+			"这是权威记录；不要在没有绑定的情况下假设值。",
 		inputSchema: z.object({
-			entityId: z.string().describe("The entity whose property is being recorded"),
-			property: z.string().describe("The property name (e.g. 'workload', 'seniority')"),
-			value: z.unknown().describe("The property value"),
+			entityId: z.string().describe("属性所属的实体 ID"),
+			property: z.string().describe("属性名称（如 'workload', 'seniority'）"),
+			value: z.unknown().describe("属性值"),
 			sourceKind: z
 				.enum(["graph_property", "method_result", "aggregation", "user_input", "derived"])
 				.default("graph_property")
-				.describe("Where this value came from"),
-			sourceRef: z.string().optional().describe("Optional reference (evidenceId, nodeId)"),
+				.describe("该值的来源类型"),
+			sourceRef: z.string().optional().describe("可选引用（evidenceId, nodeId）"),
 			confidence: z
 				.number()
 				.min(0)
 				.max(1)
 				.default(0.9)
-				.describe("Confidence 0..1; default 0.9 for direct reads"),
+				.describe("置信度 0..1；直接读取默认为 0.9"),
 			validFrom: z
 				.string()
 				.optional()
-				.describe("ISO 8601: when this value started being true (defaults to now)"),
+				.describe("ISO 8601: 该值开始生效的时间（默认为当前时间）"),
 			validUntil: z
 				.string()
 				.optional()
-				.describe("ISO 8601: when this value stopped being true"),
+				.describe("ISO 8601: 该值失效的时间"),
 		}),
 		execute: async ({
 			entityId,
@@ -97,12 +96,11 @@ export function createFactTools(policy: PolicyContext) {
 
 	const lookup_fact = tool({
 		description:
-			"Look up a bound fact value for an entity property. " +
-			"Call this before passing values to call_method to avoid blind-zero errors. " +
-			"Returns null if the fact has not been bound yet.",
+			"查询实体属性的已绑定事实值。在将值传递给 call_method 之前调用此方法，以避免盲零错误。" +
+			"如果事实尚未绑定，返回 null。",
 		inputSchema: z.object({
-			entityId: z.string().describe("The entity ID"),
-			property: z.string().describe("The property name"),
+			entityId: z.string().describe("实体 ID"),
+			property: z.string().describe("属性名称"),
 		}),
 		execute: async ({ entityId, property }): Promise<ToolResult> => {
 			maybeLogToolCall("lookup_fact", { entityId, property }, policy);
@@ -139,15 +137,14 @@ export function createFactTools(policy: PolicyContext) {
 
 	const aggregate_facts = tool({
 		description:
-			"Compute an aggregate over bound facts for a property across multiple entities. " +
-			"Operations: sum, avg, count, min, max. " +
-			"Bind the result using bind_fact after aggregation.",
+			"对多个实体的属性绑定事实进行聚合计算。支持操作：sum, avg, count, min, max。" +
+			"聚合后使用 bind_fact 绑定结果。",
 		inputSchema: z.object({
-			entityIds: z.array(z.string()).describe("Entity IDs to aggregate over"),
-			property: z.string().describe("The property to aggregate"),
+			entityIds: z.array(z.string()).describe("要聚合的实体 ID"),
+			property: z.string().describe("要聚合的属性"),
 			operation: z
 				.enum(["sum", "avg", "count", "min", "max"])
-				.describe("Aggregation operation"),
+				.describe("聚合操作"),
 		}),
 		execute: async ({ entityIds, property, operation }): Promise<ToolResult> => {
 			maybeLogToolCall("aggregate_facts", { entityIds, property, operation }, policy);
