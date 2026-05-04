@@ -1,5 +1,19 @@
 import { AgentMethodRegistry, AgentPropertyRegistry, type MethodSchema } from './registry'
 import type { Edge, NodeId, PageInfo, Paginated } from './types'
+import type { RelationSchema } from '../ontology/schema'
+
+// Helper: 检查节点的 agentVisible 属性是否匹配 query
+function matchesAgentVisibleProperties(node: BaseNode, query: string): boolean {
+  const className = node.constructor.name
+  const propSchemas = AgentPropertyRegistry.getPropertiesForClass(className)
+
+  for (const schema of propSchemas) {
+    if (!schema.agentVisible) continue
+    const value = (node as unknown as Record<string, unknown>)[schema.propertyName]
+    if (typeof value === 'string' && value.includes(query)) return true
+  }
+  return false
+}
 
 export abstract class BaseNode {
   id: NodeId
@@ -59,12 +73,60 @@ export class Graph {
   nodes = new Map<string, BaseNode>()
   edges: Edge[] = []
 
+  // RelationSchema index: edge type → schema (optional; when present, addEdge validates against it)
+  private readonly relationIndex: Map<string, RelationSchema>
+
+  constructor(opts: { relations?: RelationSchema[] } = {}) {
+    this.relationIndex = new Map((opts.relations ?? []).map((r) => [r.type, r]))
+  }
+
   addNode(node: BaseNode) {
     this.nodes.set(node.id, node)
   }
 
-  addEdge(edge: Edge) {
+  addEdge(edge: Edge): void {
+    if (this.relationIndex.size > 0) {
+      const schema = this.relationIndex.get(edge.type)
+      if (!schema) {
+        throw new Error(
+          `addEdge: unknown edge type "${edge.type}". ` +
+            `Declared types: [${[...this.relationIndex.keys()].join(', ')}]`,
+        )
+      }
+      const fromNode = this.nodes.get(edge.from)
+      const toNode = this.nodes.get(edge.to)
+      if (fromNode) {
+        const actual = fromNode.constructor.name
+        if (actual !== schema.fromType) {
+          throw new Error(
+            `addEdge "${edge.type}": node "${edge.from}" has type "${actual}", schema expects fromType "${schema.fromType}"`,
+          )
+        }
+      }
+      if (toNode) {
+        const actual = toNode.constructor.name
+        if (actual !== schema.toType) {
+          throw new Error(
+            `addEdge "${edge.type}": node "${edge.to}" has type "${actual}", schema expects toType "${schema.toType}"`,
+          )
+        }
+      }
+    }
     this.edges.push(edge)
+  }
+
+  /** 当图中已有边时，从实际边派生 RelationSchema（fromType/toType 由节点类型推断） */
+  deriveRelationSchemas(): RelationSchema[] {
+    const seen = new Map<string, RelationSchema>()
+    for (const edge of this.edges) {
+      const fromType = this.nodes.get(edge.from)?.constructor.name ?? 'Unknown'
+      const toType = this.nodes.get(edge.to)?.constructor.name ?? 'Unknown'
+      const key = `${fromType}:${edge.type}:${toType}`
+      if (!seen.has(key)) {
+        seen.set(key, { type: edge.type, fromType, toType, description: '' })
+      }
+    }
+    return Array.from(seen.values())
   }
 
   getNode(id: string): BaseNode | undefined {
@@ -154,7 +216,7 @@ export class Graph {
           if (!target) continue
           const typeName = target.constructor.name
           if (type && typeName !== type) continue
-          if (query && !e.to.includes(query)) continue
+          if (query && !e.to.includes(query) && !matchesAgentVisibleProperties(target, query)) continue
           all.push({
             nodeId: e.to,
             type: typeName,
@@ -171,7 +233,7 @@ export class Graph {
           if (!source) continue
           const typeName = source.constructor.name
           if (type && typeName !== type) continue
-          if (query && !e.from.includes(query)) continue
+          if (query && !e.from.includes(query) && !matchesAgentVisibleProperties(source, query)) continue
           all.push({
             nodeId: e.from,
             type: typeName,
@@ -198,7 +260,7 @@ export class Graph {
     for (const [nodeId, node] of this.nodes) {
       const typeName = node.constructor.name
       if (type && typeName !== type) continue
-      if (query && !nodeId.includes(query)) continue
+      if (query && !nodeId.includes(query) && !matchesAgentVisibleProperties(node, query)) continue
       all.push({ nodeId, type: typeName })
     }
 

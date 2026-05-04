@@ -5,7 +5,7 @@ export type TypeProperty = {
   type: string
   description: string
   agentVisible: boolean
-  sensitive?: boolean // marks PII / redactable fields redactable 
+  sensitive?: boolean // marks PII / redactable fields redactable (敏感标记)
 }
 
 export type TypeMethod = {
@@ -26,8 +26,8 @@ export type TypeSchema = {
 
 export type RelationSchema = {
   type: string
-  from: string
-  to: string
+  fromType: string  // source entity TYPE name (e.g. 'Reader'), NOT a node id
+  toType:   string  // target entity TYPE name (e.g. 'Book'),   NOT a node id
   description: string
 }
 
@@ -44,5 +44,5 @@ export function getTypeSchema(ontology: Ontology, typeName: string): TypeSchema 
 }
 
 export function getRelationsFor(ontology: Ontology, typeName: string): RelationSchema[] {
-  return ontology.relations.filter((r) => r.from === typeName || r.to === typeName)
+  return ontology.relations.filter((r) => r.fromType === typeName || r.toType === typeName)
 }

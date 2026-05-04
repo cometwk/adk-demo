@@ -1,21 +1,31 @@
 import { z } from 'zod'
-import { agentMethod, agentProperty } from '../../runtime/decorator'
+import { agentMethod, agentProperty, agentType } from '../../runtime/decorator'
 import { BaseNode } from '../../runtime/graph'
 
 // ── Reader（读者）──
 // 代表图书馆的一名读者，记录当前借书状态。
 
+@agentType({ description: '图书馆读者，持有借阅证，可以申请借阅书籍' })
 export class Reader extends BaseNode {
   @agentProperty({
-    returns: 'number',
+    type: 'number',
     description: '当前已借出且未归还的书籍数量',
+    agentVisible: true,
   })
   currentBorrowCount: number
 
-  @agentProperty({ returns: 'boolean', description: '是否有逾期未还的书籍' })
+  @agentProperty({
+    type: 'boolean',
+    description: '是否有逾期未还的书籍',
+    agentVisible: true,
+  })
   hasOverdueBook: boolean
 
-  @agentProperty({ returns: 'string', description: '读者姓名' })
+  @agentProperty({
+    type: 'string',
+    description: '读者姓名',
+    agentVisible: true,
+  })
   name: string
 
   constructor(id: string, name: string, currentBorrowCount: number, hasOverdueBook: boolean) {
@@ -51,19 +61,33 @@ export class Reader extends BaseNode {
 // ── Book（书籍）──
 // 代表图书馆馆藏中的一本书。
 
+@agentType({ description: '图书馆馆藏书籍，可能有新书保护期限制' })
 export class Book extends BaseNode {
-  @agentProperty({ returns: 'string', description: '书名' })
+  @agentProperty({
+    type: 'string',
+    description: '书名',
+    agentVisible: true,
+  })
   title: string
 
-  @agentProperty({ returns: 'string', description: 'ISBN 编号' })
+  @agentProperty({
+    type: 'string',
+    description: 'ISBN 编号',
+    agentVisible: true,
+  })
   isbn: string
 
-  @agentProperty({ returns: 'number', description: '上架距今天数（天）' })
+  @agentProperty({
+    type: 'number',
+    description: '上架距今天数（天）',
+    agentVisible: true,
+  })
   daysOnShelf: number
 
   @agentProperty({
-    returns: 'boolean',
+    type: 'boolean',
     description: '是否允许外借（馆员手动标注）',
+    agentVisible: true,
   })
   lendable: boolean
 
@@ -105,16 +129,19 @@ export class Book extends BaseNode {
 // ── Library（图书馆）──
 // 代表图书馆整体，持有借阅规则配置。
 
+@agentType({ description: '图书馆管理机构，持有借阅规则配置' })
 export class Library extends BaseNode {
   @agentProperty({
-    returns: 'number',
+    type: 'number',
     description: '每位读者最多可同时借阅的书籍数量（上限）',
+    agentVisible: true,
   })
   maxBorrowPerReader: number
 
   @agentProperty({
-    returns: 'number',
+    type: 'number',
     description: '新书保护期（天）：上架不足此天数不可外借',
+    agentVisible: true,
   })
   newBookProtectionDays: number
 

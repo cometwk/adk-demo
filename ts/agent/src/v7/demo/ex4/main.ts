@@ -35,7 +35,7 @@ async function main1() {
   // ── Round 1: Predictive — 能否借书 ──
   console.log('【Round 1】Predictive: 小明能借《人工智能简史》吗？\n')
 
-  const { graph, factStore } = setupLibraryScenario()
+  const { graph, factStore } = setupLibraryScenario({ relations: libraryOntology.relations })
 
   const predictiveResult = await runDecisionAssistant({
     userQuery: '小明能借《人工智能简史》吗？请根据图书馆规定进行评估。',
@@ -95,7 +95,7 @@ async function main1() {
   // ── Round 2: Diagnostic — 为什么被拒绝 ──
   console.log('\n\n【Round 2】Diagnostic: 小明的借阅申请为什么被拒绝？\n')
 
-  const { graph: g2, factStore: fs2, eventStore: es2, causalGraph: cg2 } = setupLibraryScenario()
+  const { graph: g2, factStore: fs2, eventStore: es2, causalGraph: cg2 } = setupLibraryScenario({ relations: libraryOntology.relations })
 
   const diagnosticResult = await runDecisionAssistant({
     userQuery: '小明今天申请借《人工智能简史》被拒了，为什么？',
@@ -174,7 +174,7 @@ async function main2() {
   // ── Round 2: Diagnostic — 为什么被拒绝 ──
   console.log('\n\n【Round 2】Diagnostic: 小明的借阅申请为什么被拒绝？\n')
 
-  const { graph: g2, factStore: fs2, eventStore: es2, causalGraph: cg2 } = setupLibraryScenario()
+  const { graph: g2, factStore: fs2, eventStore: es2, causalGraph: cg2 } = setupLibraryScenario({ relations: libraryOntology.relations })
 
   const diagnosticResult = await runDecisionAssistant({
     userQuery: '小明今天申请借《人工智能简史》被拒了，为什么？',

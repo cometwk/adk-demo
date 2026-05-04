@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { Graph, BaseNode } from '../runtime/graph'
+import { agentProperty } from '../runtime/decorator'
 
 class Book extends BaseNode {
+  @agentProperty({ type: 'string', description: '书名', agentVisible: true })
   title: string
+
   constructor(id: string, title: string) {
     super(id)
     this.title = title
@@ -10,7 +13,9 @@ class Book extends BaseNode {
 }
 
 class Reader extends BaseNode {
+  @agentProperty({ type: 'string', description: '读者姓名', agentVisible: true })
   name: string
+
   constructor(id: string, name: string) {
     super(id)
     this.name = name
@@ -105,5 +110,29 @@ describe('Graph.searchNodes', () => {
     const result = g.searchNodes({})
     expect(result.items[0].relation).toBeUndefined()
     expect(result.items[0].direction).toBeUndefined()
+  })
+
+  it('query 匹配 agentVisible 属性内容（全局搜索）', () => {
+    const g = new Graph()
+    g.addNode(new Book('book_1', '三体'))
+    g.addNode(new Book('book_2', '红楼梦'))
+
+    const result = g.searchNodes({ query: '三体' })
+    expect(result.items.length).toBe(1)
+    expect(result.items[0].nodeId).toBe('book_1')
+  })
+
+  it('query 匹配 agentVisible 属性内容（relatedTo 搜索）', () => {
+    const g = new Graph()
+    g.addNode(new Book('book_three_body', '三体'))
+    g.addNode(new Book('book_gone_with_wind', '飘'))
+    g.addNode(new Reader('xiao_ming', '小明'))
+
+    g.addEdge({ from: 'xiao_ming', to: 'book_three_body', type: 'borrows' })
+    g.addEdge({ from: 'xiao_ming', to: 'book_gone_with_wind', type: 'borrows' })
+
+    const result = g.searchNodes({ relatedTo: 'xiao_ming', query: '三体' })
+    expect(result.items.length).toBe(1)
+    expect(result.items[0].nodeId).toBe('book_three_body')
   })
 })

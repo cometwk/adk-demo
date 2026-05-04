@@ -2,6 +2,7 @@ import { Graph } from '../../runtime/graph'
 import { EventStore, FactStore } from '../../runtime/eventStore'
 import { clearRules } from '../../ontology/rules'
 import type { FactBinding } from '../../runtime/types'
+import type { RelationSchema } from '../../ontology/schema'
 import { Reader, Book, Library } from './entities'
 import { registerLibraryRules } from './rules'
 import { buildLibraryCausalGraph } from './causal'
@@ -24,8 +25,8 @@ import { buildLibraryCausalGraph } from './causal'
 
 // ── Graph seed ──
 
-export function seedLibraryGraph(): Graph {
-  const g = new Graph()
+export function seedLibraryGraph(relations?: RelationSchema[]): Graph {
+  const g = new Graph({ relations })
 
   // Library
   const library = new Library('city_library', 3, 7)
@@ -325,7 +326,7 @@ export function seedLibraryEventStore(): EventStore {
 
 // ── Full scenario setup ──
 
-export function setupLibraryScenario(): {
+export function setupLibraryScenario(opts: { relations?: RelationSchema[] } = {}): {
   graph: Graph
   factStore: FactStore
   eventStore: EventStore
@@ -335,7 +336,7 @@ export function setupLibraryScenario(): {
   registerLibraryRules()
 
   return {
-    graph: seedLibraryGraph(),
+    graph: seedLibraryGraph(opts.relations),
     factStore: seedLibraryFactStore(),
     eventStore: seedLibraryEventStore(),
     causalGraph: buildLibraryCausalGraph(),

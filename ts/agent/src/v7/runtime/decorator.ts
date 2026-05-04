@@ -1,6 +1,14 @@
 import { z } from 'zod'
 import type { MethodSchema, MethodSchemaConfig, PropertySchema, PropertySchemaConfig } from './registry'
-import { AgentMethodRegistry, AgentPropertyRegistry } from './registry'
+import { AgentMethodRegistry, AgentPropertyRegistry, AgentTypeRegistry } from './registry'
+
+export type TypeSchemaConfig = { description: string }
+
+export function agentType(config: TypeSchemaConfig) {
+  return (target: { name: string }): void => {
+    AgentTypeRegistry.register(target.name, { description: config.description })
+  }
+}
 
 export function agentMethod(config: MethodSchemaConfig) {
   return (target: object, propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor => {
@@ -24,12 +32,14 @@ export function agentProperty(config: PropertySchemaConfig) {
     const className = (target as { constructor: { name: string } }).constructor.name
     const schema: PropertySchema = {
       propertyName: propertyKey,
-      returns: config.returns,
+      type: config.type,
       description: config.description,
+      agentVisible: config.agentVisible ?? false,
+      sensitive: config.sensitive ?? false,
     }
     AgentPropertyRegistry.register(className, propertyKey, schema)
   }
 }
 
-export type { MethodSchema, MethodSchemaConfig, PropertySchema, PropertySchemaConfig } from './registry'
-export { AgentMethodRegistry, AgentPropertyRegistry } from './registry'
+export type { MethodSchema, MethodSchemaConfig, PropertySchema, PropertySchemaConfig, TypeSchemaEntry } from './registry'
+export { AgentMethodRegistry, AgentPropertyRegistry, AgentTypeRegistry, AgentRegistry } from './registry'

@@ -23,6 +23,10 @@ export function buildPredictiveSystemPrompt(task: DecisionTask, ontology: Ontolo
     )
     .join('\n')
 
+  const relationsSummary = ontology.relations
+    .map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}: ${r.description}`)
+    .join('\n')
+
   const entryEntities = (task.entryEntities ?? []).join(', ')
 
   return `你是一个结构化决策支持 Agent，当前模式：Predictive（前向推断）。
@@ -34,6 +38,9 @@ Ontology 版本：${ontology.version}
 
 # Ontology 类型摘要
 ${typesSummary}
+
+# Ontology 关系摘要
+${relationsSummary}
 
 # 规则集摘要（共 ${rules.length} 条）
 ${rulesSummary}
@@ -80,11 +87,16 @@ ${rulesSummary}
 
 export function buildPlannerPrompt(task: DecisionTask, ontology: Ontology): string {
   const typeNames = ontology.types.map((t) => t.name).join(', ')
+  const relations = ontology.relations
+    .map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}`)
+    .join('\n')
   return `你是 Planner Agent。你的唯一职责是生成一份结构化 ExplorationPlan，不得调用任何工具。
 
 任务目标：${task.goal}
 入口实体：${(task.entryEntities ?? []).join(', ')}
 可用类型：${typeNames}
+关系结构：
+${relations}
 Ontology 版本：${ontology.version}
 
 请以 JSON 格式输出 ExplorationPlan：
@@ -110,6 +122,9 @@ export function buildDiagnosticSystemPrompt(task: DecisionTask, ontology: Ontolo
   const typesSummary = ontology.types
     .map((t) => `  ${t.name}: ${t.properties.map((p) => p.name).join(', ')}`)
     .join('\n')
+  const relationsSummary = ontology.relations
+    .map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}: ${r.description}`)
+    .join('\n')
 
   return `你是一个结构化决策支持 Agent，当前模式：Diagnostic（后向归因）。
 
@@ -121,6 +136,9 @@ Ontology 版本：${ontology.version}
 
 # Ontology 类型摘要
 ${typesSummary}
+
+# Ontology 关系摘要
+${relationsSummary}
 
 # Diagnostic 四条守则（严格遵守）
 
