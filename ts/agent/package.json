@@ -14,8 +14,6 @@
     "dev0": "tsx watch --env-file=.env ./src",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "biome check ./src",
-    "lint:fix": "biome check --write ./src",
     "test": "vitest run",
     "test:watch": "vitest",
     "v5": "tsx --env-file=.env src/v5/index.ts",
@@ -26,6 +24,9 @@
     "chat": "tsx --env-file=.env src/demo/chat.js",
     "ocr": "tsx --env-file=.env src/demo/ocr-test.js",
     "simple": "tsx --env-file=.env src/demo/simple.js",
+    "format": "biome format --write ./src/v6",
+    "lint": "biome check --check ./src/v6",
+    "lint:fix": "biome check --write ./src/v6",
     "volt": "volt"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
     "@biomejs/biome": "^2.4.12",
     "@types/node": "^22.10.5",
     "@types/react": "^19.1.12",
+    "prettier": "^3.8.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^4.1.5"
