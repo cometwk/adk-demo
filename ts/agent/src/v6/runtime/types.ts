@@ -1,74 +1,77 @@
 // ── Node / Edge ──
 
-export type NodeId = string
+export type NodeId = string;
 
 export type Edge = {
-  from: NodeId
-  to: NodeId
-  type: string
-}
+	from: NodeId;
+	to: NodeId;
+	type: string;
+};
 
 // ── Tool result envelope (same contract as V5) ──
 
 export type ErrorCode =
-  | 'NOT_FOUND'
-  | 'INVALID_ARGS'
-  | 'EMPTY_RESULT'
-  | 'UNSUPPORTED_FIELD'
-  | 'INTERNAL_ERROR'
-  | 'METHOD_NOT_FOUND'
-  | 'MISSING_FACT'
-  | 'PRECONDITION_FAILED'
-  | 'POLICY_DENIED'
-  | 'WORKSPACE_MISSING'
+	| "NOT_FOUND"
+	| "INVALID_ARGS"
+	| "EMPTY_RESULT"
+	| "UNSUPPORTED_FIELD"
+	| "INTERNAL_ERROR"
+	| "METHOD_NOT_FOUND"
+	| "MISSING_FACT"
+	| "PRECONDITION_FAILED"
+	| "POLICY_DENIED"
+	| "WORKSPACE_MISSING";
 
 export type ToolResultSuccess<T = unknown> = {
-  ok: true
-  data: T
-  meta?: Record<string, unknown>
-}
+	ok: true;
+	data: T;
+	meta?: Record<string, unknown>;
+};
 
 export type ToolResultError = {
-  ok: false
-  code: ErrorCode
-  message: string
-  retryable: boolean
-  expected?: Record<string, unknown>
-}
+	ok: false;
+	code: ErrorCode;
+	message: string;
+	retryable: boolean;
+	expected?: Record<string, unknown>;
+};
 
-export type ToolResult<T = unknown> = ToolResultSuccess<T> | ToolResultError
+export type ToolResult<T = unknown> = ToolResultSuccess<T> | ToolResultError;
 
-export function toolOk<T>(data: T, meta?: Record<string, unknown>): ToolResultSuccess<T> {
-  return meta ? { ok: true, data, meta } : { ok: true, data }
+export function toolOk<T>(
+	data: T,
+	meta?: Record<string, unknown>,
+): ToolResultSuccess<T> {
+	return meta ? { ok: true, data, meta } : { ok: true, data };
 }
 
 export function toolErr(
-  code: ErrorCode,
-  message: string,
-  opts?: { retryable?: boolean; expected?: Record<string, unknown> }
+	code: ErrorCode,
+	message: string,
+	opts?: { retryable?: boolean; expected?: Record<string, unknown> },
 ): ToolResultError {
-  return {
-    ok: false,
-    code,
-    message,
-    retryable: opts?.retryable ?? false,
-    ...(opts?.expected ? { expected: opts.expected } : {}),
-  }
+	return {
+		ok: false,
+		code,
+		message,
+		retryable: opts?.retryable ?? false,
+		...(opts?.expected ? { expected: opts.expected } : {}),
+	};
 }
 
 // ── Pagination ──
 
 export type PageInfo = {
-  offset: number
-  limit: number
-  hasMore: boolean
-  total?: number
-}
+	offset: number;
+	limit: number;
+	hasMore: boolean;
+	total?: number;
+};
 
 export type Paginated<T> = {
-  items: T[]
-  page: PageInfo
-}
+	items: T[];
+	page: PageInfo;
+};
 
 // ── Fact binding (V6 core — time-aware from the start) ──
 //
@@ -77,27 +80,27 @@ export type Paginated<T> = {
 // and fixes the "workload_alice" namespace collision.
 
 export type FactSourceKind =
-  | 'graph_property' // read from the graph node at query time
-  | 'method_result' // returned by a call_method execution
-  | 'aggregation' // derived from aggregate_facts
-  | 'user_input' // supplied by the user / frontend
-  | 'derived' // computed from other bindings via an inference_rule
+	| "graph_property"   // read from the graph node at query time
+	| "method_result"    // returned by a call_method execution
+	| "aggregation"      // derived from aggregate_facts
+	| "user_input"       // supplied by the user / frontend
+	| "derived";         // computed from other bindings via an inference_rule
 
 export type FactSource = {
-  kind: FactSourceKind
-  ref?: string // evidenceId / nodeId / methodCallId that produced it
-}
+	kind: FactSourceKind;
+	ref?: string;        // evidenceId / nodeId / methodCallId that produced it
+};
 
 export type FactBinding = {
-  entityId: string
-  property: string
-  value: unknown
-  source: FactSource
-  confidence: number // 0..1
+	entityId: string;
+	property: string;
+	value: unknown;
+	source: FactSource;
+	confidence: number;  // 0..1
 
-  // Time dimension (V6.5) — included from day one to avoid refactoring.
-  // For pure predictive (snapshot) usage set both to Date.now() ISO string.
-  validFrom: string // ISO 8601; when this value started being true
-  validUntil?: string // ISO 8601; when it stopped (undefined = still valid)
-  observedAt: string // ISO 8601; when the system recorded this binding
-}
+	// Time dimension (V6.5) — included from day one to avoid refactoring.
+	// For pure predictive (snapshot) usage set both to Date.now() ISO string.
+	validFrom: string;            // ISO 8601; when this value started being true
+	validUntil?: string;          // ISO 8601; when it stopped (undefined = still valid)
+	observedAt: string;           // ISO 8601; when the system recorded this binding
+};

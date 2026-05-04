@@ -7,13 +7,11 @@
 📚 **小明想借一本书**
 
 图书馆借阅规则：
-
 1. **借阅上限**：每个读者最多只能借 3 本书
 2. **新书限制**：新书（刚上架不到 7 天）不能外借，只能在馆内阅读
 3. **逾期阻止**：如果读者有逾期未还的书，就不能再借新书
 
 这是一个典型的**规则密集型决策场景**，涉及：
-
 - 多个硬约束（hard_constraint）
 - 事实绑定（读者状态 + 图书状态）
 - 时间维度（上架天数计算）
@@ -21,16 +19,15 @@
 
 ### 1.2 为什么选择这个场景
 
-| 特性     | 图书馆场景             | ex1 工程场景            | ex2 数据管道场景 |
-| -------- | ---------------------- | ----------------------- | ---------------- |
-| 规则类型 | 硬约束为主             | 混合（hard + soft）     | 混合             |
-| 事实依赖 | 读者 + 图书（双向）    | 项目 + 工程师（多向）   | 模型 + 数据源    |
-| 时间维度 | 上架天数（关键）       | 截止日期压力            | SLA 窗口         |
-| 候选答案 | 二元（ALLOWED/DENIED） | 三元（HIGH/MEDIUM/LOW） | 二元或三元       |
-| 诊断价值 | "为什么被拒绝"         | "为什么延期"            | "为什么数据错误" |
+| 特性 | 图书馆场景 | ex1 工程场景 | ex2 数据管道场景 |
+|------|-----------|-------------|-----------------|
+| 规则类型 | 硬约束为主 | 混合（hard + soft） | 混合 |
+| 事实依赖 | 读者 + 图书（双向） | 项目 + 工程师（多向） | 模型 + 数据源 |
+| 时间维度 | 上架天数（关键） | 截止日期压力 | SLA 窗口 |
+| 候选答案 | 二元（ALLOWED/DENIED） | 三元（HIGH/MEDIUM/LOW） | 二元或三元 |
+| 诊断价值 | "为什么被拒绝" | "为什么延期" | "为什么数据错误" |
 
 图书馆场景的**简洁性**使其成为验证 V6 框架的理想选择：
-
 - 规则逻辑清晰，易于验证正确性
 - 候选答案二元化，便于理解判决过程
 - 时间维度简单（仅上架天数），不涉及复杂事件链
@@ -44,34 +41,34 @@
 ```typescript
 // 读者
 type Reader = {
-  borrowedCount: number // 当前已借阅数量
-  hasOverdue: boolean // 是否有逾期未还
-  overdueCount: number // 逾期数量
+  borrowedCount: number;   // 当前已借阅数量
+  hasOverdue: boolean;     // 是否有逾期未还
+  overdueCount: number;    // 逾期数量
 }
 
 // 图书
 type Book = {
-  title: string
-  category: 'fiction' | 'nonfiction' | 'reference' | 'textbook'
-  isNew: boolean
-  shelvedAt: string // 上架日期（ISO）
-  canCheckout: boolean // 是否可外借
-  status: 'available' | 'borrowed' | 'in_library_only'
+  title: string;
+  category: 'fiction' | 'nonfiction' | 'reference' | 'textbook';
+  isNew: boolean;
+  shelvedAt: string;       // 上架日期（ISO）
+  canCheckout: boolean;    // 是否可外借
+  status: 'available' | 'borrowed' | 'in_library_only';
 }
 
 // 图书馆
 type Library = {
-  name: string
-  borrowLimit: number // 借阅上限（默认 3）
-  newBookRestrictionDays: number // 新书限制天数（默认 7）
+  name: string;
+  borrowLimit: number;     // 借阅上限（默认 3）
+  newBookRestrictionDays: number; // 新书限制天数（默认 7）
 }
 
 // 借阅记录
 type BorrowRecord = {
-  borrowedAt: string
-  dueDate: string
-  returnedAt: string | null
-  isOverdue: boolean
+  borrowedAt: string;
+  dueDate: string;
+  returnedAt: string | null;
+  isOverdue: boolean;
 }
 ```
 
@@ -88,13 +85,13 @@ Library ──holds──> Book            // 图书馆收藏图书
 
 ### 2.3 方法（Methods）
 
-| 实体类型 | 方法                                      | 参数 | 返回值                                         | 相关规则               |
-| -------- | ----------------------------------------- | ---- | ---------------------------------------------- | ---------------------- |
-| Reader   | `checkBorrowCapacity()`                   | -    | `{ canBorrow, remainingSlots }`                | `reader_borrow_limit`  |
-| Reader   | `checkOverdueBlock()`                     | -    | `{ blocked, reason }`                          | `reader_overdue_block` |
-| Book     | `checkNewBookStatus(currentTime)`         | 时间 | `{ isNewBook, daysSinceShelved, canCheckout }` | `new_book_restricted`  |
-| Book     | `checkAvailability()`                     | -    | `{ available, reason }`                        | `book_availability`    |
-| Library  | `evaluateBorrowRequest(readerId, bookId)` | -    | `{ allowed, blockedBy, reasons }`              | 全部                   |
+| 实体类型 | 方法 | 参数 | 返回值 | 相关规则 |
+|----------|------|------|--------|----------|
+| Reader | `checkBorrowCapacity()` | - | `{ canBorrow, remainingSlots }` | `reader_borrow_limit` |
+| Reader | `checkOverdueBlock()` | - | `{ blocked, reason }` | `reader_overdue_block` |
+| Book | `checkNewBookStatus(currentTime)` | 时间 | `{ isNewBook, daysSinceShelved, canCheckout }` | `new_book_restricted` |
+| Book | `checkAvailability()` | - | `{ available, reason }` | `book_availability` |
+| Library | `evaluateBorrowRequest(readerId, bookId)` | - | `{ allowed, blockedBy, reasons }` | 全部 |
 
 ---
 
@@ -123,7 +120,6 @@ Library ──holds──> Book            // 图书馆收藏图书
 ```
 
 **关键设计点**：
-
 - `veto` 字段：触发时直接否决 `ALLOWED` 候选，不再参与后续评分
 - `direction: "risk_up"`：触发时推高风险（在图书馆场景中，风险 = DENIED）
 
@@ -151,7 +147,6 @@ Library ──holds──> Book            // 图书馆收藏图书
 ```
 
 **关键设计点**：
-
 - `daysSinceShelved` 是派生事实，由 `compute_days_since_shelved` 规则计算
 - 体现 V6 的 **Rule DAG** 设计：inference_rule 先执行，hard_constraint 后执行
 
@@ -202,7 +197,6 @@ Library ──holds──> Book            // 图书馆收藏图书
 ```
 
 **关键设计点**：
-
 - 作为 `soft_criterion` 而非 `hard_constraint`
 - 因为图书状态可能变化（被归还），不是绝对阻止
 
@@ -237,7 +231,6 @@ Library ──holds──> Book            // 图书馆收藏图书
 ```
 
 **关键设计点**：
-
 - 体现 V6 的 **FactStore + 派生事实** 设计
 - Rule DAG 保证此规则在 `new_book_restricted` 之前执行
 
@@ -264,7 +257,6 @@ Library ──holds──> Book            // 图书馆收藏图书
 ```
 
 执行顺序：
-
 1. 先执行 inference_rule，派生 `daysSinceShelved`
 2. 执行 hard_constraint，进行 veto 检查
 3. 执行 soft_criterion，参与 MCDA 评分
@@ -277,15 +269,15 @@ Library ──holds──> Book            // 图书馆收藏图书
 
 ```typescript
 type BorrowCandidate = {
-  id: string
-  label: 'ALLOWED' | 'DENIED'
-  description: string
+  id: string;
+  label: "ALLOWED" | "DENIED";
+  description: string;
 }
 
 const candidates = [
-  { id: 'cand_allowed', label: 'ALLOWED', description: '可以借阅' },
-  { id: 'cand_denied', label: 'DENIED', description: '拒绝借阅' },
-]
+  { id: "cand_allowed", label: "ALLOWED", description: "可以借阅" },
+  { id: "cand_denied", label: "DENIED", description: "拒绝借阅" },
+];
 ```
 
 ### 4.2 Direction Mapping
@@ -293,21 +285,20 @@ const candidates = [
 由于框架的 RuleDirection 类型限制为 `"risk_up" | "risk_down" | "neutral"`，我们需要适配：
 
 在图书馆场景中，"风险"概念对应"拒绝借阅"：
-
 - `risk_up`：触发时推高风险 → 推高 DENIED 候选得分
 - `risk_down`：触发时降低风险 → 推高 ALLOWED 候选得分（本场景未使用）
 
 ```typescript
 const directionMapping = {
-  ALLOWED: {
-    risk_up: -1, // 触发 risk_up 规则 → ALLOWED 得分下降
-    risk_down: +1, // 触发 risk_down 规则 → ALLOWED 得分上升
+  "ALLOWED": {
+    "risk_up": -1,   // 触发 risk_up 规则 → ALLOWED 得分下降
+    "risk_down": +1, // 触发 risk_down 规则 → ALLOWED 得分上升
   },
-  DENIED: {
-    risk_up: +1, // 触发 risk_up 规则 → DENIED 得分上升
-    risk_down: -1,
-  },
-}
+  "DENIED": {
+    "risk_up": +1,   // 触发 risk_up 规则 → DENIED 得分上升
+    "risk_down": -1,
+  }
+};
 ```
 
 ### 4.3 评分流程
@@ -315,11 +306,11 @@ const directionMapping = {
 ```typescript
 function scoreCandidates(input: ScoringInput): ScoredCandidate[] {
   // Step 1: 检查 veto
-  for (const rule of input.rules.filter((r) => r.kind === 'hard_constraint')) {
-    const result = rule.evaluator(ctx)
+  for (const rule of input.rules.filter(r => r.kind === "hard_constraint")) {
+    const result = rule.evaluator(ctx);
     if (result.triggered && rule.veto?.candidatesByLabel) {
       for (const label of rule.veto.candidatesByLabel) {
-        vetoed.add(`cand_${label.toLowerCase()}`)
+        vetoed.add(`cand_${label.toLowerCase()}`);
       }
     }
   }
@@ -327,24 +318,23 @@ function scoreCandidates(input: ScoringInput): ScoredCandidate[] {
   // Step 2: MCDA 加权评分
   for (const candidate of candidates) {
     if (vetoed.has(candidate.id)) {
-      scores[candidate.id] = { normalizedScore: 0, blocked: true }
-      continue
+      scores[candidate.id] = { normalizedScore: 0, blocked: true };
+      continue;
     }
-    let score = 0.5 // 基准分
+    let score = 0.5;  // 基准分
     for (const rule of input.rules) {
-      if (rule.kind === 'hard_constraint' || rule.kind === 'soft_criterion') {
-        const result = rule.evaluator(ctx)
+      if (rule.kind === "hard_constraint" || rule.kind === "soft_criterion") {
+        const result = rule.evaluator(ctx);
         if (result.triggered) {
-          const delta =
-            directionMapping[candidate.label][rule.direction] * rule.weight * severityWeight[result.severity]
-          score += delta
+          const delta = directionMapping[candidate.label][rule.direction] * rule.weight * severityWeight[result.severity];
+          score += delta;
         }
       }
     }
-    scores[candidate.id] = { normalizedScore: clamp(score, 0, 1), blocked: false }
+    scores[candidate.id] = { normalizedScore: clamp(score, 0, 1), blocked: false };
   }
 
-  return Object.entries(scores).map(([id, s]) => ({ candidateId: id, ...s }))
+  return Object.entries(scores).map(([id, s]) => ({ candidateId: id, ...s }));
 }
 ```
 
@@ -352,16 +342,15 @@ function scoreCandidates(input: ScoringInput): ScoredCandidate[] {
 
 **场景**：小明（2本，无逾期）想借新书（上架2天）
 
-| 规则                         | 触发 | severity | 对 ALLOWED 影响 | 对 DENIED 影响 |
-| ---------------------------- | ---- | -------- | --------------- | -------------- |
-| `compute_days_since_shelved` | ✓    | -        | 0               | 0 (neutral)    |
-| `new_book_restricted`        | ✓    | high     | vetoed!         | +1.0           |
-| `reader_borrow_limit`        | ✗    | low      | 0               | 0              |
-| `reader_overdue_block`       | ✗    | low      | 0               | 0              |
-| `book_availability`          | ✗    | low      | 0               | 0              |
+| 规则 | 触发 | severity | 对 ALLOWED 影响 | 对 DENIED 影响 |
+|------|------|----------|----------------|----------------|
+| `compute_days_since_shelved` | ✓ | - | 0 | 0 (neutral) |
+| `new_book_restricted` | ✓ | high | vetoed! | +1.0 |
+| `reader_borrow_limit` | ✗ | low | 0 | 0 |
+| `reader_overdue_block` | ✗ | low | 0 | 0 |
+| `book_availability` | ✗ | low | 0 | 0 |
 
 **结果**：
-
 - ALLOWED: vetoed, normalizedScore = 0
 - DENIED: normalizedScore = 1.0
 
@@ -379,50 +368,50 @@ function scoreCandidates(input: ScoringInput): ScoredCandidate[] {
 const causalEdges = [
   // 新书限制因果链
   {
-    id: 'ce_new_book_restricted',
-    cause: { type: 'event_type', matcher: 'book_shelved' },
-    effect: { type: 'fact_change', matcher: 'isNew=true' },
-    mechanism: '新上架的图书被标记为 isNew=true',
-    strength: 'strong',
-    relatedRuleIds: ['new_book_restricted'],
+    id: "ce_new_book_restricted",
+    cause: { type: "event_type", matcher: "book_shelved" },
+    effect: { type: "fact_change", matcher: "isNew=true" },
+    mechanism: "新上架的图书被标记为 isNew=true",
+    strength: "strong",
+    relatedRuleIds: ["new_book_restricted"],
   },
   {
-    id: 'ce_new_book_checkout_blocked',
-    cause: { type: 'fact_change', matcher: 'isNew=true && daysSinceShelved<7' },
-    effect: { type: 'event_type', matcher: 'borrow_rejected' },
-    mechanism: '上架不足 7 天的新书触发规则，阻止外借',
-    strength: 'strong',
-    relatedRuleIds: ['new_book_restricted'],
+    id: "ce_new_book_checkout_blocked",
+    cause: { type: "fact_change", matcher: "isNew=true && daysSinceShelved<7" },
+    effect: { type: "event_type", matcher: "borrow_rejected" },
+    mechanism: "上架不足 7 天的新书触发规则，阻止外借",
+    strength: "strong",
+    relatedRuleIds: ["new_book_restricted"],
   },
 
   // 逾期阻止因果链
   {
-    id: 'ce_due_date_passed',
-    cause: { type: 'event_type', matcher: 'due_date_passed' },
-    effect: { type: 'fact_change', matcher: 'hasOverdue=true' },
-    mechanism: '应还日期已过且未归还，读者被标记为有逾期',
-    strength: 'strong',
-    relatedRuleIds: ['reader_overdue_block'],
+    id: "ce_due_date_passed",
+    cause: { type: "event_type", matcher: "due_date_passed" },
+    effect: { type: "fact_change", matcher: "hasOverdue=true" },
+    mechanism: "应还日期已过且未归还，读者被标记为有逾期",
+    strength: "strong",
+    relatedRuleIds: ["reader_overdue_block"],
   },
   {
-    id: 'ce_overdue_block_borrow',
-    cause: { type: 'fact_change', matcher: 'hasOverdue=true' },
-    effect: { type: 'event_type', matcher: 'borrow_rejected' },
-    mechanism: '逾期读者触发规则，阻止借新书',
-    strength: 'strong',
-    relatedRuleIds: ['reader_overdue_block'],
+    id: "ce_overdue_block_borrow",
+    cause: { type: "fact_change", matcher: "hasOverdue=true" },
+    effect: { type: "event_type", matcher: "borrow_rejected" },
+    mechanism: "逾期读者触发规则，阻止借新书",
+    strength: "strong",
+    relatedRuleIds: ["reader_overdue_block"],
   },
 
   // 借阅上限因果链
   {
-    id: 'ce_borrow_count_reached',
-    cause: { type: 'fact_change', matcher: 'borrowedCount>=3' },
-    effect: { type: 'event_type', matcher: 'borrow_rejected' },
-    mechanism: '借阅数量达到上限，触发规则',
-    strength: 'strong',
-    relatedRuleIds: ['reader_borrow_limit'],
+    id: "ce_borrow_count_reached",
+    cause: { type: "fact_change", matcher: "borrowedCount>=3" },
+    effect: { type: "event_type", matcher: "borrow_rejected" },
+    mechanism: "借阅数量达到上限，触发规则",
+    strength: "strong",
+    relatedRuleIds: ["reader_borrow_limit"],
   },
-]
+];
 ```
 
 ### 5.2 Diagnostic Pipeline
@@ -488,14 +477,14 @@ const events = [
 
 ## 七、测试场景矩阵
 
-| #   | 读者              | 图书                                     | 预期   | 阻止规则             | 诊断归因                  |
-| --- | ----------------- | ---------------------------------------- | ------ | -------------------- | ------------------------- |
-| 1   | 小明 (2本,无逾期) | book_new_ai (上架2天)                    | DENIED | new_book_restricted  | "上架仅2天，新书不可外借" |
-| 2   | 小明 (2本,无逾期) | book_design_patterns (上架32天,borrowed) | DENIED | book_availability    | "已被借出"                |
-| 3   | 张三 (3本,无逾期) | book_design_patterns                     | DENIED | reader_borrow_limit  | "已借3本，达到上限"       |
-| 4   | 李四 (1本,有逾期) | book_new_ai                              | DENIED | reader_overdue_block | "有2本逾期未还"           |
-| 5   | 王五 (0本,无逾期) | book_new_ai                              | DENIED | new_book_restricted  | "上架仅2天"               |
-| 6   | 王五 (0本,无逾期) | book_reference_manual                    | DENIED | book_availability    | "参考书仅限馆内"          |
+| # | 读者 | 图书 | 预期 | 阻止规则 | 诊断归因 |
+|---|------|------|------|----------|----------|
+| 1 | 小明 (2本,无逾期) | book_new_ai (上架2天) | DENIED | new_book_restricted | "上架仅2天，新书不可外借" |
+| 2 | 小明 (2本,无逾期) | book_design_patterns (上架32天,borrowed) | DENIED | book_availability | "已被借出" |
+| 3 | 张三 (3本,无逾期) | book_design_patterns | DENIED | reader_borrow_limit | "已借3本，达到上限" |
+| 4 | 李四 (1本,有逾期) | book_new_ai | DENIED | reader_overdue_block | "有2本逾期未还" |
+| 5 | 王五 (0本,无逾期) | book_new_ai | DENIED | new_book_restricted | "上架仅2天" |
+| 6 | 王五 (0本,无逾期) | book_reference_manual | DENIED | book_availability | "参考书仅限馆内" |
 
 ---
 
@@ -518,15 +507,15 @@ src/v6/demo/ex3/
 
 ## 九、与 V6 框架的对应关系
 
-| V6 设计要素             | ex3 实现                                            |
-| ----------------------- | --------------------------------------------------- |
+| V6 设计要素 | ex3 实现 |
+|-------------|----------|
 | FactStore + FactBinding | `seed.ts`: FactBinding 初始化 + inference_rule 派生 |
-| Rule DAG                | `rules.ts`: inference → hard → soft 执行顺序        |
-| MCDA 评分               | `direction: "risk_up"` + `veto` + 加权评分          |
-| veto 机制               | `hard_constraint` 触发时直接否决 ALLOWED            |
-| 双轨判决                | System Verdict (规则评估) + Model Verdict (LLM)     |
-| Diagnostic 模式         | `causal.ts`: backwardChain + but-for 测试           |
-| EventStore              | `seed.ts`: 事件时间线 + 派生事实                    |
+| Rule DAG | `rules.ts`: inference → hard → soft 执行顺序 |
+| MCDA 评分 | `direction: "risk_up"` + `veto` + 加权评分 |
+| veto 机制 | `hard_constraint` 触发时直接否决 ALLOWED |
+| 双轨判决 | System Verdict (规则评估) + Model Verdict (LLM) |
+| Diagnostic 模式 | `causal.ts`: backwardChain + but-for 测试 |
+| EventStore | `seed.ts`: 事件时间线 + 派生事实 |
 
 ---
 
@@ -535,7 +524,6 @@ src/v6/demo/ex3/
 ### 决策 1：候选答案二元化
 
 图书馆场景的答案本质是二元（允许/拒绝），这简化了：
-
 - 评分计算（无需三档分数）
 - veto 机制（直接否决 ALLOWED）
 - 诊断归因（单主因清晰）
@@ -543,33 +531,28 @@ src/v6/demo/ex3/
 ### 册策 2：派生事实前置计算
 
 `daysSinceShelved` 必须在 `new_book_restricted` 之前计算，体现 Rule DAG 的必要性：
-
 - 如果顺序错误，规则会报告 missingFacts
 - inference_rule 的 derivedFacts 自动写入 FactStore
 
 ### 决策 3：硬约束优先于软准则
 
 `hard_constraint` 使用 veto 机制，确保：
-
 - 达到上限 → 直接拒绝，不参与评分
 - 新书限制 → 直接拒绝，不受其他因素影响
 - 逾期阻止 → 直接拒绝
 
 `soft_criterion`（book_availability）仅影响评分，不 veto，因为：
-
 - 图书状态可变（可能被归还）
 - 不应绝对阻止，而是提示风险
 
 ### 决策 4：诊断因果链简洁
 
 因果图只有 3 条主链：
-
 - 新书限制链
 - 逾期阻止链
 - 借阅上限链
 
 每条链都是强因果（strength: "strong"），便于：
-
 - but-for 测试结果明确
 - attribution 计算简单
 - 用户理解直观
@@ -581,7 +564,6 @@ src/v6/demo/ex3/
 ### 11.1 增加软准则
 
 当前场景以硬约束为主，可增加：
-
 - `reader_credit_score`: 读者信用评分（影响借阅额度）
 - `book_popularity`: 图书热门程度（影响预约优先级）
 - `reservation_queue`: 预约排队人数
@@ -589,7 +571,6 @@ src/v6/demo/ex3/
 ### 11.2 多图书馆场景
 
 当前只有一个图书馆，可扩展：
-
 - 多图书馆网络
 - 跨馆借阅规则
 - 图书调拨
@@ -597,7 +578,6 @@ src/v6/demo/ex3/
 ### 11.3 时间窗口扩展
 
 当前时间维度简单，可增加：
-
 - 借阅期限（不同类型图书不同期限）
 - 续借规则
 - 预约有效期

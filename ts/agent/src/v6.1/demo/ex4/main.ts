@@ -249,7 +249,7 @@ main1().catch((err) => {
   process.exit(1)
 })
 
-main2().catch((err) => {
-  console.error('Demo ex4 failed:', err)
-  process.exit(1)
-})
+// main2().catch((err) => {
+//   console.error('Demo ex4 failed:', err)
+//   process.exit(1)
+// })

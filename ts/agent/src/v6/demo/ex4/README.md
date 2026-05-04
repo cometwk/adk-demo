@@ -6,11 +6,11 @@
 
 图书馆规定：
 
-| 编号 | 规则                                              | 类型            |
-| ---- | ------------------------------------------------- | --------------- |
-| R1   | 每个读者最多只能借 **3 本书**                     | hard_constraint |
-| R2   | **新书（上架不到 7 天）**不能外借，只能在馆内阅读 | hard_constraint |
-| R3   | 如果读者**有逾期未还的书**，就不能再借新书        | hard_constraint |
+| 编号 | 规则 | 类型 |
+|------|------|------|
+| R1 | 每个读者最多只能借 **3 本书** | hard_constraint |
+| R2 | **新书（上架不到 7 天）**不能外借，只能在馆内阅读 | hard_constraint |
+| R3 | 如果读者**有逾期未还的书**，就不能再借新书 | hard_constraint |
 
 当前小明的状态：
 
@@ -54,13 +54,13 @@ Result = DENIED  ↔ 任意一条 Ci 为假
 
 #### 1.2 为什么选这个场景
 
-| 维度                                      | 价值                                                                  |
-| ----------------------------------------- | --------------------------------------------------------------------- |
-| **规则全是 hard_constraint**              | 验证 veto 机制：只要一条规则触发，结论就固定是 DENIED，不依赖打分权重 |
-| **多规则并发触发（R2 + R3）**             | 验证"多因并存"下的 Diagnostic 溯因，而不是唯一原因                    |
-| **存在未触发规则（R1）**                  | 验证系统不会误报未触发规则，evidence 要精确                           |
-| **时间维度（新书上架天数 + 逾期时间线）** | 验证 EventStore 的时间溯源能力                                        |
-| **反事实入口清晰**                        | "归还逾期书" / "等书过了保护期" 是两个独立的解锁路径                  |
+| 维度 | 价值 |
+|------|------|
+| **规则全是 hard_constraint** | 验证 veto 机制：只要一条规则触发，结论就固定是 DENIED，不依赖打分权重 |
+| **多规则并发触发（R2 + R3）** | 验证"多因并存"下的 Diagnostic 溯因，而不是唯一原因 |
+| **存在未触发规则（R1）** | 验证系统不会误报未触发规则，evidence 要精确 |
+| **时间维度（新书上架天数 + 逾期时间线）** | 验证 EventStore 的时间溯源能力 |
+| **反事实入口清晰** | "归还逾期书" / "等书过了保护期" 是两个独立的解锁路径 |
 
 ---
 
@@ -68,30 +68,30 @@ Result = DENIED  ↔ 任意一条 Ci 为假
 
 #### 2.1 Reader（读者）
 
-| 属性                 | 类型    | 说明                                                  |
-| -------------------- | ------- | ----------------------------------------------------- |
-| `name`               | string  | 读者姓名                                              |
-| `currentBorrowCount` | number  | 当前已借未还书籍数量（来源：`borrows` 边聚合）        |
-| `hasOverdueBook`     | boolean | 是否存在逾期未还（来源：`overdue` 边 + 截止日期检查） |
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `name` | string | 读者姓名 |
+| `currentBorrowCount` | number | 当前已借未还书籍数量（来源：`borrows` 边聚合） |
+| `hasOverdueBook` | boolean | 是否存在逾期未还（来源：`overdue` 边 + 截止日期检查） |
 
 关键方法：`checkBorrowEligibility()`
 
 #### 2.2 Book（书籍）
 
-| 属性          | 类型    | 说明                               |
-| ------------- | ------- | ---------------------------------- |
-| `title`       | string  | 书名                               |
-| `isbn`        | string  | ISBN                               |
-| `daysOnShelf` | number  | 上架距今天数（关键！新书判断依据） |
-| `lendable`    | boolean | 馆员手动标注的外借许可             |
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `title` | string | 书名 |
+| `isbn` | string | ISBN |
+| `daysOnShelf` | number | 上架距今天数（关键！新书判断依据） |
+| `lendable` | boolean | 馆员手动标注的外借许可 |
 
 关键方法：`checkNewBookStatus({ newBookThresholdDays: 7 })`
 
 #### 2.3 Library（图书馆）
 
-| 属性                    | 类型   | 说明                        |
-| ----------------------- | ------ | --------------------------- |
-| `maxBorrowPerReader`    | number | 借阅上限（配置值 = 3）      |
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `maxBorrowPerReader` | number | 借阅上限（配置值 = 3） |
 | `newBookProtectionDays` | number | 新书保护期（配置值 = 7 天） |
 
 关键方法：`evaluateBorrowRequest()` — 作为文档入口，真实计算委托给 rule engine。
@@ -183,7 +183,6 @@ else:
 ```
 
 本场景预期：
-
 - R2 触发（新书） → veto ALLOWED
 - R3 触发（逾期） → veto ALLOWED（重复 veto 幂等）
 - **systemVerdict: DENIED, confidence ≈ 1.0**
@@ -192,11 +191,11 @@ else:
 
 ### 五、双轨判决与一致性
 
-| 轨道           | 来源                   | 预期判决                             |
-| -------------- | ---------------------- | ------------------------------------ |
-| systemVerdict  | 确定性 rule DAG + MCDA | DENIED                               |
-| modelVerdict   | LLM 综合推理           | DENIED（规则清晰，LLM 应与系统一致） |
-| reconciliation | 两者比较               | agree = true                         |
+| 轨道 | 来源 | 预期判决 |
+|------|------|---------|
+| systemVerdict | 确定性 rule DAG + MCDA | DENIED |
+| modelVerdict | LLM 综合推理 | DENIED（规则清晰，LLM 应与系统一致） |
+| reconciliation | 两者比较 | agree = true |
 
 如果 LLM 输出 ALLOWED（例如被"只差 4 天就过保护期"这种叙事误导）：
 
@@ -324,20 +323,20 @@ Reconciliation:
 
 #### 8.1 What-If（Predictive 模式）
 
-| 假设                                               | 效果                                       |
-| -------------------------------------------------- | ------------------------------------------ |
+| 假设 | 效果 |
+|------|------|
 | 小明先归还《老人与海》（`hasOverdueBook = false`） | R3 不触发，但 R2 仍触发（新书），仍 DENIED |
-| 书已上架满 7 天（`daysOnShelf = 8`）               | R2 不触发，但 R3 仍触发（逾期），仍 DENIED |
-| 同时满足上述两条                                   | R2 和 R3 都不触发，→ ALLOWED               |
-| 小明已借 3 本（`currentBorrowCount = 3`）          | R1 也触发，三条规则全触发                  |
+| 书已上架满 7 天（`daysOnShelf = 8`） | R2 不触发，但 R3 仍触发（逾期），仍 DENIED |
+| 同时满足上述两条 | R2 和 R3 都不触发，→ ALLOWED |
+| 小明已借 3 本（`currentBorrowCount = 3`） | R1 也触发，三条规则全触发 |
 
 #### 8.2 But-For（Diagnostic 模式）
 
-| 假设（抹除事件）                                  | 结论                                           |
-| ------------------------------------------------- | ---------------------------------------------- |
-| 抹除 `evt_return_deadline_missed`（假设没有逾期） | 拒绝仍发生（新书保护期仍有效），but-for 不成立 |
-| 抹除 `evt_book_added_to_shelf`（假设书早上架）    | 拒绝仍发生（逾期仍有效），but-for 不成立       |
-| 同时抹除两个事件                                  | 拒绝不发生，二者联合构成充分必要条件           |
+| 假设（抹除事件） | 结论 |
+|------|------|
+| 抹除 `evt_return_deadline_missed`（假设没有逾期）| 拒绝仍发生（新书保护期仍有效），but-for 不成立 |
+| 抹除 `evt_book_added_to_shelf`（假设书早上架）| 拒绝仍发生（逾期仍有效），but-for 不成立 |
+| 同时抹除两个事件 | 拒绝不发生，二者联合构成充分必要条件 |
 
 这正是"**overdetermination**"的经典案例：两个原因各自充分，任意一个都能单独导致拒绝，因此 `overdetermined = true`。
 
@@ -384,11 +383,11 @@ src/v6/demo/ex4/
 
 ### 十一、与 ex1 / ex2 的对比
 
-| 维度               | ex1（工程师交付风险）           | ex2（dbt 数据质量）         | ex4（图书馆借阅）              |
-| ------------------ | ------------------------------- | --------------------------- | ------------------------------ |
-| 决策类型           | 风险评估（HIGH/MEDIUM/LOW）     | 风险评估（HIGH/MEDIUM/LOW） | **合规检查（ALLOWED/DENIED）** |
-| 规则类型           | 混合（soft + hard + inference） | 混合                        | **全部 hard_constraint**       |
-| Veto 机制          | 部分规则有 veto                 | 部分规则有 veto             | **所有规则均 veto**            |
-| Diagnostic outcome | milestone_missed                | dashboard_incorrect         | **borrow_request_denied**      |
-| Overdetermination  | 否                              | 否                          | **是（两条规则并发触发）**     |
-| 时间驱动的 fact    | 工程师 workload 变化            | 模型刷新延迟                | **书籍上架天数 + 逾期天数**    |
+| 维度 | ex1（工程师交付风险） | ex2（dbt 数据质量） | ex4（图书馆借阅） |
+|------|-----|-----|-----|
+| 决策类型 | 风险评估（HIGH/MEDIUM/LOW） | 风险评估（HIGH/MEDIUM/LOW） | **合规检查（ALLOWED/DENIED）** |
+| 规则类型 | 混合（soft + hard + inference） | 混合 | **全部 hard_constraint** |
+| Veto 机制 | 部分规则有 veto | 部分规则有 veto | **所有规则均 veto** |
+| Diagnostic outcome | milestone_missed | dashboard_incorrect | **borrow_request_denied** |
+| Overdetermination | 否 | 否 | **是（两条规则并发触发）** |
+| 时间驱动的 fact | 工程师 workload 变化 | 模型刷新延迟 | **书籍上架天数 + 逾期天数** |
