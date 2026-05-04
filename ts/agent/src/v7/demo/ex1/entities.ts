@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AgentMethodRegistry, agentMethod, agentProperty, type MethodSchema } from '../../runtime/decorator'
+import { agentMethod, agentProperty } from '../../runtime/decorator'
 import { BaseNode } from '../../runtime/graph'
 
 // ── Engineer ──
@@ -33,10 +33,6 @@ export class Engineer extends BaseNode {
     const thresholds = { senior: 80, mid: 70, junior: 55 } as const
     const threshold = thresholds[this.seniority]
     return { risk: this.workload > threshold ? 'HIGH' : 'LOW', threshold }
-  }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Engineer')
   }
 }
 
@@ -75,10 +71,6 @@ export class Team extends BaseNode {
   } {
     const surplus = this.capacity - args.memberCount
     return { overloaded: surplus < 0, surplus }
-  }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Team')
   }
 }
 
@@ -124,9 +116,5 @@ export class Project extends BaseNode {
     else if (this.deadlineRisk > 0.5) reasons.push(`截止日期压力升高 (${this.deadlineRisk})`)
     const risk: 'HIGH' | 'MEDIUM' | 'LOW' = reasons.length >= 2 ? 'HIGH' : reasons.length === 1 ? 'MEDIUM' : 'LOW'
     return { risk, reasons }
-  }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Project')
   }
 }

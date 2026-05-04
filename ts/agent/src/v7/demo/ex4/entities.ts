@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AgentMethodRegistry, agentMethod, agentProperty, type MethodSchema } from '../../runtime/decorator'
+import { agentMethod, agentProperty } from '../../runtime/decorator'
 import { BaseNode } from '../../runtime/graph'
 
 // ── Reader（读者）──
@@ -45,10 +45,6 @@ export class Reader extends BaseNode {
       return { eligible: false, reason: '有逾期未还书籍，借阅权限暂停' }
     }
     return { eligible: true }
-  }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Reader')
   }
 }
 
@@ -104,10 +100,6 @@ export class Book extends BaseNode {
       thresholdDays: args.newBookThresholdDays,
     }
   }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Book')
-  }
 }
 
 // ── Library（图书馆）──
@@ -157,9 +149,5 @@ export class Library extends BaseNode {
       allowed: false,
       blockedReasons: ['evaluation delegated to rule engine'],
     }
-  }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Library')
   }
 }

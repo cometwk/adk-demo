@@ -1,4 +1,4 @@
-import { AgentPropertyRegistry, type MethodSchema } from './registry'
+import { AgentMethodRegistry, AgentPropertyRegistry, type MethodSchema } from './registry'
 import type { Edge, NodeId, PageInfo, Paginated } from './types'
 
 export abstract class BaseNode {
@@ -7,7 +7,10 @@ export abstract class BaseNode {
     this.id = id
   }
 
-  abstract getCapabilities(): MethodSchema[]
+  getCapabilities(): MethodSchema[] {
+    const className = this.constructor.name
+    return AgentMethodRegistry.getMethodsForClass(className)
+  }
 
   getProperties(): Record<string, unknown> {
     const className = this.constructor.name

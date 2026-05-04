@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AgentMethodRegistry, agentMethod, agentProperty, type MethodSchema } from '../../runtime/decorator'
+import { agentMethod, agentProperty } from '../../runtime/decorator'
 import { BaseNode } from '../../runtime/graph'
 
 // ── Reader (读者) ──
@@ -50,10 +50,6 @@ export class Reader extends BaseNode {
       return { blocked: true, reason: `有 ${this.overdueCount} 本逾期未还` }
     }
     return { blocked: false, reason: null }
-  }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Reader')
   }
 }
 
@@ -147,10 +143,6 @@ export class Book extends BaseNode {
     }
     return { available: true, reason: null }
   }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Book')
-  }
 }
 
 // ── Library (图书馆) ──
@@ -189,10 +181,6 @@ export class Library extends BaseNode {
   } {
     // 此方法需要配合 FactStore 使用，实际检查在规则系统中完成
     return { allowed: true, blockedBy: [], reasons: [] }
-  }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Library')
   }
 }
 
@@ -240,9 +228,5 @@ export class BorrowRecord extends BaseNode {
     const currentDate = new Date(args.currentTime)
     const daysOverdue = Math.floor((currentDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
     return { overdue: daysOverdue > 0, daysOverdue: Math.max(0, daysOverdue) }
-  }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('BorrowRecord')
   }
 }

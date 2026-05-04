@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AgentMethodRegistry, agentMethod, agentProperty, type MethodSchema } from '../../runtime/decorator'
+import { agentMethod, agentProperty } from '../../runtime/decorator'
 import { BaseNode } from '../../runtime/graph'
 
 // ── DataModel ──
@@ -53,10 +53,6 @@ export class DataModel extends BaseNode {
     const factor = args.hoursSinceLastRefresh / this.freshnessSlaHours
     return { stale: factor > 1, overdueFactor: Math.round(factor * 100) / 100 }
   }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('DataModel')
-  }
 }
 
 // ── DataSource ──
@@ -99,10 +95,6 @@ export class DataSource extends BaseNode {
     const ratio = args.currentDelayHours / this.avgUpdateIntervalHours
     return { reliable: ratio <= 2, delayRatio: Math.round(ratio * 100) / 100 }
   }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('DataSource')
-  }
 }
 
 // ── Dashboard ──
@@ -126,10 +118,6 @@ export class Dashboard extends BaseNode {
     this.criticalityLevel = criticalityLevel
     this.dependencyCount = dependencyCount
   }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('Dashboard')
-  }
 }
 
 // ── DataOwner ──
@@ -146,9 +134,5 @@ export class DataOwner extends BaseNode {
     super(id)
     this.teamName = teamName
     this.modelCount = modelCount
-  }
-
-  getCapabilities(): MethodSchema[] {
-    return AgentMethodRegistry.getMethodsForClass('DataOwner')
   }
 }
