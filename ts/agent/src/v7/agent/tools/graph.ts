@@ -120,17 +120,20 @@ export function createGraphTools(graph: Graph, policy: PolicyContext, facts?: Fa
   })
 
   const search_nodes = tool({
-    description: '按 ID 子字符串和/或类型名称搜索图节点。返回分页结果。',
+    description:
+      '搜索图节点。可选参数：query（ID 子字符串）、type（节点类型）、relatedTo（锚点节点 ID，返回其所有邻居）。' +
+      '当提供 relatedTo 时，结果包含 relation 和 direction 字段。',
     inputSchema: z.object({
       query: z.string().optional().describe('匹配节点 ID 的子字符串'),
-      type: z.string().optional().describe("按节点类型名称过滤（如 'Project', 'Engineer'）"),
+      type: z.string().optional().describe("按节点类型名称过滤（如 'Book', 'Reader'）"),
+      relatedTo: z.string().optional().describe('锚点节点 ID：返回与此节点有边关系的所有邻居'),
       limit: z.number().optional().default(20).describe('每页最大结果数'),
       offset: z.number().optional().default(0).describe('分页偏移量'),
     }),
-    execute: async ({ query, type, limit, offset }): Promise<ToolResult> => {
-      maybeLogToolCall('search_nodes', { query, type }, policy)
+    execute: async ({ query, type, relatedTo, limit, offset }): Promise<ToolResult> => {
+      maybeLogToolCall('search_nodes', { query, type, relatedTo }, policy)
 
-      const result = graph.searchNodes({ query, type, limit, offset })
+      const result = graph.searchNodes({ query, type, relatedTo, limit, offset })
       const filteredItems = result.items.filter(
         (n) => checkEntityAccess(n.nodeId, policy) && checkTypeAccess(n.type, policy)
       )

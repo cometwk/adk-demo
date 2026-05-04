@@ -38,6 +38,21 @@ export type QueryNeighborsOpts = {
   offset?: number
 }
 
+export type SearchNodeResult = {
+  nodeId: string
+  type: string
+  relation?: string
+  direction?: 'out' | 'in'
+}
+
+export type SearchNodesOpts = {
+  query?: string
+  type?: string
+  relatedTo?: string
+  limit?: number
+  offset?: number
+}
+
 const DEFAULT_PAGE_LIMIT = 20
 
 export class Graph {
@@ -125,14 +140,60 @@ export class Graph {
     return { items: page, page: pageInfo }
   }
 
-  searchNodes(opts: {
-    query?: string
-    type?: string
-    limit?: number
-    offset?: number
-  }): Paginated<{ nodeId: string; type: string }> {
-    const { query, type, limit = DEFAULT_PAGE_LIMIT, offset = 0 } = opts
-    const all: { nodeId: string; type: string }[] = []
+  searchNodes(opts: SearchNodesOpts): Paginated<SearchNodeResult> {
+    const { query, type, relatedTo, limit = DEFAULT_PAGE_LIMIT, offset = 0 } = opts
+
+    // 如果提供 relatedTo，搜索其邻居节点
+    if (relatedTo) {
+      const all: SearchNodeResult[] = []
+
+      // out 方向的邻居
+      for (const e of this.edges) {
+        if (e.from === relatedTo) {
+          const target = this.nodes.get(e.to)
+          if (!target) continue
+          const typeName = target.constructor.name
+          if (type && typeName !== type) continue
+          if (query && !e.to.includes(query)) continue
+          all.push({
+            nodeId: e.to,
+            type: typeName,
+            relation: e.type,
+            direction: 'out',
+          })
+        }
+      }
+
+      // in 方向的邻居
+      for (const e of this.edges) {
+        if (e.to === relatedTo) {
+          const source = this.nodes.get(e.from)
+          if (!source) continue
+          const typeName = source.constructor.name
+          if (type && typeName !== type) continue
+          if (query && !e.from.includes(query)) continue
+          all.push({
+            nodeId: e.from,
+            type: typeName,
+            relation: e.type,
+            direction: 'in',
+          })
+        }
+      }
+
+      const page = all.slice(offset, offset + limit)
+      const pageInfo: PageInfo = {
+        offset,
+        limit,
+        hasMore: offset + limit < all.length,
+        ...(all.length <= 1000 ? { total: all.length } : {}),
+      }
+
+      return { items: page, page: pageInfo }
+    }
+
+    // 全局搜索（不提供 relatedTo）
+    const all: SearchNodeResult[] = []
 
     for (const [nodeId, node] of this.nodes) {
       const typeName = node.constructor.name

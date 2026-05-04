@@ -5,7 +5,7 @@ export type TypeProperty = {
   type: string
   description: string
   agentVisible: boolean
-  sensitive?: boolean // marks PII / redactable fields
+  sensitive?: boolean // marks PII / redactable fields redactable 
 }
 
 export type TypeMethod = {
