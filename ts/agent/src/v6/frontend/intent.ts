@@ -1,10 +1,13 @@
+import { z } from 'zod'
+import { model } from '../../lib/model'
 import type { DecisionMode, DecisionIntent } from '../ontology/decision'
+import { generateStructureOutput } from '../../lib/structure_output'
 
 // ── Intent detection (frontend / pre-executor) ──
 //
 // Two-pass approach:
 //   1. Rule-based keyword matching (fast, deterministic)
-//   2. Small LLM fallback if confidence < 0.6
+//   2. LLM fallback via generateObject if confidence < 0.6
 
 export type IntentResult = {
   mode: DecisionMode
@@ -85,8 +88,76 @@ const INTENT_RULES: IntentRule[] = [
   },
 ]
 
+// ── LLM fallback schema ──
+
+const IntentSchema = z.object({
+  mode: z.enum(['predictive', 'diagnostic']),
+  intent: z.enum([
+    'risk_assessment',
+    'prioritization',
+    'recommendation',
+    'capacity_planning',
+    'what_if_planning',
+    'rca',
+    'post_mortem',
+    'anomaly_explanation',
+    'regression_attribution',
+    'incident_diagnosis',
+  ]),
+  confidence: z.number().min(0).max(1),
+})
+
+async function classifyIntentWithLLM(userQuery: string, ruleResult: IntentResult): Promise<IntentResult> {
+  const  object  = await generateStructureOutput({
+    schema: IntentSchema,
+    prompt: `将用户问题分类为决策意图。
+
+规则系统初步判断: mode=${ruleResult.mode}, intent=${ruleResult.intent}, confidence=${ruleResult.confidence.toFixed(2)}
+
+用户问题: "${userQuery}"
+
+predictive 意图（前向预测/评估未来）:
+  risk_assessment    — 风险评估
+  prioritization     — 优先级排序
+  recommendation     — 推荐建议
+  capacity_planning  — 容量/人力规划
+  what_if_planning   — 假设情景分析
+
+diagnostic 意图（后向归因/解释已发生的事）:
+  rca                    — 根因分析
+  post_mortem            — 事后复盘
+  anomaly_explanation    — 异常解释
+  regression_attribution — 退步归因
+  incident_diagnosis     — 事故诊断
+
+请以 JSON 格式输出最匹配的 mode、intent 和置信度。`,
+  })
+
+  return {
+    mode: object.mode,
+    intent: object.intent,
+    confidence: object.confidence,
+    matchedKeywords: ruleResult.matchedKeywords,
+  }
+}
+
+// ── Public API ──
+
 /**
- * Classify user query into mode + intent via keyword rules.
+ * Classify user query into mode + intent.
+ * Two-pass: keyword rules first, LLM fallback if confidence < 0.6.
+ */
+export async function classifyIntent(userQuery: string): Promise<IntentResult> {
+  let ruleResult = detectIntent(userQuery)
+  if (ruleResult.confidence < 0.8)  {
+    ruleResult = await classifyIntentWithLLM(userQuery, ruleResult)
+  }
+  return ruleResult
+}
+
+/**
+ * Classify user query into mode + intent via keyword rules (synchronous, deterministic).
+ * Use classifyIntent() for the full two-pass version with LLM fallback.
  */
 export function detectIntent(userQuery: string): IntentResult {
   const lowerQuery = userQuery.toLowerCase()

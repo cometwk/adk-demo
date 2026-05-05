@@ -325,6 +325,31 @@ export function seedLibraryEventStore(): EventStore {
   return store
 }
 
+// ── Alias table for entity linker ──
+//
+// Maps natural-language names (as a user might type them) to canonical entity IDs.
+// Used by the frontend entity linker so callers need not pass entryEntities manually.
+
+export const LIBRARY_ALIASES: Record<string, string> = {
+  // // Reader aliases
+  // 小明: 'xiao_ming',
+  // xiao_ming: 'xiao_ming',
+
+  // // Book aliases
+  // 人工智能简史: 'book_ai_history',
+  // ai简史: 'book_ai_history',
+  // '人工智能简史(book)': 'book_ai_history',
+  // 老人与海: 'book_old_man_and_sea',
+  // 三体: 'book_three_body',
+  // 飘: 'book_gone_with_wind',
+  // 人类简史: 'book_sapiens',
+
+  // // Library aliases
+  // 图书馆: 'city_library',
+  // 市图书馆: 'city_library',
+  // city_library: 'city_library',
+}
+
 // ── Full scenario setup ──
 
 export function setupLibraryScenario(opts: { relations?: RelationSchema[] } = {}): {

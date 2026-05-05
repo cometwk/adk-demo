@@ -10,6 +10,7 @@ import { runPredictiveExecutor, runDiagnosticExecutor } from './agent/executor'
 import { runCritic } from './agent/critic'
 import { reconcilePredictive, reconcileDiagnostic } from './agent/reconciler'
 import { getCounterfactualOffers, resetCounterfactuals } from './agent/tools/counterfactual'
+import { frontEnd } from './frontend/index'
 import { detectIntent } from './frontend/intent'
 import { saveTrace } from './runtime/trace'
 import type { DecisionTrace } from './runtime/trace'
@@ -29,7 +30,10 @@ export type RunDecisionOptions = {
 
 export type RunDecisionInput = {
   userQuery: string
-  entryEntities?: string[] // for predictive; optional (entity linker used if omitted)
+  /** Explicit entry entity IDs — skips entity linker when provided (backward compat). */
+  entryEntities?: string[]
+  /** Alias table for entity linker, e.g. { '小明': 'xiao_ming' }. */
+  aliases?: Record<string, string>
   outcome?: OutcomeEvent // for diagnostic; required if mode=diagnostic
   timeWindow?: { from: string; to: string }
 } & RunDecisionOptions
@@ -51,24 +55,81 @@ export async function runDecisionAssistant(input: RunDecisionInput): Promise<Dec
     verbose = false,
   } = input
 
-  // ── Intent detection (frontend) ──
-  const intentResult = detectIntent(userQuery)
-
-  const task: DecisionTask = {
-    taskId: randomUUID(),
-    mode: intentResult.mode,
-    intent: intentResult.intent,
-    goal: userQuery,
-    scope: { typesOfInterest: ontology.types.map((t) => t.name) },
+  // ── Frontend: intent classification + entity linking ──
+  //
+  // When the caller provides explicit entryEntities, we still run the frontend
+  // for intent classification but use the caller-supplied IDs as contextual
+  // priority hints and merge them into the final entity list.
+  const frontEndResult = await frontEnd(userQuery, graph, ontology, {
+    contextualEntityIds: input.entryEntities,
+    aliases: input.aliases,
     policyCtx,
-    entryEntities: input.entryEntities,
+  })
+
+  if (frontEndResult.kind === 'clarify') {
+    // Clarification needed — surface structured questions instead of running the pipeline.
+    // As a simple fallback for programmatic callers that don't handle clarify,
+    // we fall back to a minimal task using keyword-only intent detection.
+    const fallbackIntent = detectIntent(userQuery)
+    if (verbose) {
+      console.log(
+        `[V6] Clarification needed (${frontEndResult.questions.length} questions). Falling back to keyword intent.`,
+      )
+      for (const q of frontEndResult.questions) {
+        console.log(`  [clarify] ${q.type}: ${q.prompt}`)
+      }
+    }
+    // Build a minimal task from keyword detection + caller-supplied entities
+    const task: DecisionTask = {
+      taskId: randomUUID(),
+      mode: fallbackIntent.mode,
+      intent: fallbackIntent.intent,
+      goal: userQuery,
+      scope: { typesOfInterest: ontology.types.map((t) => t.name) },
+      policyCtx,
+      entryEntities: input.entryEntities ?? [],
+      outcome: input.outcome,
+      timeWindow: input.timeWindow,
+    }
+    return runTaskSession(task, { graph, ontology, factStore, eventStore, causalGraph, modelId, traceId, feedbackToken, startedAt, verbose })
+  }
+
+  // Merge caller-supplied entryEntities into the linker's result (backward compat)
+  const task: DecisionTask = {
+    ...frontEndResult.task,
+    entryEntities: input.entryEntities?.length
+      ? [...new Set([...(frontEndResult.task.entryEntities ?? []), ...input.entryEntities])]
+      : frontEndResult.task.entryEntities,
     outcome: input.outcome,
     timeWindow: input.timeWindow,
   }
 
   if (verbose) {
-    console.log(`[V6] mode=${task.mode} intent=${task.intent} confidence=${intentResult.confidence}`)
+    console.log(
+      `[V6] mode=${task.mode} intent=${task.intent} entryEntities=[${task.entryEntities?.join(', ')}]`,
+    )
   }
+
+  return runTaskSession(task, { graph, ontology, factStore, eventStore, causalGraph, modelId, traceId, feedbackToken, startedAt, verbose })
+}
+
+// ── Session dispatcher ──
+
+type SessionContext = {
+  graph: Graph
+  ontology: Ontology
+  factStore?: FactStore
+  eventStore?: EventStore
+  causalGraph?: CausalGraph
+  modelId: string
+  traceId: string
+  feedbackToken: string
+  startedAt: string
+  verbose: boolean
+}
+
+async function runTaskSession(task: DecisionTask, ctx: SessionContext): Promise<DecisionResponse> {
+  const { graph, ontology, factStore, eventStore, causalGraph, modelId, traceId, feedbackToken, startedAt, verbose } = ctx
 
   if (task.mode === 'predictive') {
     return runPredictiveSession(task, graph, ontology, factStore, modelId, traceId, feedbackToken, startedAt, verbose)
