@@ -4,7 +4,7 @@
   "description": "A VoltAgent application",
   "type": "module",
   "scripts": {
-    "dev": "tsx --env-file=.env ./src/main.ts",
+    "dev": "tsx --env-file=.env ./src/v7/demo/ex4/main.ts",
     "llm": "tsx src/demo/agent/llm.ts",
     "hello": "tsx src/lib/hello.ts",
     "hello2": "tsx src/lib/hello2.ts",

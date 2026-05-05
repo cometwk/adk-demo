@@ -1,36 +1,35 @@
-import type { Ontology } from "../ontology/schema";
-import type { DecisionTask } from "../ontology/decision";
-import { getRules } from "../ontology/rules";
+import type { Ontology } from '../ontology/schema'
+import type { DecisionTask } from '../ontology/decision'
+import { getRules } from '../ontology/rules'
 
 // ── Predictive system prompt ──
 
-export function buildPredictiveSystemPrompt(
-	task: DecisionTask,
-	ontology: Ontology,
-): string {
-	const rules = getRules().filter((r) =>
-		r.appliesTo.some((t) =>
-			(task.scope.typesOfInterest ?? ontology.types.map((ot) => ot.name)).includes(t),
-		),
-	);
+export function buildPredictiveSystemPrompt(task: DecisionTask, ontology: Ontology): string {
+  const rules = getRules().filter((r) =>
+    r.appliesTo.some((t) => (task.scope.typesOfInterest ?? ontology.types.map((ot) => ot.name)).includes(t))
+  )
 
-	const rulesSummary = rules
-		.map(
-			(r) =>
-				`  - [${r.id}] ${r.kind.toUpperCase()} | applies to: ${r.appliesTo.join("/")} | direction: ${r.direction} | weight: ${r.weight ?? "N/A"}\n    ${r.description}`,
-		)
-		.join("\n");
+  const rulesSummary = rules
+    .map(
+      (r) =>
+        `  - [${r.id}] ${r.kind.toUpperCase()} | applies to: ${r.appliesTo.join('/')} | direction: ${r.direction} | weight: ${r.weight ?? 'N/A'}\n    ${r.description}`
+    )
+    .join('\n')
 
-	const typesSummary = ontology.types
-		.map(
-			(t) =>
-				`  ${t.name}: ${t.properties.map((p) => p.name).join(", ")} | methods: ${t.methods.map((m) => m.name).join(", ")}`,
-		)
-		.join("\n");
+  const typesSummary = ontology.types
+    .map(
+      (t) =>
+        `  ${t.name}: ${t.properties.map((p) => p.name).join(', ')} | methods: ${t.methods.map((m) => m.name).join(', ')}`
+    )
+    .join('\n')
 
-	const entryEntities = (task.entryEntities ?? []).join(", ");
+  const relationsSummary = ontology.relations
+    .map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}: ${r.description}`)
+    .join('\n')
 
-	return `你是一个结构化决策支持 Agent，当前模式：Predictive（前向推断）。
+  const entryEntities = (task.entryEntities ?? []).join(', ')
+
+  return `你是一个结构化决策支持 Agent，当前模式：Predictive（前向推断）。
 
 # 任务
 目标：${task.goal}
@@ -39,6 +38,9 @@ Ontology 版本：${ontology.version}
 
 # Ontology 类型摘要
 ${typesSummary}
+
+# Ontology 关系摘要
+${relationsSummary}
 
 # 规则集摘要（共 ${rules.length} 条）
 ${rulesSummary}
@@ -78,18 +80,23 @@ ${rulesSummary}
 }
 \`\`\`
 
-严禁在此 JSON 之外给出风险评级——等待 Critic 和 Reconciler 完成最终裁定。`;
+严禁在此 JSON 之外给出风险评级——等待 Critic 和 Reconciler 完成最终裁定。`
 }
 
 // ── Planner prompt ──
 
 export function buildPlannerPrompt(task: DecisionTask, ontology: Ontology): string {
-	const typeNames = ontology.types.map((t) => t.name).join(", ");
-	return `你是 Planner Agent。你的唯一职责是生成一份结构化 ExplorationPlan，不得调用任何工具。
+  const typeNames = ontology.types.map((t) => t.name).join(', ')
+  const relations = ontology.relations
+    .map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}`)
+    .join('\n')
+  return `你是 Planner Agent。你的唯一职责是生成一份结构化 ExplorationPlan，不得调用任何工具。
 
 任务目标：${task.goal}
-入口实体：${(task.entryEntities ?? []).join(", ")}
+入口实体：${(task.entryEntities ?? []).join(', ')}
 可用类型：${typeNames}
+关系结构：
+${relations}
 Ontology 版本：${ontology.version}
 
 请以 JSON 格式输出 ExplorationPlan：
@@ -104,31 +111,34 @@ Ontology 版本：${ontology.version}
 - expectedSubgraphs: 列举需要展开的子图（不超过 5 个）
 - methodsToInvoke: 只列举可能需要的方法，不要调用
 - rulesetOfInterest: 根据任务目标选出最相关的规则 ID
-- 不要解释，只输出 JSON`;
+- 不要解释，只输出 JSON`
 }
 
 // ── Diagnostic system prompt ──
 
-export function buildDiagnosticSystemPrompt(
-	task: DecisionTask,
-	ontology: Ontology,
-): string {
-	const outcome = task.outcome;
-	const tw = task.timeWindow;
-	const typesSummary = ontology.types
-		.map((t) => `  ${t.name}: ${t.properties.map((p) => p.name).join(", ")}`)
-		.join("\n");
+export function buildDiagnosticSystemPrompt(task: DecisionTask, ontology: Ontology): string {
+  const outcome = task.outcome
+  const tw = task.timeWindow
+  const typesSummary = ontology.types
+    .map((t) => `  ${t.name}: ${t.properties.map((p) => p.name).join(', ')}`)
+    .join('\n')
+  const relationsSummary = ontology.relations
+    .map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}: ${r.description}`)
+    .join('\n')
 
-	return `你是一个结构化决策支持 Agent，当前模式：Diagnostic（后向归因）。
+  return `你是一个结构化决策支持 Agent，当前模式：Diagnostic（后向归因）。
 
 # 任务
 目标：${task.goal}
-已发生结果：${outcome ? `${outcome.eventType} @ ${outcome.entityId} (${outcome.occurredAt})` : "未指定"}
-时间窗口：${tw ? `${tw.from} → ${tw.to}` : "全量历史"}
+已发生结果：${outcome ? `${outcome.eventType} @ ${outcome.entityId} (${outcome.occurredAt})` : '未指定'}
+时间窗口：${tw ? `${tw.from} → ${tw.to}` : '全量历史'}
 Ontology 版本：${ontology.version}
 
 # Ontology 类型摘要
 ${typesSummary}
+
+# Ontology 关系摘要
+${relationsSummary}
 
 # Diagnostic 四条守则（严格遵守）
 
@@ -170,18 +180,18 @@ propose_causes 可以提出多个候选原因，它们之间可以 co-occur。
     "rationale": "综合归因说明"
   }
 }
-\`\`\``;
+\`\`\``
 }
 
 // ── Diagnostic planner prompt ──
 
 export function buildDiagnosticPlannerPrompt(task: DecisionTask, ontology: Ontology): string {
-	void ontology;
-	const outcome = task.outcome;
-	return `你是 Diagnostic Planner Agent。只输出 JSON DiagnosticPlan，不调用任何工具。
+  void ontology
+  const outcome = task.outcome
+  return `你是 Diagnostic Planner Agent。只输出 JSON DiagnosticPlan，不调用任何工具。
 
-已发生结果：${outcome ? `${outcome.eventType} @ ${outcome.entityId}` : "?"}
-时间窗口：${task.timeWindow ? `${task.timeWindow.from} → ${task.timeWindow.to}` : "全量"}
+已发生结果：${outcome ? `${outcome.eventType} @ ${outcome.entityId}` : '?'}
+时间窗口：${task.timeWindow ? `${task.timeWindow.from} → ${task.timeWindow.to}` : '全量'}
 
 输出格式：
 {
@@ -189,5 +199,5 @@ export function buildDiagnosticPlannerPrompt(task: DecisionTask, ontology: Ontol
   "backwardChains": ["从 outcome 向上追溯的 causal edge pattern"],
   "eventsToReconstruct": ["需要 query_events 检索的事件类型"],
   "candidateCauseSpace": ["候选原因描述，每条不超过 20 字"]
-}`;
+}`
 }
