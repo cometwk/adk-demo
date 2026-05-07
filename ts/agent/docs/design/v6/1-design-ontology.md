@@ -1,6 +1,6 @@
 # 核心框架
 
-该系统的设计与实现围绕着将 AI 从简单的“图搜索工具”进化为“工业级决策支持系统”这一核心目标， 
+该系统的设计与实现围绕着将 AI 从简单的"图搜索工具"进化为"工业级决策支持系统"这一核心目标， 
 经历了从 V5 到 V6 的深度演进。其核心框架可以总结为：
 **本体（Ontology）定义规范、图（Graph）提供事实、Agent（Agent）执行受控推理**。
 
@@ -13,7 +13,7 @@
 2. 图数据与事实管理 (Graph & Facts)
   - graph: **渐进式实体披露 (Progressive Disclosure)**：System Prompt 仅提供入口实体和 Schema，
     Agent 必须通过 `inspect_node` 和 `query_neighbors` 按需探索图，以适配大规模数据和隐私权限场景。
-    s
+
   - facts (FactStore 与 FactBinding): 不在讨论范围内 
   - 权限与隐私 (PolicyContext)：不在讨论范围内
 
@@ -34,42 +34,202 @@ demo
 - @src/v6/demo/ex4/ontology.ts 定义 T
 - @src/v6/demo/ex4/seed.ts 初始化 E , R
 
+---
 
-目前我有一个想法：
+## 方案评估
 
-export class Reader extends BaseNode {
-}
+### 现状痛点
 
-除了包含 agentProperty, agentMethod 方法之外，
-还要我能包含 agentRelation , 来处理 graph 中 E 和 R 的数据，比如
+| 痛点 | 说明 |
+|------|------|
+| Schema-Data 分离 | `RelationSchema` 在 `ontology.ts` 中手动声明，与实体类完全割裂。业务实体（映射到 DB 表）天然知道自己的关系，却要在外部重复声明。 |
+| 手动边管理 | 所有边必须通过 `g.addEdge()` 在 seed 文件中手动添加。生产环境中边应来自数据库查询。 |
+| 无 Lazy Loading | 全部边必须预加载到 `Graph.edges`，大规模数据场景不适用。 |
+| 声明不一致 | `@agentProperty` 和 `@agentMethod` 已通过装饰器声明在实体类上，但关系仍需外部手动声明。 |
+
+### `@agentRelation` 方案优势
+
+1. **单一事实来源 (Single Source of Truth)**: 关系的 Schema 声明与数据解析逻辑共存于实体类
+2. **与现有装饰器一致**: `@agentRelation` 与 `@agentProperty`、`@agentMethod` 形成完整的三件套
+3. **生产友好**: 方法体可直接写 DB 查询，方便与 DDL/表关系绑定
+4. **渐进式采用**: 静态边（demo）与动态解析（生产）可共存，无须一步到位
+
+---
+
+## 设计决策
+
+### Q1: Graph 中是否必须区分 getOutEdges 和 getInEdges？
+
+**结论：保留区分，但 lazy resolution 仅在 out 方向自动生效。**
+
+| 方向 | 行为 |
+|------|------|
+| `getOutEdges(nodeId)` | ① 查静态边 → ② 无静态边时回退到 `@agentRelation` resolver |
+| `getInEdges(nodeId)` | 仅查静态边（暂不支持 lazy resolution） |
+| `queryNeighbors(direction='out')` | 同 getOutEdges，支持 lazy resolution |
+| `queryNeighbors(direction='in')` | 反向扫描其他节点的 `@agentRelation` resolver |
+| `queryNeighbors(direction='both')` | 合并 out + in 两个方向 |
+
+**理由**：
+- `@agentRelation` 天然描述出边（"我借了哪些书"），这是声明的自然方向
+- 入边（"哪些人借了这本书"）需要扫描所有可能的 source 节点 — 开销大，但对 prototype 可接受
+- `inspect_node` 工具的 `outEdges` 字段直接受益于 lazy resolution
+
+### Q2: BaseNode 是否提供 Graph.getOutEdges 到 agentRelation function 的辅助函数？
+
+**结论：是。BaseNode 提供两个辅助方法。**
 
 ```ts
-const relations: RelationSchema[] = [
-  { type: 'borrows',    fromType: 'Reader', toType: 'Book',    description: '读者当前借阅（已借出、未归还）' },
-]
-
-class Reader extends BaseNode {
-  
-  // 定义了 RelationSchema, 同时，实现了为实现 Graph.getOutEdges 提供了基础函数
-  @agentRelation{
-    type: 'borrows',  // 参考 RelationSchema 
-    // fromType: 'Reader', // 这个不需要，类型就是本class
-    toType: 'Book',   // 这是返回类型 
-    description: '读者当前借阅（已借出、未归还）'
-  }
-  borrows():{
-    // 在实际落地业务中，do somthing such as query db
-    // ...
-
-    return {'borrows': ['book-id-1', 'book-id-2']}  
-  }
-
+abstract class BaseNode {
+  // 解析单个关系类型的出边目标 ID 列表
+  resolveRelation(relationType: string): NodeId[]
+  // 解析所有出边（聚合所有 @agentRelation 方法的结果）
+  resolveAllRelations(): Record<string, NodeId[]>
 }
 ```
 
-在具体的业务落地中，这样定义模式，方便跟实际的业务数据库的 DDL 和表关系绑定！
+`Graph.getOutEdges(nodeId)` 在无静态边时调用 `node.resolveAllRelations()` 作为回退。
 
-额外需要考虑的问题
-1. Graph 中 需要评估 , 有必须区分 getOutEdges 和 getInEdges 吗？
-2. BaseNode 提供 Graph.getOutEdges 到 agentRelation function 的辅助函数？
+---
 
+## 详细设计
+
+### 1. AgentRelationRegistry
+
+新增全局注册表，与 `AgentPropertyRegistry` / `AgentMethodRegistry` 平行：
+
+```ts
+// registry.ts
+
+export type RelationRegistryEntry = {
+  type: string        // 边类型名，如 'borrows'
+  fromType: string    // 来源实体类型（自动填充为装饰器所在 class 名）
+  toType: string      // 目标实体类型，如 'Book'
+  description: string // 人类可读描述
+  methodName: string  // 解析方法名（@agentRelation 装饰的方法）
+}
+
+class AgentRelationRegistry {
+  register(className, entry)
+  getRelationsForClass(className): RelationRegistryEntry[]
+  getRelationsForToType(toType): RelationRegistryEntry[]  // 反向查询
+  getAllRelationSchemas(): RelationSchema[]                 // → buildOntology 自动收集
+  clear()
+}
+```
+
+### 2. @agentRelation 装饰器
+
+```ts
+// decorator.ts
+
+type RelationSchemaConfig = {
+  type: string        // 边类型
+  toType: string      // 目标实体类型
+  description: string // 描述
+}
+
+function agentRelation(config: RelationSchemaConfig)
+// 装饰方法，签名: () => NodeId[]
+// 返回该关系类型的所有目标节点 ID
+```
+
+### 3. BaseNode 扩展
+
+```ts
+// graph.ts — BaseNode 新增方法
+
+abstract class BaseNode {
+  // ...existing: id, getCapabilities(), getProperties()
+
+  getRelationSchemas(): RelationRegistryEntry[]     // 返回本类型声明的所有关系
+  resolveRelation(type: string): NodeId[]           // 解析单个关系
+  resolveAllRelations(): Record<string, NodeId[]>   // 解析所有关系
+}
+```
+
+### 4. Graph lazy resolution
+
+```ts
+// graph.ts — Graph 方法更新
+
+getOutEdges(nodeId) {
+  result = {} // 从 this.edges 中收集静态边（现有逻辑不变）
+  node = this.nodes.get(nodeId)
+  if (node) {
+    resolved = node.resolveAllRelations()
+    for ([type, ids] of resolved) {
+      if (type 在 result 中无静态边) {
+        result[type] = ids  // lazy 回退
+      }
+    }
+  }
+  return result
+}
+```
+
+**优先级规则**: 同一 (nodeId, relationType) 下，静态边优先。无静态边时才调用 resolver。  
+**理由**: demo 继续用静态边，生产环境不加载静态边、仅用 resolver。
+
+### 5. buildOntology 自动收集
+
+```ts
+// ontology-builder.ts
+
+function buildOntology(opts) {
+  return {
+    version: opts.version,
+    types: ...,
+    relations: [
+      ...AgentRelationRegistry.getAllRelationSchemas(), // 自动收集
+      ...(opts.relations ?? []),                        // 手动补充（向后兼容）
+    ]
+  }
+}
+```
+
+### 6. Demo 迁移
+
+entities.ts 添加 `@agentRelation` 装饰器 + stub 方法：
+
+```ts
+class Reader extends BaseNode {
+  @agentRelation({ type: 'borrows', toType: 'Book', description: '读者当前借阅' })
+  getBorrowedBooks(): NodeId[] { return [] } // stub，Graph 使用静态边
+  
+  @agentRelation({ type: 'overdue', toType: 'Book', description: '逾期未还书籍' })
+  getOverdueBooks(): NodeId[] { return [] }
+  
+  @agentRelation({ type: 'requests', toType: 'Book', description: '正在申请借阅' })
+  getRequestedBooks(): NodeId[] { return [] }
+}
+
+class Book extends BaseNode {
+  @agentRelation({ type: 'managed_by', toType: 'Library', description: '归属图书馆' })
+  getManagedByLibrary(): NodeId[] { return [] }
+}
+```
+
+ontology.ts 简化为：
+```ts
+export const libraryOntology = buildOntology({ version: '1.0.0' })
+// relations 从 @agentRelation 装饰器自动收集，不再需要手动声明
+```
+
+---
+
+## 待确认问题
+
+### Q-A: Resolver 同步 vs 异步
+
+| 选项 | 描述 |
+|------|------|
+| **A: 同步 (推荐)** | resolver 返回 `NodeId[]`。demo 友好，API 简单。后续可扩展为异步。 |
+| B: 异步 | resolver 返回 `Promise<NodeId[]>`。生产就绪（DB 查询天然异步），但 Graph 全链路需改为 async。 |
+
+### Q-B: Demo 迁移策略
+
+| 选项 | 描述 |
+|------|------|
+| **A: 保留静态边 + stub resolver (推荐)** | 向后兼容，seed.ts 不变。`@agentRelation` 方法为空实现，Graph 回退到静态边。 |
+| B: 完全迁移 | 删除 seed.ts 中的 `addEdge()`，resolver 返回硬编码数据。展示新模式，但改动范围大。 |
