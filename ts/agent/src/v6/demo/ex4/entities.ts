@@ -7,25 +7,13 @@ import { BaseNode } from '../../runtime/graph'
 
 @agentType({ description: '图书馆读者，持有借阅证，可以申请借阅书籍' })
 export class Reader extends BaseNode {
-  @agentProperty({
-    type: 'number',
-    description: '当前已借出且未归还的书籍数量',
-    agentVisible: true,
-  })
+  @agentProperty({ type: 'number', description: '当前已借出且未归还的书籍数量', agentVisible: true })
   currentBorrowCount: number
 
-  @agentProperty({
-    type: 'boolean',
-    description: '是否有逾期未还的书籍',
-    agentVisible: true,
-  })
+  @agentProperty({ type: 'boolean', description: '是否有逾期未还的书籍', agentVisible: true })
   hasOverdueBook: boolean
 
-  @agentProperty({
-    type: 'string',
-    description: '读者姓名',
-    agentVisible: true,
-  })
+  @agentProperty({ type: 'string', description: '读者姓名', agentVisible: true })
   name: string
 
   constructor(id: string, name: string, currentBorrowCount: number, hasOverdueBook: boolean) {
