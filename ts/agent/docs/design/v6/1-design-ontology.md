@@ -73,4 +73,3 @@ class Reader extends BaseNode {
 1. Graph 中 需要评估 , 有必须区分 getOutEdges 和 getInEdges 吗？
 2. BaseNode 提供 Graph.getOutEdges 到 agentRelation function 的辅助函数？
 
-请详细评估该方案
