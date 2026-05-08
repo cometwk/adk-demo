@@ -1,21 +1,17 @@
 import type { FactStore } from '../runtime/eventStore'
-import type { FactBinding } from '../runtime/types'
 import type { Graph } from '../runtime/graph'
 
 // ── Rule kinds ──
 
 export type RuleKind =
   | 'hard_constraint' // 触发即否决某些候选, veto: direct elimination of candidate(s)
-  | 'inference_rule' // 产生 derived facts, produces derived FactBindings before scoring
   | 'soft_criterion' // 加权打分, weighted contribution to MCDA score
-  | 'conflict_policy' // describes how to handle conflicting signals
-  | 'explanation_policy' // output formatting / uncertainty policy
 
 // ── Rule direction (for MCDA scoring) ──
 // Tells the scorer which candidates this rule pushes toward.
 // "risk_up"   → favors HIGH-risk candidates
 // "risk_down" → favors LOW-risk candidates
-// "neutral"   → no directional effect (used by explanation_policy)
+// "neutral"   → no directional effect
 
 export type RuleDirection = 'risk_up' | 'risk_down' | 'neutral'
 
@@ -44,9 +40,7 @@ export type RuleContext = {
 
 export type RuleResult = {
   triggered: boolean
-  severity?: 'low' | 'medium' | 'high'
   explanation?: string
-  derivedFacts?: FactBinding[] // produced by inference_rule
   missingFacts?: Array<{ entityId?: string; property: string }>
 }
 
@@ -62,11 +56,8 @@ export type Rule = {
 
   direction: RuleDirection
   weight?: number // 0..1; used for soft_criterion
-  severityFn?: (ctx: RuleContext, triggered: boolean) => 'low' | 'medium' | 'high'
 
   veto?: VetoConfig // 否决配置：hard_constraint 触发时直接否决某些候选
-  dependsOn?: string[] // 其他 ruleId；用于构建 DAG，避免重复计数, rule IDs whose results this rule depends on (DAG edges)
-  subsumedBy?: string[] // 表示"已经被某条更高层规则蕴含, rule IDs that already capture this rule's signal
 
   evaluator: (ctx: RuleContext) => RuleResult
   explanation: (result: RuleResult, ctx: RuleContext) => string

@@ -14,6 +14,7 @@ import { frontEnd } from './frontend/index'
 import { detectIntent } from './frontend/intent'
 import { saveTrace } from './runtime/trace'
 import type { DecisionTrace } from './runtime/trace'
+import type { ScoringProfile } from './ontology/scoring'
 
 // ── Public API ──
 
@@ -23,6 +24,7 @@ export type RunDecisionOptions = {
   factStore?: FactStore // predictive: initial facts; if omitted, executor starts fresh
   eventStore?: EventStore // diagnostic: required
   causalGraph?: CausalGraph // diagnostic: required
+  scoringProfile?: ScoringProfile // domain-specific direction mapping; falls back to DEFAULT_RISK_SCORING_PROFILE
   policyCtx?: PolicyContext
   modelId?: string
   verbose?: boolean
@@ -50,6 +52,7 @@ export async function runDecisionAssistant(input: RunDecisionInput): Promise<Dec
     factStore,
     eventStore,
     causalGraph,
+    scoringProfile,
     policyCtx = OPEN_POLICY,
     modelId = 'gpt-4o',
     verbose = false,
@@ -91,7 +94,7 @@ export async function runDecisionAssistant(input: RunDecisionInput): Promise<Dec
       outcome: input.outcome,
       timeWindow: input.timeWindow,
     }
-    return runTaskSession(task, { graph, ontology, factStore, eventStore, causalGraph, modelId, traceId, feedbackToken, startedAt, verbose })
+    return runTaskSession(task, { graph, ontology, factStore, eventStore, causalGraph, scoringProfile, modelId, traceId, feedbackToken, startedAt, verbose })
   }
 
   // Merge caller-supplied entryEntities into the linker's result (backward compat)
@@ -110,7 +113,7 @@ export async function runDecisionAssistant(input: RunDecisionInput): Promise<Dec
     )
   }
 
-  return runTaskSession(task, { graph, ontology, factStore, eventStore, causalGraph, modelId, traceId, feedbackToken, startedAt, verbose })
+  return runTaskSession(task, { graph, ontology, factStore, eventStore, causalGraph, scoringProfile, modelId, traceId, feedbackToken, startedAt, verbose })
 }
 
 // ── Session dispatcher ──
@@ -121,6 +124,7 @@ type SessionContext = {
   factStore?: FactStore
   eventStore?: EventStore
   causalGraph?: CausalGraph
+  scoringProfile?: ScoringProfile
   modelId: string
   traceId: string
   feedbackToken: string
@@ -129,10 +133,10 @@ type SessionContext = {
 }
 
 async function runTaskSession(task: DecisionTask, ctx: SessionContext): Promise<DecisionResponse> {
-  const { graph, ontology, factStore, eventStore, causalGraph, modelId, traceId, feedbackToken, startedAt, verbose } = ctx
+  const { graph, ontology, factStore, eventStore, causalGraph, scoringProfile, modelId, traceId, feedbackToken, startedAt, verbose } = ctx
 
   if (task.mode === 'predictive') {
-    return runPredictiveSession(task, graph, ontology, factStore, modelId, traceId, feedbackToken, startedAt, verbose)
+    return runPredictiveSession(task, graph, ontology, factStore, scoringProfile, modelId, traceId, feedbackToken, startedAt, verbose)
   } else {
     if (!eventStore || !causalGraph) {
       throw new Error('Diagnostic mode requires eventStore and causalGraph')
@@ -159,6 +163,7 @@ async function runPredictiveSession(
   graph: Graph,
   ontology: Ontology,
   initialFacts: FactStore | undefined,
+  scoringProfile: ScoringProfile | undefined,
   modelId: string,
   traceId: string,
   feedbackToken: string,
@@ -184,6 +189,7 @@ async function runPredictiveSession(
     ontology,
     facts: execResult.facts,
     candidates: execResult.workspace.listCandidates(),
+    scoringProfile,
   })
 
   if (criticOutput.mode !== 'predictive') throw new Error('Unexpected critic mode')

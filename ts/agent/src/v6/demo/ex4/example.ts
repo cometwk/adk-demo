@@ -25,6 +25,7 @@ import { runDecisionAssistant } from '../../index'
 import type { DiagnosticVerdict, SystemVerdict_Predictive } from '../../ontology/decision'
 import { libraryOntology } from './ontology'
 import { setupLibraryScenario, LIBRARY_ALIASES } from './seed'
+import { LIBRARY_SCORING_PROFILE } from './scoring'
 
 export async function example(round?: 'round1' | 'round2') {
   console.log('═══════════════════════════════════════════════')
@@ -43,8 +44,7 @@ export async function example(round?: 'round1' | 'round2') {
       graph,
       ontology: libraryOntology,
       factStore,
-      // entryEntities 不再需要硬编码：前端自动从 query 提取 "小明" + 《人工智能简史》
-      // 并通过 aliases 映射到 xiao_ming / book_ai_history
+      scoringProfile: LIBRARY_SCORING_PROFILE,
       aliases: LIBRARY_ALIASES,
       verbose: true,
     })
@@ -114,6 +114,7 @@ export async function example(round?: 'round1' | 'round2') {
       factStore: fs2,
       eventStore: es2,
       causalGraph: cg2,
+      scoringProfile: LIBRARY_SCORING_PROFILE,
       aliases: LIBRARY_ALIASES,
       outcome: {
         entityId: 'xiao_ming',

@@ -23,7 +23,7 @@ export function createRuleTools(facts: FactStore, graph: Graph, policy: PolicyCo
       entityType: z.string().optional().describe("按实体类型过滤（如 'Engineer', 'Project'）"),
       intent: z.string().optional().describe("按意图关键词过滤（如 'risk_assessment', 'diagnosis'）"),
       kind: z
-        .enum(['hard_constraint', 'inference_rule', 'soft_criterion', 'conflict_policy', 'explanation_policy'])
+        .enum(['hard_constraint', 'soft_criterion'])
         .optional()
         .describe('按规则类型过滤'),
     }),
@@ -41,9 +41,6 @@ export function createRuleTools(facts: FactStore, graph: Graph, policy: PolicyCo
           direction: r.direction,
           weight: r.weight,
           requiredFacts: r.requiredFacts,
-          dependsOn: r.dependsOn ?? [],
-          subsumedBy: r.subsumedBy ?? [],
-          hasVeto: !!r.veto,
         })),
       })
     },
@@ -80,10 +77,8 @@ export function createRuleTools(facts: FactStore, graph: Graph, policy: PolicyCo
         kind: rule.kind,
         direction: rule.direction,
         triggered: evaluated.result.triggered,
-        severity: evaluated.result.severity,
         explanation: evaluated.result.explanation,
         missingFacts: evaluated.result.missingFacts ?? [],
-        isSubsumed: evaluated.isSubsumed,
         note: 'The critic uses this result for scoring. Do not attempt to infer the final score.',
       })
     },

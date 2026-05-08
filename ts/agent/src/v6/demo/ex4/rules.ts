@@ -34,7 +34,6 @@ export function registerLibraryRules(): void {
       const triggered = (count as number) >= 3
       return {
         triggered,
-        severity: triggered ? 'high' : 'low',
         explanation: triggered
           ? `读者当前已借 ${count} 本，达到最大借阅上限 3 本，无法再借新书`
           : `读者当前已借 ${count} 本，未超出上限 3 本`,
@@ -71,7 +70,6 @@ export function registerLibraryRules(): void {
       const triggered = (days as number) < newBookThreshold
       return {
         triggered,
-        severity: triggered ? 'high' : 'low',
         explanation: triggered
           ? `《${entityId}》上架仅 ${days} 天，未满 ${newBookThreshold} 天新书保护期，只能馆内阅读`
           : `《${entityId}》上架已 ${days} 天，超过 ${newBookThreshold} 天保护期，可外借`,
@@ -107,7 +105,6 @@ export function registerLibraryRules(): void {
       const triggered = hasOverdue === true
       return {
         triggered,
-        severity: triggered ? 'high' : 'low',
         explanation: triggered
           ? `读者 ${entityId} 有逾期未还书籍，借阅资格已暂停`
           : `读者 ${entityId} 无逾期书籍，借阅资格正常`,
@@ -144,30 +141,12 @@ export function registerLibraryRules(): void {
       const triggered = (count as number) === 0 && hasOverdue === false
       return {
         triggered,
-        severity: 'low',
         explanation: triggered ? '读者当前无在借书且无逾期记录，借阅信用良好' : '读者当前有在借书或逾期记录',
         missingFacts: [],
       }
     },
     explanation(result) {
       return result.explanation ?? ''
-    },
-  })
-
-  // ── explanation_policy：关键事实缺失提示 ──
-  registerRule({
-    id: 'missing_borrow_fact',
-    version: '1.0.0',
-    kind: 'explanation_policy',
-    appliesTo: ['Reader', 'Book', 'Library'],
-    description: '当借阅决策所需的关键事实缺失时，标注不确定性',
-    requiredFacts: [],
-    direction: 'neutral',
-    evaluator() {
-      return { triggered: false }
-    },
-    explanation() {
-      return '关键借阅事实缺失，该决策的可信度降低，建议补充信息后重新评估'
     },
   })
 }

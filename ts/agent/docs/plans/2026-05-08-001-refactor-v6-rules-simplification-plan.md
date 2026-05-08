@@ -1,7 +1,7 @@
 ---
 title: refactor: V6 Rules 系统简化
 type: refactor
-status: active
+status: completed
 date: 2026-05-08
 origin: docs/brainstorms/2026-05-08-v6-rules-simplification-requirements.md
 ---
@@ -79,7 +79,7 @@ tools/rules.ts → evaluateSingleRule (ruleDag.ts)
 
 ## Implementation Units
 
-- [ ] **Unit 1: 简化 Rule 类型定义**
+- [x] **Unit 1: 简化 Rule 类型定义**
 
 **Goal:** 删除过度工程化字段，RuleKind 简化为 2 种
 
@@ -110,7 +110,7 @@ tools/rules.ts → evaluateSingleRule (ruleDag.ts)
 
 ---
 
-- [ ] **Unit 2: 简化 ruleDag.ts**
+- [x] **Unit 2: 简化 ruleDag.ts**
 
 **Goal:** 删除 DAG 排序逻辑，改为线性扫描
 
@@ -143,7 +143,7 @@ tools/rules.ts → evaluateSingleRule (ruleDag.ts)
 
 ---
 
-- [ ] **Unit 3: 简化 scoring.ts**
+- [x] **Unit 3: 简化 scoring.ts**
 
 **Goal:** 删除 severity 加权，Direction 映射改为全局常量
 
@@ -179,7 +179,7 @@ tools/rules.ts → evaluateSingleRule (ruleDag.ts)
 
 ---
 
-- [ ] **Unit 4: 更新 Demo 规则定义**
+- [x] **Unit 4: 更新 Demo 规则定义**
 
 **Goal:** Demo 规则适配简化后的类型
 
@@ -209,7 +209,7 @@ tools/rules.ts → evaluateSingleRule (ruleDag.ts)
 
 ---
 
-- [ ] **Unit 5: 更新 tools/rules.ts 输出**
+- [x] **Unit 5: 更新 tools/rules.ts 输出**
 
 **Goal:** inspect_rules 输出删除废弃字段
 
