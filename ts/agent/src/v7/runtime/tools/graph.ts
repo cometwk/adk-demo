@@ -4,7 +4,7 @@ import type { PolicyContext } from '../../policy/context'
 import { checkEntityAccess, checkTypeAccess, maybeLogToolCall, redactProperties } from '../../policy/filters'
 import type { FactStore } from '../factStore'
 import type { Graph } from '../graph'
-import { type ToolResult, toolErr, toolOk } from '..//types'
+import { type ToolResult, toolErr, toolOk } from '../types'
 
 type NodeField = 'type' | 'properties' | 'outEdges' | 'inEdges' | 'methods'
 const VALID_FIELDS: NodeField[] = ['type', 'properties', 'outEdges', 'inEdges', 'methods']
