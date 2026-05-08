@@ -1,11 +1,11 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import type { Graph } from '../graph'
-import type { FactStore } from '../factStore'
-import { AgentMethodRegistry } from '../registry'
-import { type ToolResult, toolErr, toolOk } from '../types'
-import type { PolicyContext } from '../../policy/context'
-import { checkEntityAccess, maybeLogToolCall } from '../../policy/filters'
+import type { Graph } from '../runtime/graph'
+import type { FactStore } from '../runtime/factStore'
+import { AgentMethodRegistry } from '../runtime/registry'
+import { type ToolResult, toolErr, toolOk } from '../runtime/types'
+import type { PolicyContext } from '../policy/context'
+import { checkEntityAccess, maybeLogToolCall } from '../policy/filters'
 
 function schemaToJsonSchema(schema: z.ZodType<unknown>): Record<string, unknown> {
   if ('toJSONSchema' in schema && typeof schema.toJSONSchema === 'function') {

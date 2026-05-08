@@ -1,10 +1,10 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import type { PolicyContext } from '../../policy/context'
-import { checkEntityAccess, checkTypeAccess, maybeLogToolCall, redactProperties } from '../../policy/filters'
-import type { FactStore } from '../factStore'
-import type { Graph } from '../graph'
-import { type ToolResult, toolErr, toolOk } from '../types'
+import type { PolicyContext } from '../policy/context'
+import { checkEntityAccess, checkTypeAccess, maybeLogToolCall, redactProperties } from '../policy/filters'
+import type { FactStore } from '../runtime/factStore'
+import type { Graph } from '../runtime/graph'
+import { type ToolResult, toolErr, toolOk } from '../runtime/types'
 
 type NodeField = 'type' | 'properties' | 'outEdges' | 'inEdges' | 'methods'
 const VALID_FIELDS: NodeField[] = ['type', 'properties', 'outEdges', 'inEdges', 'methods']

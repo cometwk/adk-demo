@@ -1,10 +1,10 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { type ToolResult, toolOk, toolErr } from '../types'
-import type { FactBinding } from '../types'
-import { FactStore } from '../factStore'
-import type { PolicyContext } from '../../policy/context'
-import { checkEntityAccess, maybeLogToolCall } from '../../policy/filters'
+import { type ToolResult, toolOk, toolErr } from '../runtime/types'
+import type { FactBinding } from '../runtime/types'
+import { FactStore } from '../runtime/factStore'
+import type { PolicyContext } from '../policy/context'
+import { checkEntityAccess, maybeLogToolCall } from '../policy/filters'
 
 // ── bind_fact / lookup_fact ──
 //
