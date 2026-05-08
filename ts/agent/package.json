@@ -4,7 +4,7 @@
   "description": "A VoltAgent application",
   "type": "module",
   "scripts": {
-    "dev": "tsx --env-file=.env ./src/main.ts",
+    "dev": "tsx --env-file=.env ./src/v6/demo/ex4/main.ts",
     "llm": "tsx src/demo/agent/llm.ts",
     "hello": "tsx src/lib/hello.ts",
     "hello2": "tsx src/lib/hello2.ts",
@@ -14,16 +14,17 @@
     "dev0": "tsx watch --env-file=.env ./src",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "biome check ./src",
-    "lint:fix": "biome check --write ./src",
     "test": "vitest run",
     "test:watch": "vitest",
-    "v5": "tsx --env-file=.env src/v5/index.ts",
+    "v6": "tsx --env-file=.env src/v6/demo/ex4/main.ts",
     "typecheck": "tsc --noEmit",
     "x-chat": "tsx src/demo/chat.js",
     "chat": "tsx --env-file=.env src/demo/chat.js",
     "ocr": "tsx --env-file=.env src/demo/ocr-test.js",
     "simple": "tsx --env-file=.env src/demo/simple.js",
+    "format": "biome format --write ./src/v6",
+    "lint": "biome check --check ./src/v6",
+    "lint:fix": "biome check --write ./src/v6",
     "volt": "volt"
   },
   "dependencies": {
@@ -40,7 +41,6 @@
     "ai": "^6.0.168",
     "dotenv": "^16.4.7",
     "mysql2": "^3.22.3",
-    "vitest": "^4.1.5",
     "zod": "^4.3.6",
     "zod-to-json-schema": "^3.25.2"
   },
@@ -48,8 +48,10 @@
     "@biomejs/biome": "^2.4.12",
     "@types/node": "^22.10.5",
     "@types/react": "^19.1.12",
+    "prettier": "^3.8.3",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.5"
   },
   "engines": {
     "node": ">=20.0.0"
