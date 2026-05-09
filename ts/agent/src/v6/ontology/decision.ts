@@ -140,22 +140,22 @@ export type AttributionResult = {
 export type SystemVerdict_Predictive = {
   source: 'system'
   mode: 'predictive'
-  ruleSetVersion: string
-  ranking: ScoredCandidate[]
-  recommendedCandidateId: string
+  ruleSetVersion: string // 规则集版本号，用于追溯和可解释性，记录裁决时使用的规则版本
+  ranking: ScoredCandidate[] // 所有候选答案的完整排名列表，按分数排序，包含每个候选的得分和依据
+  recommendedCandidateId: string // 系统推荐的候选答案ID，通常是 ranking[0].candidateId
   confidence: number
-  vetoedLabels: string[]
-  notes: string[]
+  vetoedLabels: string[] // 被否决规则标记的候选标签列表，如 ['ALLOW'] 表示 ALLOW 选项被否决
+  notes: string[] // 系统执行过程中的备注信息，用于调试和可解释性
 }
 
 export type ModelVerdict_Predictive = {
   source: 'model'
   mode: 'predictive'
-  recommendedCandidateId: string
+  recommendedCandidateId: string // 模型推荐的候选答案ID，指向 CandidateAnswer.id
   confidence: number
-  rationale: string
-  citedEvidenceIds: string[]
-  citedRuleIds: string[]
+  rationale: string // 模型给出推荐的理由说明，解释为什么选择该候选答案
+  citedEvidenceIds: string[] // 用的证据ID列表，指向 Evidence.id，表示模型决策依据的证据
+  citedRuleIds: string[] // 引用的规则ID列表，表示模型决策时考虑的相关规则
 }
 
 export type DiagnosticVerdict = {
