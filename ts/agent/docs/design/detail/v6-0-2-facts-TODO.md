@@ -4,7 +4,10 @@
 > **创建日期**: 2026-05-06
 > **关联文档**: `v6-0-2-facts.md`, `v6-0-dual-track-verdict.md`
 
----
+# 1
+
+
+# 2
 
 ## 问题背景
 
@@ -335,3 +338,4 @@ const evidence = store.traceEvidence('scope:team-alpha', 'is_overloaded')
 - [ ] 实现 `bind_derived` 工具
 - [ ] 编写单元测试覆盖 scope 相关场景
 - [ ] 更新文档 `v6-0-2-facts.md` 反映最终设计
+
