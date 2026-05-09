@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { agentMethod, agentProperty, agentRelation, agentType } from '../../../runtime/decorator'
 import { BaseNode } from '../../../runtime/graph'
 import type { NodeId } from '../../../runtime/types'
-import { data } from './seed'
+import { data } from './seed1'
 
 // ── Reader（读者）──
 // 代表图书馆的一名读者，记录当前借书状态。
