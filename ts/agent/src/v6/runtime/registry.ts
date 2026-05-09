@@ -34,7 +34,7 @@ export type PropertySchema = {
   type: string
   description: string
   agentVisible: boolean
-  sensitive?: boolean
+  sensitive: boolean
 }
 
 export type PropertySchemaConfig = {

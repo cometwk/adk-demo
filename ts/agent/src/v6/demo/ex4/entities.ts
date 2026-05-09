@@ -8,13 +8,13 @@ import type { NodeId } from '../../runtime/types'
 
 @agentType({ description: '图书馆读者，持有借阅证，可以申请借阅书籍' })
 export class Reader extends BaseNode {
-  @agentProperty({ type: 'number', description: '当前已借出且未归还的书籍数量', agentVisible: true })
+  @agentProperty({ type: 'number', description: '当前已借出且未归还的书籍数量' })
   currentBorrowCount: number
 
-  @agentProperty({ type: 'boolean', description: '是否有逾期未还的书籍', agentVisible: true })
+  @agentProperty({ type: 'boolean', description: '是否有逾期未还的书籍' })
   hasOverdueBook: boolean
 
-  @agentProperty({ type: 'string', description: '读者姓名', agentVisible: true })
+  @agentProperty({ type: 'string', description: '读者姓名' })
   name: string
 
   constructor(id: string, name: string, currentBorrowCount: number, hasOverdueBook: boolean) {
@@ -25,13 +25,19 @@ export class Reader extends BaseNode {
   }
 
   @agentRelation({ type: 'borrows', toType: 'Book', description: '读者当前借阅（已借出、未归还）' })
-  getBorrowedBooks(): NodeId[] { return [] }
+  getBorrowedBooks(): NodeId[] {
+    return []
+  }
 
   @agentRelation({ type: 'overdue', toType: 'Book', description: '读者持有的逾期未还书籍' })
-  getOverdueBooks(): NodeId[] { return [] }
+  getOverdueBooks(): NodeId[] {
+    return []
+  }
 
   @agentRelation({ type: 'requests', toType: 'Book', description: '读者正在申请借阅的书籍' })
-  getRequestedBooks(): NodeId[] { return [] }
+  getRequestedBooks(): NodeId[] {
+    return []
+  }
 
   @agentMethod({
     returns: '{ eligible: boolean; reason?: string }',
@@ -61,32 +67,16 @@ export class Reader extends BaseNode {
 
 @agentType({ description: '图书馆馆藏书籍，可能有新书保护期限制' })
 export class Book extends BaseNode {
-  @agentProperty({
-    type: 'string',
-    description: '书名',
-    agentVisible: true,
-  })
+  @agentProperty({ type: 'string', description: '书名' })
   title: string
 
-  @agentProperty({
-    type: 'string',
-    description: 'ISBN 编号',
-    agentVisible: true,
-  })
+  @agentProperty({ type: 'string', description: 'ISBN 编号' })
   isbn: string
 
-  @agentProperty({
-    type: 'number',
-    description: '上架距今天数（天）',
-    agentVisible: true,
-  })
+  @agentProperty({ type: 'number', description: '上架距今天数（天）' })
   daysOnShelf: number
 
-  @agentProperty({
-    type: 'boolean',
-    description: '是否允许外借（馆员手动标注）',
-    agentVisible: true,
-  })
+  @agentProperty({ type: 'boolean', description: '是否允许外借（馆员手动标注）' })
   lendable: boolean
 
   constructor(id: string, title: string, isbn: string, daysOnShelf: number, lendable: boolean) {
@@ -98,7 +88,9 @@ export class Book extends BaseNode {
   }
 
   @agentRelation({ type: 'managed_by', toType: 'Library', description: '书籍归属于某个图书馆管理' })
-  getManagedByLibrary(): NodeId[] { return [] }
+  getManagedByLibrary(): NodeId[] {
+    return []
+  }
 
   @agentMethod({
     params: z.object({ newBookThresholdDays: z.number().default(7) }),
@@ -132,18 +124,10 @@ export class Book extends BaseNode {
 
 @agentType({ description: '图书馆管理机构，持有借阅规则配置' })
 export class Library extends BaseNode {
-  @agentProperty({
-    type: 'number',
-    description: '每位读者最多可同时借阅的书籍数量（上限）',
-    agentVisible: true,
-  })
+  @agentProperty({ type: 'number', description: '每位读者最多可同时借阅的书籍数量（上限）' })
   maxBorrowPerReader: number
 
-  @agentProperty({
-    type: 'number',
-    description: '新书保护期（天）：上架不足此天数不可外借',
-    agentVisible: true,
-  })
+  @agentProperty({ type: 'number', description: '新书保护期（天）：上架不足此天数不可外借' })
   newBookProtectionDays: number
 
   constructor(id: string, maxBorrowPerReader: number, newBookProtectionDays: number) {

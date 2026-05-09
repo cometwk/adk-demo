@@ -4,7 +4,7 @@ export type TypeProperty = {
   name: string
   type: string
   description: string
-  agentVisible: boolean
+  agentVisible?: boolean
   sensitive?: boolean // marks PII / redactable fields redactable (敏感标记)
 }
 
