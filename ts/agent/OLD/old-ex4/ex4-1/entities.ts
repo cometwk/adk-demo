@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { agentMethod, agentProperty, agentRelation, agentType } from '../../runtime/decorator'
 import { BaseNode } from '../../runtime/graph'
 import type { NodeId } from '../../runtime/types'
-import { data } from './seed'
 
 // ── Reader（读者）──
 // 代表图书馆的一名读者，记录当前借书状态。
@@ -27,17 +26,17 @@ export class Reader extends BaseNode {
 
   @agentRelation({ type: 'borrows', toType: 'Book', description: '读者当前借阅（已借出、未归还）' })
   getBorrowedBooks(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'borrows').map((r) => r.to)
+    return []
   }
 
   @agentRelation({ type: 'overdue', toType: 'Book', description: '读者持有的逾期未还书籍' })
   getOverdueBooks(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'overdue').map((r) => r.to)
+    return []
   }
 
   @agentRelation({ type: 'requests', toType: 'Book', description: '读者正在申请借阅的书籍' })
   getRequestedBooks(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'requests').map((r) => r.to)
+    return []
   }
 
   @agentMethod({
@@ -90,7 +89,7 @@ export class Book extends BaseNode {
 
   @agentRelation({ type: 'managed_by', toType: 'Library', description: '书籍归属于某个图书馆管理' })
   getManagedByLibrary(): NodeId[] {
-    return data.relations.filter((r) => r.to === this.id && r.type === 'managed_by').map((r) => r.from)
+    return []
   }
 
   @agentMethod({
@@ -137,30 +136,30 @@ export class Library extends BaseNode {
     this.newBookProtectionDays = newBookProtectionDays
   }
 
-  // @agentMethod({
-  //   params: z.object({ readerId: z.string(), bookId: z.string() }),
-  //   returns: '{ allowed: boolean; blockedReasons: string[] }',
-  //   description: '综合评估指定读者是否可以借阅指定书籍，返回所有阻断原因',
-  //   requiredFacts: ['maxBorrowPerReader', 'newBookProtectionDays'],
-  //   relatedRuleIds: ['borrow_limit_exceeded', 'new_book_not_lendable', 'overdue_blocks_borrow'],
-  //   preconditions: [
-  //     {
-  //       param: 'readerId',
-  //       check: 'must_be_in_facts',
-  //       description: 'readerId must reference an existing reader node',
-  //     },
-  //   ],
-  // })
-  // evaluateBorrowRequest(args: { readerId: string; bookId: string }): {
-  //   allowed: boolean
-  //   blockedReasons: string[]
-  // } {
-  //   // This is a stub — real evaluation happens via the rule engine using FactStore.
-  //   // The method signature serves as documentation for the agent.
-  //   void args
-  //   return {
-  //     allowed: false,
-  //     blockedReasons: ['evaluation delegated to rule engine'],
-  //   }
-  // }
+  @agentMethod({
+    params: z.object({ readerId: z.string(), bookId: z.string() }),
+    returns: '{ allowed: boolean; blockedReasons: string[] }',
+    description: '综合评估指定读者是否可以借阅指定书籍，返回所有阻断原因',
+    requiredFacts: ['maxBorrowPerReader', 'newBookProtectionDays'],
+    relatedRuleIds: ['borrow_limit_exceeded', 'new_book_not_lendable', 'overdue_blocks_borrow'],
+    preconditions: [
+      {
+        param: 'readerId',
+        check: 'must_be_in_facts',
+        description: 'readerId must reference an existing reader node',
+      },
+    ],
+  })
+  evaluateBorrowRequest(args: { readerId: string; bookId: string }): {
+    allowed: boolean
+    blockedReasons: string[]
+  } {
+    // This is a stub — real evaluation happens via the rule engine using FactStore.
+    // The method signature serves as documentation for the agent.
+    void args
+    return {
+      allowed: false,
+      blockedReasons: ['evaluation delegated to rule engine'],
+    }
+  }
 }

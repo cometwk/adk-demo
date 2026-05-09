@@ -25,28 +25,6 @@ import { buildLibraryCausalGraph } from './causal'
 
 // ── Graph seed ──
 
-export const data = {
-  library: [{ id: 'city_library', maxBorrowPerReader: 3, newBookProtectionDays: 7 }],
-  reader: [{ id: 'xiao_ming', name: '小明' }],
-  books: [
-    { id: 'book_gone_with_wind', title: '飘', isbn: '978-0-7432-7356-5', daysOnShelf: 120, lendable: true },
-    { id: 'book_three_body', title: '三体', isbn: '978-0-7653-2293-1', daysOnShelf: 45, lendable: true },
-    { id: 'book_old_man_and_sea', title: '老人与海', isbn: '978-0-684-80122-3', daysOnShelf: 90, lendable: true },
-    { id: 'book_ai_history', title: '人工智能简史', isbn: '978-7-115-54672-0', daysOnShelf: 3, lendable: true },
-    { id: 'book_sapiens', title: '人类简史', isbn: '978-0-06-231609-7', daysOnShelf: 60, lendable: true },
-  ],
-  relations: [
-    { from: 'xiao_ming', to: 'book_gone_with_wind', type: 'borrows' },
-    { from: 'xiao_ming', to: 'book_three_body', type: 'borrows' },
-    { from: 'xiao_ming', to: 'book_old_man_and_sea', type: 'overdue' },
-    { from: 'xiao_ming', to: 'book_ai_history', type: 'requests' },
-    { from: 'book_gone_with_wind', to: 'city_library', type: 'managed_by' },
-    { from: 'book_three_body', to: 'city_library', type: 'managed_by' },
-    { from: 'book_old_man_and_sea', to: 'city_library', type: 'managed_by' },
-    { from: 'book_ai_history', to: 'city_library', type: 'managed_by' },
-    { from: 'book_sapiens', to: 'city_library', type: 'managed_by' },
-  ],
-}
 export function seedLibraryGraph(relations?: RelationSchema[]): Graph {
   const g = new Graph({ relations })
 
@@ -100,6 +78,149 @@ export function seedLibraryGraph(relations?: RelationSchema[]): Graph {
 // ── FactStore seed（predictive: current state snapshot）──
 
 export function seedLibraryFactStore(): FactStore {
+  const now = '2026-05-03T10:00:00.000Z'
+
+  const bindings: FactBinding[] = [
+    // ── Reader: xiao_ming ──
+    {
+      entityId: 'xiao_ming',
+      property: 'name',
+      value: '小明',
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+    {
+      entityId: 'xiao_ming',
+      property: 'currentBorrowCount',
+      value: 2,
+      source: { kind: 'aggregation' }, // counted from borrows edges
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+    {
+      entityId: 'xiao_ming',
+      property: 'hasOverdueBook',
+      value: true,
+      source: { kind: 'aggregation' }, // derived from overdue edge + deadline check
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+
+    // ── Library: city_library ──
+    {
+      entityId: 'city_library',
+      property: 'maxBorrowPerReader',
+      value: 3,
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+    {
+      entityId: 'city_library',
+      property: 'newBookProtectionDays',
+      value: 7,
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+
+    // ── Book: book_ai_history（目标借阅书）──
+    {
+      entityId: 'book_ai_history',
+      property: 'title',
+      value: '人工智能简史',
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+    {
+      entityId: 'book_ai_history',
+      property: 'daysOnShelf',
+      value: 3, // 新书！上架仅 3 天
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+    {
+      entityId: 'book_ai_history',
+      property: 'lendable',
+      value: true,
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+
+    // ── Book: book_old_man_and_sea（逾期书）──
+    {
+      entityId: 'book_old_man_and_sea',
+      property: 'title',
+      value: '老人与海',
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+    {
+      entityId: 'book_old_man_and_sea',
+      property: 'daysOnShelf',
+      value: 90,
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+
+    // ── Book: book_gone_with_wind ──
+    {
+      entityId: 'book_gone_with_wind',
+      property: 'title',
+      value: '飘',
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+    {
+      entityId: 'book_gone_with_wind',
+      property: 'daysOnShelf',
+      value: 120,
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+
+    // ── Book: book_three_body ──
+    {
+      entityId: 'book_three_body',
+      property: 'title',
+      value: '三体',
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+    {
+      entityId: 'book_three_body',
+      property: 'daysOnShelf',
+      value: 45,
+      source: { kind: 'graph_property' },
+      confidence: 1.0,
+      validFrom: now,
+      observedAt: now,
+    },
+  ]
+
+  // return new FactStore(bindings)
   return new FactStore([])
 }
 
@@ -213,6 +334,7 @@ export const LIBRARY_ALIASES: Record<string, string> = {
   // // Reader aliases
   // 小明: 'xiao_ming',
   // xiao_ming: 'xiao_ming',
+
   // // Book aliases
   // 人工智能简史: 'book_ai_history',
   // ai简史: 'book_ai_history',
@@ -221,6 +343,7 @@ export const LIBRARY_ALIASES: Record<string, string> = {
   // 三体: 'book_three_body',
   // 飘: 'book_gone_with_wind',
   // 人类简史: 'book_sapiens',
+
   // // Library aliases
   // 图书馆: 'city_library',
   // 市图书馆: 'city_library',

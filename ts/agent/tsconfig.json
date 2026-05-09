@@ -17,6 +17,6 @@
       // "@example/dev": ["../dev/src/index"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "OLD/old-ex4/ex4"],
   "exclude": ["node_modules", "dist"]
 }
