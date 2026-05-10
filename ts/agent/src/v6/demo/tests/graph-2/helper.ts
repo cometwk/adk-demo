@@ -10,8 +10,9 @@ import { DecisionTask, DecisionWorkspace } from '../../../ontology/decision'
 import { OPEN_POLICY } from '../../../policy/context'
 import { FactStore } from '../../../runtime/eventStore'
 import { buildOntology } from '../../../runtime/ontology-builder'
-import { seedGraph } from './seed1'
+import { seedGraph } from './seed'
 import { createCandidateTools } from '../../../agent/tools/candidates'
+import { createRuleTools } from '../../../agent/tools/rules'
 
 const systemLog = (x: any) => {
   console.log('system:', chalk.bold.red(x))
@@ -60,23 +61,13 @@ function onStep(step: any) {
 }
 
 // 测试: 采用llm-agent模式, 执行预测决策任务，收集证据，做出模型裁决
-async function llm_agent_predictive() {
+export async function runPredictiveAgent(task: DecisionTask) {
   const policy = OPEN_POLICY
   const currentFacts = new FactStore()
   const workspace = new DecisionWorkspace('predictive')
 
   const ontology = buildOntology({ version: '1.0.0' })
   const graph = seedGraph()
-
-  const task: DecisionTask = {
-    taskId: 'test',
-    mode: 'predictive',
-    intent: 'risk_assessment',
-    goal: '评估小明是否能借《人工智能简史》',
-    entryEntities: ['xiao_ming', 'book_ai_history'],
-    scope: {},
-    policyCtx: policy,
-  }
 
   const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
   const userMessage = `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
@@ -88,12 +79,14 @@ async function llm_agent_predictive() {
   const methodTools = createMethodTools(graph, currentFacts, policy)
   const factTools = createFactTools(policy)
   const candidateTools = createCandidateTools(workspace, policy)
+  const ruleTools = createRuleTools(currentFacts, graph, policy)
 
   const tools = {
     ...graphTools,
     ...methodTools,
     ...factTools,
     ...candidateTools,
+    ...ruleTools,
   }
 
   const result = await generateText({
@@ -112,5 +105,13 @@ async function llm_agent_predictive() {
   return result
 }
 
-const r = await llm_agent_predictive()
-console.log(r.content)
+export function makeTask(overrides: Partial<DecisionTask> & { goal: string; entryEntities: string[] }): DecisionTask {
+  return {
+    taskId: 'g2-test-' + Date.now(),
+    mode: 'predictive',
+    intent: 'risk_assessment',
+    scope: {},
+    policyCtx: OPEN_POLICY,
+    ...overrides,
+  }
+}

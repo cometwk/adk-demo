@@ -8,7 +8,7 @@
     "llm": "tsx src/demo/agent/llm.ts",
     "hello": "tsx src/lib/hello.ts",
     "ex1": "tsx src/v6/demo/tests/1-graph/t1.ts",
-    "ex2": "tsx src/v6/demo/ex2/main.ts",
+    "ex2": "tsx src/v6/demo/tests/graph-2/t1.ts",
     "ex3": "tsx src/v6/demo/ex3/main.ts",
     "dev0": "tsx watch --env-file=.env ./src",
     "build": "tsc",
