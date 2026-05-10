@@ -1,48 +1,54 @@
 import { generateText, stepCountIs } from 'ai'
 import { describe, expect, it } from 'vitest'
-import { model } from '../../../../lib/model'
-import { buildPredictiveSystemPrompt } from '../../../agent/prompt'
-import { createFactTools, resetSessionFacts } from '../../../agent/tools/facts'
-import { createGraphTools } from '../../../agent/tools/graph'
-import { createMethodTools } from '../../../agent/tools/method'
-import type { DecisionTask } from '../../../ontology/decision'
-import { OPEN_POLICY } from '../../../policy/context'
-import { FactStore } from '../../../runtime/eventStore'
-import { buildOntology } from '../../../runtime/ontology-builder'
+import { model } from '../lib/model'
+// import { buildPredictiveSystemPrompt } from '../../../agent/prompt'
+// import { createFactTools, resetSessionFacts } from '../../../agent/tools/facts'
+// import { createGraphTools } from '../../../agent/tools/graph'
+// import { createMethodTools } from '../../../agent/tools/method'
+import type { DecisionTask } from '../v6/index'
+import { OPEN_POLICY } from '../v6/index'
+// import { FactStore } from '../../../runtime/eventStore'
+// import { buildOntology } from '../../../runtime/ontology-builder'
 import { seedGraph } from './seed'
 
 // 必须 import 实体类以触发装饰器注册（副作用 import）
 import './ontology'
+import { runPredictiveAgent as runPredictiveAgentV6 } from '../v6/helper'
+
 
 // ── 通用执行器 ──
-
+const graph = seedGraph()
 async function runPredictiveAgent(task: DecisionTask) {
-  resetSessionFacts()
-  const policy = task.policyCtx
-  const currentFacts = new FactStore()
-  const ontology = buildOntology({ version: '2.0.0' })
-  const graph = seedGraph()
-
-  const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
-  const userMessage =
-    `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
-
-  const graphTools = createGraphTools(graph, policy, currentFacts)
-  const methodTools = createMethodTools(graph, currentFacts, policy)
-  const factTools = createFactTools(policy)
-
-  const tools = { ...graphTools, ...methodTools, ...factTools }
-
-  const result = await generateText({
-    model,
-    system: systemPrompt,
-    prompt: userMessage,
-    tools,
-    stopWhen: stepCountIs(60),
-    temperature: 0,
-  })
-  return result
+  return runPredictiveAgentV6(task, graph)
 }
+
+// async function runPredictiveAgent(task: DecisionTask) {
+//   resetSessionFacts()
+//   const policy = task.policyCtx
+//   const currentFacts = new FactStore()
+//   const ontology = buildOntology({ version: '2.0.0' })
+//   const graph = seedGraph()
+
+//   const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
+//   const userMessage =
+//     `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
+
+//   const graphTools = createGraphTools(graph, policy, currentFacts)
+//   const methodTools = createMethodTools(graph, currentFacts, policy)
+//   const factTools = createFactTools(policy)
+
+//   const tools = { ...graphTools, ...methodTools, ...factTools }
+
+//   const result = await generateText({
+//     model,
+//     system: systemPrompt,
+//     prompt: userMessage,
+//     tools,
+//     stopWhen: stepCountIs(60),
+//     temperature: 0,
+//   })
+//   return result
+// }
 
 function makeTask(
   overrides: Partial<DecisionTask> & { goal: string; entryEntities: string[] }

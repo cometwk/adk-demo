@@ -1,18 +1,18 @@
 import chalk from 'chalk'
 
 import { generateText, stepCountIs } from 'ai'
-import { model } from '../../../../lib/model'
-import { buildPredictiveSystemPrompt } from '../../../agent/prompt'
-import { createFactTools } from '../../../agent/tools/facts'
-import { createGraphTools } from '../../../agent/tools/graph'
-import { createMethodTools } from '../../../agent/tools/method'
-import { DecisionTask, DecisionWorkspace } from '../../../ontology/decision'
-import { OPEN_POLICY } from '../../../policy/context'
-import { FactStore } from '../../../runtime/eventStore'
-import { buildOntology } from '../../../runtime/ontology-builder'
-import { seedGraph } from './seed'
-import { createCandidateTools } from '../../../agent/tools/candidates'
-import { createRuleTools } from '../../../agent/tools/rules'
+import { model } from '../lib/model'
+import { buildPredictiveSystemPrompt } from './agent/prompt'
+import { createFactTools } from './agent/tools/facts'
+import { createGraphTools } from './agent/tools/graph'
+import { createMethodTools } from './agent/tools/method'
+import { DecisionTask, DecisionWorkspace } from './ontology/decision'
+import { OPEN_POLICY } from './policy/context'
+import { FactStore } from './runtime/eventStore'
+import { buildOntology } from './runtime/ontology-builder'
+import { createCandidateTools } from './agent/tools/candidates'
+import { createRuleTools } from './agent/tools/rules'
+import { Graph } from './runtime/graph'
 
 const systemLog = (x: any) => {
   console.log('system:', chalk.bold.red(x))
@@ -61,13 +61,13 @@ function onStep(step: any) {
 }
 
 // 测试: 采用llm-agent模式, 执行预测决策任务，收集证据，做出模型裁决
-export async function runPredictiveAgent(task: DecisionTask) {
+export async function runPredictiveAgent(task: DecisionTask, graph: Graph) {
   const policy = OPEN_POLICY
   const currentFacts = new FactStore()
   const workspace = new DecisionWorkspace('predictive')
 
   const ontology = buildOntology({ version: '1.0.0' })
-  const graph = seedGraph()
+  // const graph = seedGraph()
 
   const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
   const userMessage = `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`

@@ -1,5 +1,4 @@
-import type { RelationSchema } from '../../../ontology/schema'
-import { Graph } from '../../../runtime/graph'
+import { RelationSchema, Graph } from '../v6/index'
 import { Author, Book, Branch, Category, Reader, Series } from './ontology'
 
 /*
@@ -61,8 +60,20 @@ import { Author, Book, Branch, Category, Reader, Series } from './ontology'
 
 export const data = {
   branches: [
-    { id: 'branch_central', name: '中央图书馆', maxBorrowPerReader: 3, newBookProtectionDays: 7, allowInterLibraryLoan: true },
-    { id: 'branch_west', name: '西区分馆', maxBorrowPerReader: 3, newBookProtectionDays: 7, allowInterLibraryLoan: true },
+    {
+      id: 'branch_central',
+      name: '中央图书馆',
+      maxBorrowPerReader: 3,
+      newBookProtectionDays: 7,
+      allowInterLibraryLoan: true,
+    },
+    {
+      id: 'branch_west',
+      name: '西区分馆',
+      maxBorrowPerReader: 3,
+      newBookProtectionDays: 7,
+      allowInterLibraryLoan: true,
+    },
   ],
   categories: [
     { id: 'cat_science', name: '自然科学', isRestricted: true, requiredMembershipLevel: 'gold' as const },
@@ -80,18 +91,90 @@ export const data = {
   ],
   books: [
     // 三体系列（科学类，刘慈欣）
-    { id: 'book_tb1', title: '三体（第一部）', isbn: '978-7-229-03093-3', daysOnShelf: 100, totalCopies: 4, availableCopies: 1, seriesVolume: 1 },
-    { id: 'book_tb2', title: '三体·黑暗森林（第二部）', isbn: '978-7-229-03094-0', daysOnShelf: 80, totalCopies: 3, availableCopies: 0, seriesVolume: 2 },
-    { id: 'book_tb3', title: '三体·死神永生（第三部）', isbn: '978-7-229-03095-7', daysOnShelf: 50, totalCopies: 2, availableCopies: 2, seriesVolume: 3 },
+    {
+      id: 'book_tb1',
+      title: '三体（第一部）',
+      isbn: '978-7-229-03093-3',
+      daysOnShelf: 100,
+      totalCopies: 4,
+      availableCopies: 1,
+      seriesVolume: 1,
+    },
+    {
+      id: 'book_tb2',
+      title: '三体·黑暗森林（第二部）',
+      isbn: '978-7-229-03094-0',
+      daysOnShelf: 80,
+      totalCopies: 3,
+      availableCopies: 0,
+      seriesVolume: 2,
+    },
+    {
+      id: 'book_tb3',
+      title: '三体·死神永生（第三部）',
+      isbn: '978-7-229-03095-7',
+      daysOnShelf: 50,
+      totalCopies: 2,
+      availableCopies: 2,
+      seriesVolume: 3,
+    },
     // 哈利波特系列（文学类，罗琳）
-    { id: 'book_hp1', title: '哈利·波特与魔法石', isbn: '978-7-5327-4356-2', daysOnShelf: 300, totalCopies: 4, availableCopies: 2, seriesVolume: 1 },
-    { id: 'book_hp2', title: '哈利·波特与密室', isbn: '978-7-5327-4357-9', daysOnShelf: 200, totalCopies: 2, availableCopies: 0, seriesVolume: 2 },
-    { id: 'book_hp3', title: '哈利·波特与阿兹卡班的囚徒', isbn: '978-7-5327-4358-6', daysOnShelf: 5, totalCopies: 2, availableCopies: 1, seriesVolume: 3 },
+    {
+      id: 'book_hp1',
+      title: '哈利·波特与魔法石',
+      isbn: '978-7-5327-4356-2',
+      daysOnShelf: 300,
+      totalCopies: 4,
+      availableCopies: 2,
+      seriesVolume: 1,
+    },
+    {
+      id: 'book_hp2',
+      title: '哈利·波特与密室',
+      isbn: '978-7-5327-4357-9',
+      daysOnShelf: 200,
+      totalCopies: 2,
+      availableCopies: 0,
+      seriesVolume: 2,
+    },
+    {
+      id: 'book_hp3',
+      title: '哈利·波特与阿兹卡班的囚徒',
+      isbn: '978-7-5327-4358-6',
+      daysOnShelf: 5,
+      totalCopies: 2,
+      availableCopies: 1,
+      seriesVolume: 3,
+    },
     // 独立书目
-    { id: 'book_quantum', title: '量子纠缠导论', isbn: '978-7-03-061234-8', daysOnShelf: 2, totalCopies: 1, availableCopies: 1, seriesVolume: 0 },
-    { id: 'book_sapiens', title: '人类简史', isbn: '978-0-06-231609-7', daysOnShelf: 90, totalCopies: 5, availableCopies: 3, seriesVolume: 0 },
+    {
+      id: 'book_quantum',
+      title: '量子纠缠导论',
+      isbn: '978-7-03-061234-8',
+      daysOnShelf: 2,
+      totalCopies: 1,
+      availableCopies: 1,
+      seriesVolume: 0,
+    },
+    {
+      id: 'book_sapiens',
+      title: '人类简史',
+      isbn: '978-0-06-231609-7',
+      daysOnShelf: 90,
+      totalCopies: 5,
+      availableCopies: 3,
+      seriesVolume: 0,
+    },
     // ILL 测试专用：只在主馆有库存，西区读者需通过馆际互借
-    { id: 'book_cosmos', title: '宇宙的奇迹', isbn: '978-7-5327-9876-3', daysOnShelf: 120, totalCopies: 2, availableCopies: 2, seriesVolume: 0 },
+    {
+      id: 'book_cosmos',
+      title: '宇宙的奇迹',
+      isbn: '978-7-5327-9876-3',
+      daysOnShelf: 120,
+      totalCopies: 2,
+      availableCopies: 2,
+      seriesVolume: 0,
+    },
   ],
   readers: [
     { id: 'xiao_ming', name: '小明', membershipLevel: 'gold' as const, currentBorrowCount: 2, registeredDays: 365 },

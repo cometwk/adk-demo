@@ -8,6 +8,7 @@ import {
   updateDocumentContent,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { RunDecisionOptions } from "@xui/agent";
 
 const documentSchema = z.object({
   content: z.string(),

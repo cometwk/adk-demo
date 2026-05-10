@@ -1,7 +1,5 @@
 import { z } from 'zod'
-import { agentMethod, agentProperty, agentRelation, agentType } from '../../../runtime/decorator'
-import { BaseNode } from '../../../runtime/graph'
-import type { NodeId } from '../../../runtime/types'
+import { agentMethod, agentProperty, agentRelation, agentType, BaseNode, NodeId } from '../v6/index'
 import { data } from './seed'
 
 // ─── 辅助：会员等级序数（basic < silver < gold）───
@@ -109,9 +107,9 @@ export class Reader extends BaseNode {
     params: z.object({
       requiredMembershipLevel: z
         .enum(['gold', 'silver', 'basic'])
-        .describe("目标类目要求的最低会员等级（必须先从 Category 节点获取 requiredMembershipLevel）"),
+        .describe('目标类目要求的最低会员等级（必须先从 Category 节点获取 requiredMembershipLevel）'),
     }),
-    returns: "{ allowed: boolean; readerLevel: string; requiredLevel: string }",
+    returns: '{ allowed: boolean; readerLevel: string; requiredLevel: string }',
     description:
       '检查读者会员等级是否满足限制类目的访问要求。requiredMembershipLevel 必须通过 inspect_node(Category 节点) 获取后再传入。等级顺序：basic < silver < gold。',
     requiredFacts: ['membershipLevel'],
@@ -226,9 +224,7 @@ export class Book extends BaseNode {
 
   @agentMethod({
     params: z.object({
-      protectionDays: z
-        .number()
-        .describe('分馆新书保护期天数（必须先从 Branch 节点获取 newBookProtectionDays）'),
+      protectionDays: z.number().describe('分馆新书保护期天数（必须先从 Branch 节点获取 newBookProtectionDays）'),
     }),
     returns: '{ isNew: boolean; daysOnShelf: number; protectionDays: number }',
     description:
@@ -298,9 +294,7 @@ export class Author extends BaseNode {
     params: z.object({
       borrowThreshold: z
         .number()
-        .describe(
-          '判断"热门"的借阅量阈值（使用 aggregate_facts 聚合该作者所有书的借阅量后，将结果作为此参数传入）'
-        ),
+        .describe('判断"热门"的借阅量阈值（使用 aggregate_facts 聚合该作者所有书的借阅量后，将结果作为此参数传入）'),
     }),
     returns: '{ popular: boolean; activeBookCount: number; borrowThreshold: number }',
     description:
@@ -402,7 +396,7 @@ export class Series extends BaseNode {
     missingPrior: number[]
   } {
     const borrowed = new Set(args.readerBorrowedVolumeNumbers)
-    const nextVol = (Math.max(0, ...args.readerBorrowedVolumeNumbers) + 1) || 1
+    const nextVol = Math.max(0, ...args.readerBorrowedVolumeNumbers) + 1 || 1
     const missingPrior: number[] = []
     for (let v = 1; v < nextVol; v++) {
       if (!borrowed.has(v)) missingPrior.push(v)
@@ -472,9 +466,7 @@ export class Branch extends BaseNode {
     relatedRuleIds: ['inter_library_loan'],
   })
   findPartnerBranches(_args: Record<string, never> = {}): { partnerBranchIds: string[]; count: number } {
-    const partnerIds = data.relations
-      .filter((r) => r.from === this.id && r.type === 'partners_with')
-      .map((r) => r.to)
+    const partnerIds = data.relations.filter((r) => r.from === this.id && r.type === 'partners_with').map((r) => r.to)
     return { partnerBranchIds: partnerIds, count: partnerIds.length }
   }
 }

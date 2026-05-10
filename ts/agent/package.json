@@ -1,10 +1,15 @@
 {
-  "name": "agent",
+  "name": "@xui/agent",
   "version": "0.1.0",
   "description": "A VoltAgent application",
   "type": "module",
+  "exports": {
+    ".": "./src/v6/index.ts",
+    "./utils/*": "./src/utils/*.ts",
+    "./ontology/*": "./src/ontology/*.ts"
+  },
   "scripts": {
-    "dev": "tsx --env-file=.env ./src/v6/demo/ex4/main.ts",
+    "dev": "tsx --env-file=.env ./src/ex/t1.ts",
     "llm": "tsx src/demo/agent/llm.ts",
     "hello": "tsx src/lib/hello.ts",
     "ex1": "tsx src/v6/demo/tests/1-graph/t1.ts",

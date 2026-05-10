@@ -1,4 +1,4 @@
-import { registerRule } from '../../../ontology/rules'
+import { registerRule } from '../v6/index'
 
 // ── Graph-2 图书馆增强版借阅决策规则 ──
 //

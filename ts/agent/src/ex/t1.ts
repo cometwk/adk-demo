@@ -1,7 +1,9 @@
-import { expect } from 'vitest'
-import { makeTask, runPredictiveAgent } from './helper'
+import { makeTask, runPredictiveAgent } from '../v6/helper'
 import { registerGraph2Rules } from './rules'
-import { clearRules } from '../../../ontology/rules'
+import { clearRules } from '../v6/index'
+import { seedGraph } from './seed'
+
+const graph = seedGraph()
 
 /*
  * 场景 S1：2 跳跨实体参数传递 — 允许借阅
@@ -27,7 +29,7 @@ const S1 = async () => {
     entryEntities: ['xiao_hong', 'book_sapiens'],
   })
 
-  const r = await runPredictiveAgent(task)
+  const r = await runPredictiveAgent(task, graph)
   console.log(r.content)
 }
 
@@ -52,7 +54,7 @@ const S2 = async () => {
     entryEntities: ['lao_wang', 'book_sapiens', 'branch_central'],
   })
 
-  const r = await runPredictiveAgent(task)
+  const r = await runPredictiveAgent(task, graph)
   const text = r.content
   console.log(text)
 }
