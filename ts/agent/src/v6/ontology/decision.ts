@@ -229,6 +229,16 @@ export class DecisionWorkspace {
     this.mode = mode
   }
 
+  debugLog(): void {
+    console.log("candidates:", this.candidates)
+    console.log("causes:", this.causes)
+    console.log("evidence:", this.evidence)
+    console.log("uncertainties:", this.uncertainties)
+    console.log("triggeredRuleIds:", this.triggeredRuleIds)
+    console.log("modelVerdict_predictive:", this.modelVerdict_predictive)
+    // console.log("modelVerdict_diagnostic:", this.modelVerdict_diagnostic)
+  }
+
   // ── Candidates (predictive) ──
 
   addCandidate(label: string, description: string): CandidateAnswer {

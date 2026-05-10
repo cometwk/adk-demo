@@ -35,7 +35,8 @@ const toolResultsLog = (x: any) => {
 
 function onStep(step: any) {
   // console.log(step)
-  console.log('step:', step.stepNumber)
+  const stepNumber = chalk.bgGray.blue.bold('step:' + step.stepNumber)
+  console.log(stepNumber)
 
   if (step.toolCalls.length > 0) {
     for (let i = 0; i < step.toolCalls.length; i++) {
@@ -104,6 +105,9 @@ async function llm_agent_predictive() {
     onStepFinish: onStep,
     // onFinish: onStep,
   })
+
+  workspace.debugLog()
+
   return result
 }
 

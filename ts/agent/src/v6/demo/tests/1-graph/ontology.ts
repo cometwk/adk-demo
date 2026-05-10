@@ -50,27 +50,27 @@ export class Reader extends BaseNode {
     return data.relations.filter((r) => r.from === this.id && r.type === 'requests').map((r) => r.to)
   }
 
-  @agentMethod({
-    returns: '{ eligible: boolean; reason?: string }',
-    description: '检查读者是否满足基本借阅资格：未超借阅上限且无逾期书籍',
-    requiredFacts: ['currentBorrowCount', 'hasOverdueBook'],
-    relatedRuleIds: ['borrow_limit_exceeded', 'overdue_blocks_borrow'],
-  })
-  checkBorrowEligibility(_args: Record<string, never> = {}): {
-    eligible: boolean
-    reason?: string
-  } {
-    if (this.currentBorrowCount >= 3) {
-      return {
-        eligible: false,
-        reason: `已借 ${this.currentBorrowCount} 本，达到上限 3 本`,
-      }
-    }
-    if (this.hasOverdueBook) {
-      return { eligible: false, reason: '有逾期未还书籍，借阅权限暂停' }
-    }
-    return { eligible: true }
-  }
+  // @agentMethod({
+  //   returns: '{ eligible: boolean; reason?: string }',
+  //   description: '检查读者是否满足基本借阅资格：未超借阅上限且无逾期书籍',
+  //   requiredFacts: ['currentBorrowCount', 'hasOverdueBook'],
+  //   relatedRuleIds: ['borrow_limit_exceeded', 'overdue_blocks_borrow'],
+  // })
+  // checkBorrowEligibility(_args: Record<string, never> = {}): {
+  //   eligible: boolean
+  //   reason?: string
+  // } {
+  //   if (this.currentBorrowCount >= 3) {
+  //     return {
+  //       eligible: false,
+  //       reason: `已借 ${this.currentBorrowCount} 本，达到上限 3 本`,
+  //     }
+  //   }
+  //   if (this.hasOverdueBook) {
+  //     return { eligible: false, reason: '有逾期未还书籍，借阅权限暂停' }
+  //   }
+  //   return { eligible: true }
+  // }
 }
 
 // ── Book（书籍）──
@@ -115,31 +115,31 @@ export class Book extends BaseNode {
     return data.relations.filter((r) => r.to === this.id && r.type === 'managed_by').map((r) => r.from)
   }
 
-  @agentMethod({
-    params: z.object({ newBookThresholdDays: z.number().default(7) }),
-    returns: '{ isNew: boolean; daysOnShelf: number; thresholdDays: number }',
-    description: '判断是否为新书（上架不足 N 天），新书不允许外借',
-    requiredFacts: ['daysOnShelf'],
-    relatedRuleIds: ['new_book_not_lendable'],
-    preconditions: [
-      {
-        param: 'newBookThresholdDays',
-        check: 'must_be_positive',
-        description: 'newBookThresholdDays must be a positive integer',
-      },
-    ],
-  })
-  checkNewBookStatus(args: { newBookThresholdDays: number } = { newBookThresholdDays: 7 }): {
-    isNew: boolean
-    daysOnShelf: number
-    thresholdDays: number
-  } {
-    return {
-      isNew: this.daysOnShelf < args.newBookThresholdDays,
-      daysOnShelf: this.daysOnShelf,
-      thresholdDays: args.newBookThresholdDays,
-    }
-  }
+  // @agentMethod({
+  //   params: z.object({ newBookThresholdDays: z.number().default(7) }),
+  //   returns: '{ isNew: boolean; daysOnShelf: number; thresholdDays: number }',
+  //   description: '判断是否为新书（上架不足 N 天），新书不允许外借',
+  //   requiredFacts: ['daysOnShelf'],
+  //   relatedRuleIds: ['new_book_not_lendable'],
+  //   preconditions: [
+  //     {
+  //       param: 'newBookThresholdDays',
+  //       check: 'must_be_positive',
+  //       description: 'newBookThresholdDays must be a positive integer',
+  //     },
+  //   ],
+  // })
+  // checkNewBookStatus(args: { newBookThresholdDays: number } = { newBookThresholdDays: 7 }): {
+  //   isNew: boolean
+  //   daysOnShelf: number
+  //   thresholdDays: number
+  // } {
+  //   return {
+  //     isNew: this.daysOnShelf < args.newBookThresholdDays,
+  //     daysOnShelf: this.daysOnShelf,
+  //     thresholdDays: args.newBookThresholdDays,
+  //   }
+  // }
 }
 
 // ── Library（图书馆）──
