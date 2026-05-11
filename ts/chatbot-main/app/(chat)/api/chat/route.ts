@@ -76,9 +76,7 @@ export async function POST(request: Request) {
       requestBody;
 
     const ctx = getAgentContext(id);
-    console.log("收到 POST 数据:", requestBody);
     console.log("ID=", id, "ctx", !!ctx);
-    // throw new Error("test");
 
     const [, session] = await Promise.all([
       checkBotId().catch(() => null),
@@ -96,15 +94,6 @@ export async function POST(request: Request) {
     await checkIpRateLimit(ipAddress(request));
 
     const userType: UserType = session.user.type;
-
-    // const messageCount = await getMessageCountByUserId({
-    //   id: session.user.id,
-    //   differenceInHours: 1,
-    // });
-
-    // if (messageCount > entitlementsByUserType[userType].maxMessagesPerHour) {
-    //   return new ChatbotError("rate_limit:chat").toResponse();
-    // }
 
     const isToolApprovalFlow = Boolean(messages);
 
@@ -129,35 +118,38 @@ export async function POST(request: Request) {
 
     let uiMessages: ChatMessage[];
 
-    if (false && isToolApprovalFlow && messages) {
-      // const dbMessages = convertToUIMessages(messagesFromDb);
-      // const approvalStates = new Map(
-      //   messages.flatMap(
-      //     (m) =>
-      //       m.parts
-      //         ?.filter(
-      //           (p: Record<string, unknown>) =>
-      //             p.state === "approval-responded" ||
-      //             p.state === "output-denied"
-      //         )
-      //         .map((p: Record<string, unknown>) => [
-      //           String(p.toolCallId ?? ""),
-      //           p,
-      //         ]) ?? []
-      //   )
-      // );
-      // uiMessages = dbMessages.map((msg) => ({
-      //   ...msg,
-      //   parts: msg.parts.map((part) => {
-      //     if (
-      //       "toolCallId" in part &&
-      //       approvalStates.has(String(part.toolCallId))
-      //     ) {
-      //       return { ...part, ...approvalStates.get(String(part.toolCallId)) };
-      //     }
-      //     return part;
-      //   }),
-      // })) as ChatMessage[];
+    // Agent chat: use DB messages directly, ignore frontend message
+    if (ctx) {
+      uiMessages = convertToUIMessages(messagesFromDb);
+    } else if (isToolApprovalFlow && messages) {
+      const dbMessages = convertToUIMessages(messagesFromDb);
+      const approvalStates = new Map(
+        messages.flatMap(
+          (m) =>
+            m.parts
+              ?.filter(
+                (p: Record<string, unknown>) =>
+                  p.state === "approval-responded" ||
+                  p.state === "output-denied"
+              )
+              .map((p: Record<string, unknown>) => [
+                String(p.toolCallId ?? ""),
+                p,
+              ]) ?? []
+        )
+      );
+      uiMessages = dbMessages.map((msg) => ({
+        ...msg,
+        parts: msg.parts.map((part) => {
+          if (
+            "toolCallId" in part &&
+            approvalStates.has(String(part.toolCallId))
+          ) {
+            return { ...part, ...approvalStates.get(String(part.toolCallId)) };
+          }
+          return part;
+        }),
+      })) as ChatMessage[];
     } else {
       uiMessages = [
         ...convertToUIMessages(messagesFromDb),
@@ -202,10 +194,6 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
-        console.log("-----------\n");
-        console.log("-----------\n");
-        console.log("-----------\n");
-
         console.log("chatId=", id, "ctx", !!ctx);
 
         let result: any;
@@ -319,6 +307,11 @@ export async function POST(request: Request) {
         return "Oops, an error occurred!";
       },
     });
+
+    if (ctx) {
+      const debugLog = ctx.workspace.debugLog();
+      console.log("debugLog:", debugLog);
+    }
 
     return createUIMessageStreamResponse({
       stream,

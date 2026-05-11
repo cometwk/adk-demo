@@ -45,6 +45,10 @@ export function parseAgentInput({
   const init: ModelMessage[] = [
     {
       role: "user",
+      content: ctx.system,
+    },
+    {
+      role: "user",
       content: ctx.prompt,
     },
   ];

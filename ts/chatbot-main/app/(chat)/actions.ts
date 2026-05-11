@@ -186,7 +186,7 @@ export async function createChatFromUserText({
   text,
 }: {
   text: string;
-}): Promise<{ chatId: string; error?: string }> {
+}): Promise<{ chatId: string; error?: string; isAgentChat?: boolean }> {
   const session = await auth();
   if (!session?.user?.id) {
     return { chatId: "", error: "Unauthorized" };
@@ -222,16 +222,6 @@ export async function createChatFromUserText({
 
   // Save user message
   await saveMessages({
-    // messages: [
-    //   {
-    //     id: messageId,
-    //     chatId,
-    //     role: "user",
-    //     parts: userMessage.parts,
-    //     attachments: [],
-    //     createdAt: new Date(),
-    //   },
-    // ],
     messages: m.map((msg) => ({
       id: generateUUID(),
       chatId,
@@ -242,5 +232,5 @@ export async function createChatFromUserText({
     })),
   });
 
-  return { chatId };
+  return { chatId, isAgentChat: true };
 }

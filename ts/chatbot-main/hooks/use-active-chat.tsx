@@ -210,9 +210,28 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   }, [chatData, isNewChat]);
 
   const hasAppendedQueryRef = useRef(false);
+  const hasAgentTriggeredRef = useRef(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const query = params.get("query");
+    const agent = params.get("agent");
+
+    // Agent chat auto trigger
+    if (agent === "1" && !hasAgentTriggeredRef.current && initialMessages.length > 0) {
+      hasAgentTriggeredRef.current = true;
+      window.history.replaceState(
+        {},
+        "",
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
+      );
+      sendMessage({
+        role: "user" as const,
+        parts: [{ type: "text", text: "" }],
+      });
+      return;
+    }
+
+    // Query param auto trigger
     if (query && !hasAppendedQueryRef.current) {
       hasAppendedQueryRef.current = true;
       window.history.replaceState(
@@ -225,7 +244,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
         parts: [{ type: "text", text: query }],
       });
     }
-  }, [sendMessage, chatId]);
+  }, [sendMessage, chatId, initialMessages]);
 
   useAutoResume({
     autoResume: !isNewChat && !!chatData,

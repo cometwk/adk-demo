@@ -22,6 +22,9 @@ import { cn } from "@/lib/utils";
 
 type InputMode = "file" | "paste";
 
+// Preset scenarios for quick input
+const PRESET_SCENARIOS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10"];
+
 interface GraphAgentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -33,7 +36,7 @@ export function GraphAgentDialog({
 }: GraphAgentDialogProps) {
   const router = useRouter();
   const { mutate } = useSWRConfig();
-  const [mode, setMode] = useState<InputMode>("file");
+  const [mode, setMode] = useState<InputMode>("paste");
   const [textContent, setTextContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -77,7 +80,10 @@ export function GraphAgentDialog({
       // Close dialog and navigate to the new chat
       onOpenChange(false);
       setTextContent("");
-      router.push(`/chat/${result.chatId}`);
+
+      // Agent chat: add ?agent=1 to trigger auto request
+      const agentParam = result.isAgentChat ? "?agent=1" : "";
+      router.push(`/chat/${result.chatId}${agentParam}`);
 
       toast.success("Chat created successfully");
     } catch (error) {
@@ -155,12 +161,26 @@ export function GraphAgentDialog({
               />
             </button>
           ) : (
-            <Textarea
-              className="h-[300px] w-full overflow-auto font-mono text-xs whitespace-pre resize-y [field-sizing:fixed]"
-              onChange={(e) => setTextContent(e.target.value)}
-              placeholder="Enter your text here as the first user message..."
-              value={textContent}
-            />
+            <>
+              <Textarea
+                className="h-[200px] w-full overflow-auto font-mono text-xs whitespace-pre resize-y [field-sizing:fixed]"
+                onChange={(e) => setTextContent(e.target.value)}
+                placeholder="Enter your text here as the first user message..."
+                value={textContent}
+              />
+              <div className="flex flex-wrap gap-2 pt-3">
+                {PRESET_SCENARIOS.map((scenario) => (
+                  <Button
+                    key={scenario}
+                    onClick={() => setTextContent(scenario)}
+                    size="sm"
+                    variant={textContent === scenario ? "default" : "outline"}
+                  >
+                    {scenario}
+                  </Button>
+                ))}
+              </div>
+            </>
           )}
         </div>
 

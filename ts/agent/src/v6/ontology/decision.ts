@@ -229,14 +229,24 @@ export class DecisionWorkspace {
     this.mode = mode
   }
 
-  debugLog(): void {
-    console.log("candidates:", this.candidates)
-    console.log("causes:", this.causes)
-    console.log("evidence:", this.evidence)
-    console.log("uncertainties:", this.uncertainties)
-    console.log("triggeredRuleIds:", this.triggeredRuleIds)
-    console.log("modelVerdict_predictive:", this.modelVerdict_predictive)
+  debugLog(): string {
+    console.log('candidates:', this.candidates)
+    console.log('causes:', this.causes)
+    console.log('evidence:', this.evidence)
+    console.log('uncertainties:', this.uncertainties)
+    console.log('triggeredRuleIds:', this.triggeredRuleIds)
+    console.log('modelVerdict_predictive:', this.modelVerdict_predictive)
     // console.log("modelVerdict_diagnostic:", this.modelVerdict_diagnostic)
+    const x = {
+      candidates: [...this.candidates.values()],
+      causes: [...this.causes.values()],
+      evidence: [...this.evidence.values()],
+      uncertainties: [...this.uncertainties.values()],
+      triggeredRuleIds: [...this.triggeredRuleIds],
+      modelVerdict_predictive: this.modelVerdict_predictive,
+      modelVerdict_diagnostic: this.modelVerdict_diagnostic,
+    }
+    return JSON.stringify(x, null, 2)
   }
 
   // ── Candidates (predictive) ──
