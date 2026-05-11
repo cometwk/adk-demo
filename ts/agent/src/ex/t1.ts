@@ -59,6 +59,6 @@ const S2 = async () => {
   console.log(text)
 }
 
-clearRules()
-registerGraph2Rules()
-S1()
+// clearRules()
+// registerGraph2Rules()
+// S1()

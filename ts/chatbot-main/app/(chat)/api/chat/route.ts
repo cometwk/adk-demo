@@ -45,7 +45,8 @@ import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
-import { S1, streamPredictiveAgent } from "@xui/agent/ex/use-case";
+import { streamPredictiveAgent } from "@xui/agent/ex/use-case";
+import { getAgentContext } from "@/lib/agent";
 
 export const maxDuration = 60;
 
@@ -65,13 +66,19 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     requestBody = postRequestBodySchema.parse(json);
-  } catch (_) {
+  } catch (e) {
+    console.error("Request body validation failed:", e);
     return new ChatbotError("bad_request:api").toResponse();
   }
 
   try {
     const { id, message, messages, selectedChatModel, selectedVisibilityType } =
       requestBody;
+
+    const ctx = getAgentContext(id);
+    console.log("收到 POST 数据:", requestBody);
+    console.log("ID=", id, "ctx", !!ctx);
+    // throw new Error("test");
 
     const [, session] = await Promise.all([
       checkBotId().catch(() => null),
@@ -90,14 +97,14 @@ export async function POST(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 1,
-    });
+    // const messageCount = await getMessageCountByUserId({
+    //   id: session.user.id,
+    //   differenceInHours: 1,
+    // });
 
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerHour) {
-      return new ChatbotError("rate_limit:chat").toResponse();
-    }
+    // if (messageCount > entitlementsByUserType[userType].maxMessagesPerHour) {
+    //   return new ChatbotError("rate_limit:chat").toResponse();
+    // }
 
     const isToolApprovalFlow = Boolean(messages);
 
@@ -122,35 +129,35 @@ export async function POST(request: Request) {
 
     let uiMessages: ChatMessage[];
 
-    if (isToolApprovalFlow && messages) {
-      const dbMessages = convertToUIMessages(messagesFromDb);
-      const approvalStates = new Map(
-        messages.flatMap(
-          (m) =>
-            m.parts
-              ?.filter(
-                (p: Record<string, unknown>) =>
-                  p.state === "approval-responded" ||
-                  p.state === "output-denied"
-              )
-              .map((p: Record<string, unknown>) => [
-                String(p.toolCallId ?? ""),
-                p,
-              ]) ?? []
-        )
-      );
-      uiMessages = dbMessages.map((msg) => ({
-        ...msg,
-        parts: msg.parts.map((part) => {
-          if (
-            "toolCallId" in part &&
-            approvalStates.has(String(part.toolCallId))
-          ) {
-            return { ...part, ...approvalStates.get(String(part.toolCallId)) };
-          }
-          return part;
-        }),
-      })) as ChatMessage[];
+    if (false && isToolApprovalFlow && messages) {
+      // const dbMessages = convertToUIMessages(messagesFromDb);
+      // const approvalStates = new Map(
+      //   messages.flatMap(
+      //     (m) =>
+      //       m.parts
+      //         ?.filter(
+      //           (p: Record<string, unknown>) =>
+      //             p.state === "approval-responded" ||
+      //             p.state === "output-denied"
+      //         )
+      //         .map((p: Record<string, unknown>) => [
+      //           String(p.toolCallId ?? ""),
+      //           p,
+      //         ]) ?? []
+      //   )
+      // );
+      // uiMessages = dbMessages.map((msg) => ({
+      //   ...msg,
+      //   parts: msg.parts.map((part) => {
+      //     if (
+      //       "toolCallId" in part &&
+      //       approvalStates.has(String(part.toolCallId))
+      //     ) {
+      //       return { ...part, ...approvalStates.get(String(part.toolCallId)) };
+      //     }
+      //     return part;
+      //   }),
+      // })) as ChatMessage[];
     } else {
       uiMessages = [
         ...convertToUIMessages(messagesFromDb),
@@ -190,15 +197,21 @@ export async function POST(request: Request) {
 
     const modelMessages = await convertToModelMessages(uiMessages);
 
+    // const ctx = getAgentContext(id);
+
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
-        console.log("use-case=", S1.taskId);
-        const OLD = false;
+        console.log("-----------\n");
+        console.log("-----------\n");
+        console.log("-----------\n");
+
+        console.log("chatId=", id, "ctx", !!ctx);
 
         let result: any;
-        result = OLD
-          ? streamText<any>({
+        result = ctx
+          ? streamPredictiveAgent(ctx, modelMessages)
+          : streamText<any>({
               model: getLanguageModel(chatModel),
               system: systemPrompt({ requestHints, supportsTools }),
               messages: modelMessages,
@@ -244,10 +257,7 @@ export async function POST(request: Request) {
                 isEnabled: isProductionEnvironment,
                 functionId: "stream-text",
               },
-            })
-          : streamPredictiveAgent(S1, modelMessages);
-
-        // NEW
+            });
 
         dataStream.merge(
           result.toUIMessageStream({ sendReasoning: isReasoningModel })

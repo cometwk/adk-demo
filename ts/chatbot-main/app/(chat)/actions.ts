@@ -22,6 +22,7 @@ import {
   updateChatVisibilityById,
 } from "@/lib/db/queries";
 import { generateUUID, getTextFromMessage } from "@/lib/utils";
+import { parseAgentInput } from "@/lib/agent";
 
 export async function saveChatModelAsCookie(model: string) {
   const cookieStore = await cookies();
@@ -38,7 +39,7 @@ export async function generateTitleFromUserMessage({
     system: titlePrompt,
     prompt: getTextFromMessage(message),
     providerOptions: {
-      gateway: { order: titleModel.gatewayOrder },
+      // gateway: { order: titleModel.gatewayOrder },
     },
   });
   return text
@@ -179,4 +180,67 @@ export async function importChatFromJSON({
       error instanceof Error ? error.message : "Failed to convert messages";
     return { chatId: "", error: message };
   }
+}
+
+export async function createChatFromUserText({
+  text,
+}: {
+  text: string;
+}): Promise<{ chatId: string; error?: string }> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { chatId: "", error: "Unauthorized" };
+  }
+
+  if (!text.trim()) {
+    return { chatId: "", error: "Text cannot be empty" };
+  }
+
+  const chatId = generateUUID();
+  const messageId = generateUUID();
+
+  // // Create UIMessage from user text
+  const titleMessage: UIMessage = {
+    id: messageId,
+    role: "user",
+    parts: [{ type: "text", text: text.trim() }],
+  };
+
+  // Generate title from user message
+  // const title = await generateTitleFromUserMessage({ message: titleMessage });
+  const title = chatId;
+
+  const m = parseAgentInput({ text: text.trim(), chatId });
+
+  // Save chat
+  await saveChat({
+    id: chatId,
+    userId: session.user.id,
+    title,
+    visibility: "private",
+  });
+
+  // Save user message
+  await saveMessages({
+    // messages: [
+    //   {
+    //     id: messageId,
+    //     chatId,
+    //     role: "user",
+    //     parts: userMessage.parts,
+    //     attachments: [],
+    //     createdAt: new Date(),
+    //   },
+    // ],
+    messages: m.map((msg) => ({
+      id: generateUUID(),
+      chatId,
+      role: msg.role,
+      parts: [{ type: "text", text: msg.content }],
+      attachments: [],
+      createdAt: new Date(),
+    })),
+  });
+
+  return { chatId };
 }
