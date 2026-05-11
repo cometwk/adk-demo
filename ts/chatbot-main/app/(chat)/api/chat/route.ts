@@ -251,6 +251,16 @@ export async function POST(request: Request) {
           result.toUIMessageStream({ sendReasoning: isReasoningModel })
         );
 
+        // Wait for stream to complete, then write debugLog
+        if (ctx) {
+          await result;
+          const debugLog = ctx.workspace.debugLog();
+          dataStream.write({
+            type: "data-debug-log",
+            data: debugLog,
+          });
+        }
+
         if (titlePromise) {
           const title = await titlePromise;
           dataStream.write({ type: "data-chat-title", data: title });
@@ -307,11 +317,6 @@ export async function POST(request: Request) {
         return "Oops, an error occurred!";
       },
     });
-
-    if (ctx) {
-      const debugLog = ctx.workspace.debugLog();
-      console.log("debugLog:", debugLog);
-    }
 
     return createUIMessageStreamResponse({
       stream,
