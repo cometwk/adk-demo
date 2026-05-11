@@ -14,28 +14,28 @@ import { createCandidateTools } from './agent/tools/candidates'
 import { createRuleTools } from './agent/tools/rules'
 import { Graph } from './runtime/graph'
 
-const systemLog = (x: any) => {
+export const systemLog = (x: any) => {
   console.log('system:', chalk.bold.red(x))
 }
-const contentLog = (x: any) => {
+export const contentLog = (x: any) => {
   console.log('content:', x)
 }
-const userLog = (x: any) => {
+export const userLog = (x: any) => {
   console.log('user:', chalk.bold.gray(x))
 }
-const reasoningLog = (x: any) => {
+export const reasoningLog = (x: any) => {
   console.log('reasoning:', chalk.bold.green(x))
 }
-const toolCallsLog = (x: any) => {
+export const toolCallsLog = (x: any) => {
   const { toolName, input } = x
   console.log('toolCalls:', chalk.bold.yellow(`${toolName}(${JSON.stringify(input)})`))
 }
-const toolResultsLog = (x: any) => {
+export const toolResultsLog = (x: any) => {
   const { toolName, output } = x
   console.log('toolResults:', chalk.bold.blue(`${toolName}: ${JSON.stringify(output)}`))
 }
 
-function onStep(step: any) {
+export function onStep(step: any) {
   // console.log(step)
   const stepNumber = chalk.bgGray.blue.bold('step:' + step.stepNumber)
   console.log(stepNumber)

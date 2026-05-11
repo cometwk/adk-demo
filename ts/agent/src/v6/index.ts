@@ -2,9 +2,9 @@ import { agentMethod, agentProperty, agentRelation, agentType } from '../v6/runt
 import { BaseNode } from '../v6/runtime/graph'
 import type { NodeId } from '../v6/runtime/types'
 import { registerRule, clearRules } from './ontology/rules'
-import { RelationSchema, TypeSchema } from './ontology/schema'
+import type { RelationSchema, TypeSchema } from './ontology/schema'
 import { Graph } from './runtime/graph'
-import { DecisionTask } from './ontology/decision'
+import type { DecisionTask } from './ontology/decision'
 import { OPEN_POLICY } from './policy/context'
 
 // graph 模块
@@ -16,8 +16,10 @@ export {
   agentType,
   // Graph
   BaseNode,
-  NodeId,
   Graph,
+}
+export type {
+  NodeId,
   // T:
   RelationSchema,
   TypeSchema,
@@ -31,8 +33,10 @@ export {
 }
 
 // pipeline 模块
-export {
+export type {
   //
   DecisionTask,
+}
+export {
   OPEN_POLICY,
 }

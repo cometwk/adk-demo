@@ -21,7 +21,7 @@
  *   2. Diagnostic  — "小明的借阅申请为什么被拒绝？"（归因）
  */
 
-import { runDecisionAssistant } from '../../index'
+import { runDecisionAssistant } from '../../api'
 import type { DiagnosticVerdict, SystemVerdict_Predictive } from '../../ontology/decision'
 import { libraryOntology } from './ontology'
 import { setupLibraryScenario, LIBRARY_ALIASES } from './seed'

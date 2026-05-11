@@ -6,6 +6,7 @@ import {
   generateId,
   stepCountIs,
   streamText,
+  StreamTextResult,
 } from "ai";
 import { checkBotId } from "botid/server";
 import { after } from "next/server";
@@ -44,6 +45,7 @@ import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import { S1, streamPredictiveAgent } from "@xui/agent/ex/use-case";
 
 export const maxDuration = 60;
 
@@ -191,53 +193,61 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
-        const result = streamText({
-          model: getLanguageModel(chatModel),
-          system: systemPrompt({ requestHints, supportsTools }),
-          messages: modelMessages,
-          stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            isReasoningModel && !supportsTools
-              ? []
-              : [
-                  "getWeather",
-                  "createDocument",
-                  "editDocument",
-                  "updateDocument",
-                  "requestSuggestions",
-                ],
-          providerOptions: {
-            ...(modelConfig?.gatewayOrder && {
-              gateway: { order: modelConfig.gatewayOrder },
-            }),
-            ...(modelConfig?.reasoningEffort && {
-              openai: { reasoningEffort: modelConfig.reasoningEffort },
-            }),
-          },
-          tools: {
-            getWeather,
-            createDocument: createDocument({
-              session,
-              dataStream,
-              modelId: chatModel,
-            }),
-            editDocument: editDocument({ dataStream, session }),
-            updateDocument: updateDocument({
-              session,
-              dataStream,
-              modelId: chatModel,
-            }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-              modelId: chatModel,
-            }),
-          },
-          experimental_telemetry: {
-            isEnabled: isProductionEnvironment,
-            functionId: "stream-text",
-          },
-        });
+        console.log("use-case=", S1.taskId);
+        const OLD = false;
+
+        let result: any;
+        result = OLD
+          ? streamText<any>({
+              model: getLanguageModel(chatModel),
+              system: systemPrompt({ requestHints, supportsTools }),
+              messages: modelMessages,
+              stopWhen: stepCountIs(5),
+              experimental_activeTools:
+                isReasoningModel && !supportsTools
+                  ? []
+                  : [
+                      "getWeather",
+                      "createDocument",
+                      "editDocument",
+                      "updateDocument",
+                      "requestSuggestions",
+                    ],
+              providerOptions: {
+                ...(modelConfig?.gatewayOrder && {
+                  gateway: { order: modelConfig.gatewayOrder },
+                }),
+                ...(modelConfig?.reasoningEffort && {
+                  openai: { reasoningEffort: modelConfig.reasoningEffort },
+                }),
+              },
+              tools: {
+                getWeather,
+                createDocument: createDocument({
+                  session,
+                  dataStream,
+                  modelId: chatModel,
+                }),
+                editDocument: editDocument({ dataStream, session }),
+                updateDocument: updateDocument({
+                  session,
+                  dataStream,
+                  modelId: chatModel,
+                }),
+                requestSuggestions: requestSuggestions({
+                  session,
+                  dataStream,
+                  modelId: chatModel,
+                }),
+              },
+              experimental_telemetry: {
+                isEnabled: isProductionEnvironment,
+                functionId: "stream-text",
+              },
+            })
+          : streamPredictiveAgent(S1, modelMessages);
+
+        // NEW
 
         dataStream.merge(
           result.toUIMessageStream({ sendReasoning: isReasoningModel })

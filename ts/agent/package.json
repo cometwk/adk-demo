@@ -5,20 +5,17 @@
   "type": "module",
   "exports": {
     ".": "./src/v6/index.ts",
-    "./utils/*": "./src/utils/*.ts",
-    "./ontology/*": "./src/ontology/*.ts"
+    "./ex/*": "./src/ex/*.ts",
+    "./runtime/*": "./src/v6/runtime/*.ts"
   },
   "scripts": {
     "dev": "tsx --env-file=.env ./src/ex/t1.ts",
     "llm": "tsx src/demo/agent/llm.ts",
     "hello": "tsx src/lib/hello.ts",
-    "ex1": "tsx src/v6/demo/tests/1-graph/t1.ts",
-    "ex2": "tsx src/v6/demo/tests/graph-2/t1.ts",
-    "ex3": "tsx src/v6/demo/ex3/main.ts",
-    "dev0": "tsx watch --env-file=.env ./src",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "s1": "FORCE_COLOR=1 vitest run -t 'S1' src/ex/t1.test.ts",
     "test:watch": "vitest",
     "v6": "tsx --env-file=.env src/v6/demo/ex4/main.ts",
     "typecheck": "tsc --noEmit",
@@ -61,6 +58,6 @@
     "vitest": "^4.1.5"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=v24.15.0"
   }
 }

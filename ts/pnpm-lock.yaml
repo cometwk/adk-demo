@@ -151,7 +151,7 @@ importers:
         specifier: ^5.0.2
         version: 5.0.3
       better-sqlite3:
-        specifier: ^12.9.0
+        specifier: 12.9.0
         version: 12.9.0
       botid:
         specifier: ^1.5.11
@@ -1376,6 +1376,7 @@ packages:
   '@gitlab/gitlab-ai-provider@3.6.1':
     resolution: {integrity: sha512-8JihlrwiUuyxzMU+wnUqx9oZZ+JtFFMYcYAULxdr0IsXYfe1OUd6xfUAioLzdUfWBobFVRDTQSVS8788Zg786A==}
     engines: {node: '>=18'}
+    deprecated: 'This package has moved to ''gitlab-ai-provider''. Please run: npm install gitlab-ai-provider'
     peerDependencies:
       '@ai-sdk/provider': '>=2.0.0'
       '@ai-sdk/provider-utils': '>=3.0.0'
@@ -3921,7 +3922,7 @@ packages:
     engines: {node: '>= 0.6'}
 
   core-util-is@1.0.2:
-    resolution: {integrity: sha1-tf1UIgqivFq1eqtxQMlAdUUDwac=}
+    resolution: {integrity: sha512-3lqz5YjWTYnW6dlDa5TLaTCcShfar1e40rmcJVwCBJC6mWlFuj0eCHIElmG1g5kyuJ/GD+8Wn4FFCcz4gJPfaQ==}
 
   cors@2.8.6:
     resolution: {integrity: sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw==}
@@ -5999,7 +6000,6 @@ packages:
   prebuild-install@7.1.3:
     resolution: {integrity: sha512-8Mf2cbV7x1cXPUILADGI3wuhfqWvtiLA1iclTDbFRZkgRQS0NqsPZphna9V+HyTEadheuPmjaJMsbzKQFOzLug==}
     engines: {node: '>=10'}
-    deprecated: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
     hasBin: true
 
   prepend-http@2.0.0:
