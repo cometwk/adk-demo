@@ -97,7 +97,7 @@ export function streamPredictiveAgent(ctx: ReturnType<typeof newUseCase>, messag
     messages,
     // prompt: userMessage,
     tools: ctx.tools,
-    stopWhen: stepCountIs(30),
+    stopWhen: stepCountIs(50),
     temperature: 0,
     onStepFinish: onStep,
   })

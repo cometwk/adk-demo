@@ -94,7 +94,7 @@ export async function runPredictiveAgent(task: DecisionTask, graph: Graph) {
     system: systemPrompt,
     prompt: userMessage,
     tools,
-    stopWhen: stepCountIs(30),
+    stopWhen: stepCountIs(50),
     temperature: 0,
     onStepFinish: onStep,
     // onFinish: onStep,
