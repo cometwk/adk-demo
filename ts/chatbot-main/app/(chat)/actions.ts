@@ -217,7 +217,7 @@ export async function createChatFromUserText({
   });
   // const m = parseAgentInput({ text: text.trim(), chatId });
   const m = parseAgentInput({ text: x, chatId });
-  if (true) {
+  if (false) {
     console.log("ctx", m);
     throw new Error("test");
   }

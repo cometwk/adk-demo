@@ -89,37 +89,50 @@ const PurePreviewMessage = ({
     </div>
   );
 
-  const mergedReasoning = message.parts?.reduce(
-    (acc, part) => {
-      if (part.type === "reasoning" && part.text?.trim().length > 0) {
-        return {
-          text: acc.text ? `${acc.text}\n\n${part.text}` : part.text,
-          isStreaming: "state" in part ? part.state === "streaming" : false,
-          rendered: false,
-        };
-      }
-      return acc;
-    },
-    { text: "", isStreaming: false, rendered: false }
-  ) ?? { text: "", isStreaming: false, rendered: false };
+  // 原方案：合并所有 reasoning parts（已注释）
+  // const mergedReasoning = message.parts?.reduce(
+  //   (acc, part) => {
+  //     if (part.type === "reasoning" && part.text?.trim().length > 0) {
+  //       return {
+  //         text: acc.text ? `${acc.text}\n\n${part.text}` : part.text,
+  //         isStreaming: "state" in part ? part.state === "streaming" : false,
+  //         rendered: false,
+  //       };
+  //     }
+  //     return acc;
+  //   },
+  //   { text: "", isStreaming: false, rendered: false }
+  // ) ?? { text: "", isStreaming: false, rendered: false };
 
   const parts = message.parts?.map((part, index) => {
     const { type } = part;
     const key = `message-${message.id}-part-${index}`;
 
-    if (type === "reasoning") {
-      if (!mergedReasoning.rendered && mergedReasoning.text) {
-        mergedReasoning.rendered = true;
-        return (
-          <MessageReasoning
-            isLoading={isLoading || mergedReasoning.isStreaming}
-            key={key}
-            reasoning={mergedReasoning.text}
-          />
-        );
-      }
-      return null;
+    // 新方案：每个 reasoning part 独立显示
+    if (type === "reasoning" && "text" in part && part.text?.trim().length > 0) {
+      return (
+        <MessageReasoning
+          isLoading={isLoading || ("state" in part && part.state === "streaming")}
+          key={key}
+          reasoning={part.text}
+        />
+      );
     }
+
+    // 原方案：合并渲染 reasoning（已注释）
+    // if (type === "reasoning") {
+    //   if (!mergedReasoning.rendered && mergedReasoning.text) {
+    //     mergedReasoning.rendered = true;
+    //     return (
+    //       <MessageReasoning
+    //         isLoading={isLoading || mergedReasoning.isStreaming}
+    //         key={key}
+    //         reasoning={mergedReasoning.text}
+    //       />
+    //     );
+    //   }
+    //   return null;
+    // }
 
     if (type === "text") {
       return (
@@ -137,6 +150,7 @@ const PurePreviewMessage = ({
     }
 
     if (type.startsWith("tool-")) {
+      // 处理工具调用
       const { state, input, output } = part as ToolUIPart;
       const name = type.split("-")[1];
       if (state === "output-available") {

@@ -2,6 +2,7 @@
 
 import {
   FileUpIcon,
+  GlobeIcon,
   MessageSquareIcon,
   NetworkIcon,
   PanelLeftIcon,
@@ -141,6 +142,30 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   >
                     <NetworkIcon className="size-4" />
                     <span className="font-medium">Graph Agent</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    className="h-8 rounded-lg text-[13px] text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    tooltip="图书馆图谱"
+                  >
+                    <Link href="/library-graph">
+                      <GlobeIcon className="size-4" />
+                      <span className="font-medium">图书馆图谱</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    className="h-8 rounded-lg text-[13px] text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    tooltip="Hello Page"
+                  >
+                    <Link href="/hello.html" target="_blank">
+                      <GlobeIcon className="size-4" />
+                      <span className="font-medium">Hello</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 {user && (
