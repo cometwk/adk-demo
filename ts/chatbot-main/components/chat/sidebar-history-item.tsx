@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
+import { updateChatTitle } from "@/app/(chat)/actions";
 import type { Chat } from "@/lib/db/schema";
 import {
   DropdownMenu,
@@ -18,10 +19,21 @@ import {
   SidebarMenuItem,
 } from "../ui/sidebar";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import {
   CheckCircleFillIcon,
   GlobeIcon,
   LockIcon,
   MoreHorizontalIcon,
+  PencilEditIcon,
   ShareIcon,
   TrashIcon,
 } from "./icons";
@@ -30,17 +42,38 @@ const PureChatItem = ({
   chat,
   isActive,
   onDelete,
+  onRename,
   setOpenMobile,
 }: {
   chat: Chat;
   isActive: boolean;
   onDelete: (chatId: string) => void;
+  onRename: (chatId: string, newTitle: string) => void;
   setOpenMobile: (open: boolean) => void;
 }) => {
   const { visibilityType, setVisibilityType } = useChatVisibility({
     chatId: chat.id,
     initialVisibilityType: chat.visibility,
   });
+
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState(chat.title);
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  const handleRename = async () => {
+    if (!newTitle.trim()) return;
+
+    setIsRenaming(true);
+    try {
+      await updateChatTitle({ chatId: chat.id, title: newTitle.trim() });
+      onRename(chat.id, newTitle.trim());
+      setRenameDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to rename chat:", error);
+    } finally {
+      setIsRenaming(false);
+    }
+  };
 
   return (
     <SidebarMenuItem>
@@ -104,6 +137,17 @@ const PureChatItem = ({
           </DropdownMenuSub>
 
           <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={() => {
+              setNewTitle(chat.title);
+              setRenameDialogOpen(true);
+            }}
+          >
+            <PencilEditIcon />
+            <span>Rename</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
             onSelect={() => onDelete(chat.id)}
             variant="destructive"
           >
@@ -112,6 +156,30 @@ const PureChatItem = ({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Chat</DialogTitle>
+            <DialogDescription>
+              Enter a new title for this chat.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Chat title"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRename} disabled={isRenaming || !newTitle.trim()}>
+              {isRenaming ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarMenuItem>
   );
 };

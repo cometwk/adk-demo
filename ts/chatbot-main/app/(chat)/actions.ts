@@ -20,6 +20,7 @@ import {
   saveChat,
   saveMessages,
   updateChatVisibilityById,
+  updateChatTitleById,
 } from "@/lib/db/queries";
 import { generateUUID, getTextFromMessage } from "@/lib/utils";
 import { parseAgentInput } from "@/lib/agent";
@@ -180,6 +181,26 @@ export async function importChatFromJSON({
       error instanceof Error ? error.message : "Failed to convert messages";
     return { chatId: "", error: message };
   }
+}
+
+export async function updateChatTitle({
+  chatId,
+  title,
+}: {
+  chatId: string;
+  title: string;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const chat = await getChatById({ id: chatId });
+  if (!chat || chat.userId !== session.user.id) {
+    throw new Error("Unauthorized");
+  }
+
+  await updateChatTitleById({ chatId, title });
 }
 
 export async function createChatFromUserText({
