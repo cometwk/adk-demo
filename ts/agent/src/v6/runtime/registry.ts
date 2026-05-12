@@ -72,6 +72,9 @@ export class AgentMethodRegistry {
   static clear(): void {
     AgentMethodRegistry.methods.clear()
   }
+  static all() {
+    return Array.from(AgentMethodRegistry.methods.values())
+  }
 }
 
 // ── Type Registry ──
@@ -95,6 +98,9 @@ export class AgentTypeRegistry {
 
   static clear(): void {
     AgentTypeRegistry.types.clear()
+  }
+  static all() {
+    return Array.from(AgentTypeRegistry.types.values())
   }
 }
 
@@ -125,6 +131,9 @@ export class AgentPropertyRegistry {
 
   static clear(): void {
     AgentPropertyRegistry.properties.clear()
+  }
+  static all() {
+    return Array.from(AgentPropertyRegistry.properties.values())
   }
 }
 
@@ -180,6 +189,9 @@ export class AgentRelationRegistry {
   static clear(): void {
     AgentRelationRegistry.relations.clear()
   }
+  static all() {
+    return Array.from(AgentRelationRegistry.relations.values())
+  }
 }
 
 // ── AgentRegistry Facade ──
@@ -193,15 +205,13 @@ export const AgentRegistry = {
     const entry = AgentTypeRegistry.get(className)
     if (!entry) return undefined
 
-    const properties: TypeProperty[] = AgentPropertyRegistry.getPropertiesForClass(className).map(
-      (p) => ({
-        name: p.propertyName,
-        type: p.type,
-        description: p.description,
-        agentVisible: p.agentVisible,
-        sensitive: p.sensitive,
-      }),
-    )
+    const properties: TypeProperty[] = AgentPropertyRegistry.getPropertiesForClass(className).map((p) => ({
+      name: p.propertyName,
+      type: p.type,
+      description: p.description,
+      agentVisible: p.agentVisible,
+      sensitive: p.sensitive,
+    }))
 
     const methods: TypeMethod[] = AgentMethodRegistry.getMethodsForClass(className).map((m) => ({
       name: m.methodName,
@@ -227,5 +237,14 @@ export const AgentRegistry = {
     AgentPropertyRegistry.clear()
     AgentMethodRegistry.clear()
     AgentRelationRegistry.clear()
+  },
+
+  all() {
+    return {
+      types: AgentTypeRegistry.all(),
+      properties: AgentPropertyRegistry.all(),
+      methods: AgentMethodRegistry.all(),
+      relations: AgentRelationRegistry.all(),
+    }
   },
 }

@@ -7,6 +7,8 @@ import { Graph } from './runtime/graph'
 import type { DecisionTask } from './ontology/decision'
 import { OPEN_POLICY } from './policy/context'
 
+import { AgentRegistry } from './runtime/registry'
+
 // graph 模块
 export {
   // 注解
@@ -17,6 +19,8 @@ export {
   // Graph
   BaseNode,
   Graph,
+  // Registry
+  AgentRegistry,
 }
 export type {
   NodeId,

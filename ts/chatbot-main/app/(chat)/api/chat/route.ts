@@ -45,7 +45,7 @@ import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
-import { streamPredictiveAgent } from "@xui/agent/use-case";
+import { streamPredictiveAgent } from "@xui/agent/ex/use-case";
 import { getAgentContext } from "@/lib/agent";
 
 export const maxDuration = 60;

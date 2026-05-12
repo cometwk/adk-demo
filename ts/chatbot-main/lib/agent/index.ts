@@ -1,5 +1,13 @@
+// 必须 import 实体类以触发装饰器注册（副作用 import）
+import "@xui/agent/ex/ontology";
+
+// 从 @xui/agent 导入，确保与 ontology 使用同一个 Registry 实例
+import { AgentRegistry } from "@xui/agent";
+
 import { ModelMessage } from "ai";
-import { newAgentContext, S1 } from "@xui/agent/use-case";
+import { newAgentContext, S1 } from "@xui/agent/ex/use-case";
+
+console.log("AgentRegistry.all()", AgentRegistry.all());
 
 type Context = ReturnType<typeof newAgentContext>;
 
@@ -28,6 +36,7 @@ export function parseAgentInput({
   text: string;
   chatId: string;
 }) {
+  console.log("text", text);
   let ctx = predefinedContexts[text.trim()];
   if (!ctx) {
     ctx = newAgentContext(text);
