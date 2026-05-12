@@ -1,19 +1,19 @@
 import { generateText, stepCountIs } from 'ai'
 import { describe, expect, it } from 'vitest'
-import { model } from '../lib/model'
+// import { model } from '../lib/model'
 // import { buildPredictiveSystemPrompt } from '../../../agent/prompt'
 // import { createFactTools, resetSessionFacts } from '../../../agent/tools/facts'
 // import { createGraphTools } from '../../../agent/tools/graph'
 // import { createMethodTools } from '../../../agent/tools/method'
-import type { DecisionTask } from '../v6/index'
-import { OPEN_POLICY } from '../v6/index'
+import type { DecisionTask } from '../../v6/index'
+import { OPEN_POLICY } from '../../v6/index'
 // import { FactStore } from '../../../runtime/eventStore'
 // import { buildOntology } from '../../../runtime/ontology-builder'
-import { seedGraph } from './seed'
+import { seedGraph } from '../seed'
 
 // 必须 import 实体类以触发装饰器注册（副作用 import）
 import './ontology'
-import { runPredictiveAgent as runPredictiveAgentV6 } from '../v6/helper'
+import { runPredictiveAgent as runPredictiveAgentV6 } from '../../v6/helper'
 
 
 // ── 通用执行器 ──

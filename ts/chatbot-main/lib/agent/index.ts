@@ -1,5 +1,5 @@
 import { ModelMessage } from "ai";
-import { newAgentContext, S1 } from "@xui/agent/ex/use-case";
+import { newAgentContext, S1 } from "@xui/agent/use-case";
 
 type Context = ReturnType<typeof newAgentContext>;
 
@@ -32,6 +32,7 @@ export function parseAgentInput({
   if (!ctx) {
     ctx = newAgentContext(text);
   }
+  console.log("ctx", ctx);
 
   // save to global cache
   globalCache.__agentContexts[chatId] = ctx;
@@ -45,7 +46,7 @@ export function parseAgentInput({
   const init: ModelMessage[] = [
     {
       role: "system",
-      content: ctx.system,
+      content: "```\n" + ctx.system + "\n```",
     },
     {
       role: "user",

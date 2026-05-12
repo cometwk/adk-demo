@@ -3,8 +3,6 @@ import { registerGraph2Rules } from './rules'
 import { clearRules } from '../v6/index'
 import { seedGraph } from './seed'
 
-const graph = seedGraph()
-
 /*
  * 场景 S1：2 跳跨实体参数传递 — 允许借阅
  *
@@ -21,7 +19,8 @@ const graph = seedGraph()
  */
 
 // it('S1: 2跳参数传递 + 无阻断 → 允许借阅',
-const S1 = async () => {
+const mS1 = async () => {
+  const graph = seedGraph()
   const task = makeTask({
     // goal: '评估小红是否能从西馆借阅《人类简史》',
     // entryEntities: ['xiao_hong', 'book_sapiens', 'branch_west'],
@@ -48,12 +47,13 @@ const S1 = async () => {
  */
 
 //  it('S2: 从 Branch 获取上限参数 → 借阅上限触发',
-const S2 = async () => {
+const mS2 = async () => {
   const task = makeTask({
     goal: '评估老王是否能从主馆借阅《人类简史》',
     entryEntities: ['lao_wang', 'book_sapiens', 'branch_central'],
   })
 
+  const graph = seedGraph()
   const r = await runPredictiveAgent(task, graph)
   const text = r.content
   console.log(text)
@@ -61,4 +61,4 @@ const S2 = async () => {
 
 // clearRules()
 // registerGraph2Rules()
-// S1()
+mS1()

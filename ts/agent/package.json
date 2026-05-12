@@ -5,7 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/v6/index.ts",
-    "./ex/*": "./src/ex/*.ts",
+    "./use-case": "./src/use-case/index.ts",
     "./runtime/*": "./src/v6/runtime/*.ts"
   },
   "scripts": {

@@ -10,10 +10,13 @@ import { FactStore } from '../v6/runtime/eventStore'
 import { buildOntology } from '../v6/runtime/ontology-builder'
 import { createCandidateTools } from '../v6/agent/tools/candidates'
 import { createRuleTools } from '../v6/agent/tools/rules'
-import { Graph } from '../v6/runtime/graph'
+
+
+// 必须 import 实体类以触发装饰器注册（副作用 import）
+import '../ex/ontology'
 
 import { makeTask, onStep, systemLog, userLog } from '../v6/helper'
-import { seedGraph } from './seed'
+import { seedGraph } from '../ex/seed'
 
 // 只读
 const graph = seedGraph()
@@ -54,7 +57,7 @@ function newUseCase(task: DecisionTask) {
   const workspace = new DecisionWorkspace('predictive')
 
   const ontology = buildOntology({ version: '1.0.0' })
-  // const graph = seedGraph()
+  console.log('ontology', ontology)
 
   const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
   const userMessage = `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
