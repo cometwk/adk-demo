@@ -251,16 +251,6 @@ export async function POST(request: Request) {
           result.toUIMessageStream({ sendReasoning: isReasoningModel })
         );
 
-        // Wait for stream to complete, then write debugLog
-        if (ctx) {
-          await result;
-          const debugLog = ctx.workspace.debugLog();
-          dataStream.write({
-            type: "data-debug-log" as any,
-            data: debugLog,
-          });
-        }
-
         if (titlePromise) {
           const title = await titlePromise;
           dataStream.write({ type: "data-chat-title", data: title });

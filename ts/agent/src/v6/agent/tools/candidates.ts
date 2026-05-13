@@ -83,6 +83,7 @@ export function createCandidateTools(workspace: DecisionWorkspace, policy: Polic
     },
   })
 
+  // 注意：摘要信息，给AI看的, 避免信息过载
   const list_workspace = tool({
     description: '列出当前工作区状态：候选、证据和不确定性。',
     inputSchema: z.object({}),
@@ -94,6 +95,7 @@ export function createCandidateTools(workspace: DecisionWorkspace, policy: Polic
           sourceKind: e.sourceKind,
           content: e.content.slice(0, 100),
           confidence: e.confidence,
+          // ← 这里故意省略了 entityIds 和 relatedRuleIds
         })),
         uncertainties: workspace.listUncertainties(),
         triggeredRuleIds: workspace.listTriggeredRules(),

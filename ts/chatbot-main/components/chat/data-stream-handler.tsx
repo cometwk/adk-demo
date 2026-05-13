@@ -28,12 +28,6 @@ export function DataStreamHandler() {
         continue;
       }
 
-      if (delta.type === "data-debug-log") {
-        console.log("Agent Debug Log:", delta.data);
-        // TODO: 可以用 toast 或其他方式显示给用户
-        continue;
-      }
-
       const artifactDefinition = artifactDefinitions.find(
         (currentArtifactDefinition) =>
           currentArtifactDefinition.kind === artifact.kind

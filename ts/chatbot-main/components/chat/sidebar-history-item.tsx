@@ -188,5 +188,8 @@ export const ChatItem = memo(PureChatItem, (prevProps, nextProps) => {
   if (prevProps.isActive !== nextProps.isActive) {
     return false;
   }
+  if (prevProps.chat.title !== nextProps.chat.title) {
+    return false;
+  }
   return true;
 });
