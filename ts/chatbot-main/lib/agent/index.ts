@@ -7,6 +7,7 @@ import { AgentRegistry } from "@xui/agent";
 import { ModelMessage } from "ai";
 import {
   newAgentContext,
+  S0,
   S1,
   S2,
   S3,
@@ -32,6 +33,7 @@ if (!globalCache.__agentContexts) {
 }
 
 const predefinedContexts: Record<string, Context> = {
+  S0,
   S1,
   S2,
   S3,

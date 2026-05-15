@@ -3,7 +3,7 @@ export * from './helper'
 
 export const S0 = newAgentContext({
   taskId: 'S0',
-  goal: 'just hi',
+  goal: 'demo: 采用模拟数据调用 bind_fact 和 record_evidence ，每一个工具调用1次，就结束测试',
   entryEntities: [],
 })
 
