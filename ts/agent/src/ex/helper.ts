@@ -68,6 +68,7 @@ function newUseCase(task: DecisionTask) {
     tools,
     workspace,
     taskId: task.taskId,
+    facts: currentFacts,
   }
 
   // workspace.debugLog()

@@ -35,6 +35,10 @@ export class FactStore {
     }
   }
 
+  debugLog(): string {
+    return JSON.stringify(this.all(), null, 2)
+  }
+
   get(entityId: string, property: string): FactBinding | undefined {
     return this.bindings.get(`${entityId}.${property}`)
   }

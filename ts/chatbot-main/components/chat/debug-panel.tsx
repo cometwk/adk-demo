@@ -9,10 +9,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type DebugData = {
+  facts: unknown;
+  workspace: unknown;
+};
 
 export function DebugPanel({ chatId }: { chatId: string }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [debugLog, setDebugLog] = useState<unknown>(null);
+  const [debugData, setDebugData] = useState<DebugData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleOpen = async () => {
@@ -21,11 +27,24 @@ export function DebugPanel({ chatId }: { chatId: string }) {
     try {
       const res = await fetch(`/api/debug-log?chatId=${chatId}`);
       const data = await res.json();
-      setDebugLog(data);
+      setDebugData(data);
     } catch (e) {
-      setDebugLog({ error: String(e) });
+      setDebugData({ facts: { error: String(e) }, workspace: { error: String(e) } });
     }
     setIsLoading(false);
+  };
+
+  const renderContent = (data: unknown) => {
+    if (isLoading) {
+      return <div className="text-muted-foreground">Loading...</div>;
+    }
+    return (
+      <pre className="h-full w-full bg-muted/30 rounded p-3 text-xs font-mono overflow-auto whitespace-pre-wrap break-all">
+        {typeof data === "string"
+          ? data
+          : JSON.stringify(data, null, 2)}
+      </pre>
+    );
   };
 
   return (
@@ -44,17 +63,18 @@ export function DebugPanel({ chatId }: { chatId: string }) {
           <DialogHeader className="shrink-0 pb-4">
             <DialogTitle>Debug Log</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 min-h-0">
-            {isLoading ? (
-              <div className="text-muted-foreground">Loading...</div>
-            ) : (
-              <pre className="h-full w-full bg-muted/30 rounded p-3 text-xs font-mono overflow-auto whitespace-pre-wrap break-all">
-                {typeof debugLog === "string"
-                  ? debugLog
-                  : JSON.stringify(debugLog, null, 2)}
-              </pre>
-            )}
-          </div>
+          <Tabs defaultValue="facts" className="flex-1 min-h-0 flex flex-col">
+            <TabsList className="shrink-0">
+              <TabsTrigger value="facts">Facts</TabsTrigger>
+              <TabsTrigger value="workspace">Workspace</TabsTrigger>
+            </TabsList>
+            <TabsContent value="facts" className="flex-1 min-h-0 mt-2">
+              {renderContent(debugData?.facts)}
+            </TabsContent>
+            <TabsContent value="workspace" className="flex-1 min-h-0 mt-2">
+              {renderContent(debugData?.workspace)}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </>

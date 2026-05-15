@@ -216,6 +216,8 @@ function genId(prefix: string): string {
 }
 
 export class DecisionWorkspace {
+  id?: string // 用于持久化 debug log
+
   readonly mode: DecisionMode
   private candidates = new Map<string, CandidateAnswer>()
   private causes = new Map<string, CandidateCause>()
@@ -225,8 +227,9 @@ export class DecisionWorkspace {
   modelVerdict_predictive?: ModelVerdict_Predictive
   modelVerdict_diagnostic?: DiagnosticVerdict
 
-  constructor(mode: DecisionMode) {
+  constructor(mode: DecisionMode, id?: string) {
     this.mode = mode
+    this.id = id
   }
 
   debugLog(): string {
@@ -246,7 +249,9 @@ export class DecisionWorkspace {
       modelVerdict_predictive: this.modelVerdict_predictive,
       modelVerdict_diagnostic: this.modelVerdict_diagnostic,
     }
-    return JSON.stringify(x, null, 2)
+    const s = JSON.stringify(x, null, 2)
+    // console.log(s)
+    return s
   }
 
   // ── Candidates (predictive) ──
