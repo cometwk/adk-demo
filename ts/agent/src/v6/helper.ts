@@ -8,7 +8,6 @@ import { createGraphTools } from './agent/tools/graph'
 import { createMethodTools } from './agent/tools/method'
 import { DecisionTask, DecisionWorkspace } from './ontology/decision'
 import { OPEN_POLICY } from './policy/context'
-import { FactStore } from './runtime/eventStore'
 import { buildOntology } from './runtime/ontology-builder'
 import { createCandidateTools } from './agent/tools/candidates'
 import { createRuleTools } from './agent/tools/rules'
@@ -63,7 +62,6 @@ export function onStep(step: any) {
 // 测试: 采用llm-agent模式, 执行预测决策任务，收集证据，做出模型裁决
 export async function runPredictiveAgent(task: DecisionTask, graph: Graph) {
   const policy = OPEN_POLICY
-  const currentFacts = new FactStore()
   const workspace = new DecisionWorkspace('predictive')
 
   const ontology = buildOntology({ version: '1.0.0' })
@@ -74,10 +72,11 @@ export async function runPredictiveAgent(task: DecisionTask, graph: Graph) {
   systemLog(systemPrompt)
   userLog(userMessage)
 
-  // Build tools (facts store starts empty; executor populates it)
+  // Build tools (workspace.bindings is populated by executor via bind_fact)
+  const currentFacts = workspace.getFacts()
   const graphTools = createGraphTools(graph, policy, currentFacts)
   const methodTools = createMethodTools(graph, currentFacts, policy)
-  const factTools = createFactTools(policy)
+  const factTools = createFactTools(workspace.bindings, policy)
   const candidateTools = createCandidateTools(workspace, policy)
   const ruleTools = createRuleTools(currentFacts, graph, policy)
 

@@ -3,14 +3,14 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { DecisionTask, ModelVerdict_Predictive, DiagnosticVerdict } from '../ontology/decision'
 import type { Ontology } from '../ontology/schema'
 import type { Graph } from '../runtime/graph'
-import type { FactStore } from '../runtime/eventStore'
+import { FactStore } from '../runtime/eventStore'
 import type { EventStore } from '../runtime/eventStore'
 import { DecisionWorkspace } from '../ontology/decision'
 import type { CausalGraph } from '../ontology/causal'
 import { buildPredictiveSystemPrompt, buildDiagnosticSystemPrompt } from './prompt'
 import { createGraphTools } from './tools/graph'
 import { createMethodTools } from './tools/method'
-import { createFactTools, getSessionFactStore, resetSessionFacts } from './tools/facts'
+import { createFactTools } from './tools/facts'
 import { createRuleTools } from './tools/rules'
 import { createCandidateTools } from './tools/candidates'
 import { createCounterfactualTools, resetCounterfactuals } from './tools/counterfactual'
@@ -43,7 +43,6 @@ export async function runPredictiveExecutor(
   ontology: Ontology,
   modelId = 'gpt-4o'
 ): Promise<PredictiveExecutorResult> {
-  resetSessionFacts()
   resetCounterfactuals()
 
   const workspace = new DecisionWorkspace('predictive')
@@ -62,11 +61,11 @@ export async function runPredictiveExecutor(
   const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
   const userMessage = `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
 
-  // Build tools (facts store starts empty; executor populates it)
-  const currentFacts = getSessionFactStore()
+  // Build tools (workspace.bindings is populated by executor via bind_fact)
+  const currentFacts = workspace.getFacts()
   const graphTools = createGraphTools(graph, policy, currentFacts)
   const methodTools = createMethodTools(graph, currentFacts, policy)
-  const factTools = createFactTools(policy)
+  const factTools = createFactTools(workspace.bindings, policy)
   const ruleTools = createRuleTools(currentFacts, graph, policy)
   const candidateTools = createCandidateTools(workspace, policy)
   const counterfactualTools = createCounterfactualTools(policy)
@@ -94,7 +93,7 @@ export async function runPredictiveExecutor(
   const modelVerdict = parseModelVerdictPredictive(result.text, workspace)
 
   return {
-    facts: getSessionFactStore(),
+    facts: workspace.getFacts(),
     workspace,
     modelVerdict,
     rawText: result.text,
@@ -111,12 +110,11 @@ export async function runDiagnosticExecutor(
   causalGraph: CausalGraph,
   modelId = 'gpt-4o'
 ): Promise<DiagnosticExecutorResult> {
-  resetSessionFacts()
   resetCounterfactuals()
 
   const workspace = new DecisionWorkspace('diagnostic')
   const policy = task.policyCtx
-  const facts = getSessionFactStore()
+  const facts = workspace.getFacts()
 
   const systemPrompt = buildDiagnosticSystemPrompt(task, ontology)
   const userMessage =
@@ -124,7 +122,7 @@ export async function runDiagnosticExecutor(
     `${task.outcome ? `${task.outcome.eventType} @ ${task.outcome.entityId} (${task.outcome.occurredAt})` : task.goal}`
 
   const graphTools = createGraphTools(graph, policy, facts)
-  const factTools = createFactTools(policy)
+  const factTools = createFactTools(workspace.bindings, policy)
   const candidateTools = createCandidateTools(workspace, policy)
   const counterfactualTools = createCounterfactualTools(policy)
   const eventTools = createEventTools(eventStore, causalGraph, workspace, policy)
@@ -150,7 +148,7 @@ export async function runDiagnosticExecutor(
   const modelVerdict = parseModelVerdictDiagnostic(result.text, workspace)
 
   return {
-    facts: getSessionFactStore(),
+    facts: workspace.getFacts(),
     eventStore,
     workspace,
     modelVerdict,

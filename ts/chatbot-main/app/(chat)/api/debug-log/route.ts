@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   }
 
   const workspace = ctx.workspace.debugLog();
-  const facts = ctx.facts.debugLog();
+  const facts = JSON.stringify(ctx.workspace.bindings, null, 2);
   const result = { facts, workspace };
 
   // 写入缓存

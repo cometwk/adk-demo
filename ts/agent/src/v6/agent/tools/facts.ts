@@ -14,18 +14,10 @@ import { checkEntityAccess, maybeLogToolCall } from '../../policy/filters'
 // bind_fact:  executor calls this after reading a property or method result
 // lookup_fact: executor calls this before passing args to call_method
 
-// Mutable bindings collector (per-session, updated by bind_fact)
-let _mutableBindings: FactBinding[] = []
+export function createFactTools(bindings: FactBinding[], policy: PolicyContext) {
+  // Helper to get current state as FactStore (read-only view)
+  const getStore = () => new FactStore(bindings)
 
-export function getSessionFactStore(): FactStore {
-  return new FactStore([..._mutableBindings])
-}
-
-export function resetSessionFacts(): void {
-  _mutableBindings = []
-}
-
-export function createFactTools(policy: PolicyContext) {
   const bind_fact = tool({
     description:
       '将实体属性值记录到 FactStore 中。在从 inspect_node 或 call_method 读取属性后立即调用此方法。' +
@@ -71,7 +63,7 @@ export function createFactTools(policy: PolicyContext) {
         observedAt: now,
       }
 
-      _mutableBindings.push(binding)
+      bindings.push(binding)
 
       return toolOk({
         bound: true,
@@ -98,7 +90,7 @@ export function createFactTools(policy: PolicyContext) {
         return toolErr('POLICY_DENIED', `Access to entity '${entityId}' is denied`)
       }
 
-      const store = getSessionFactStore()
+      const store = getStore()
       const binding = store.get(entityId, property)
 
       if (!binding) {
@@ -135,7 +127,7 @@ export function createFactTools(policy: PolicyContext) {
     execute: async ({ entityIds, property, operation }): Promise<ToolResult> => {
       maybeLogToolCall('aggregate_facts', { entityIds, property, operation }, policy)
 
-      const store = getSessionFactStore()
+      const store = getStore()
       const values: number[] = []
       const missing: string[] = []
 

@@ -6,7 +6,6 @@ import { createGraphTools } from '../v6/agent/tools/graph'
 import { createMethodTools } from '../v6/agent/tools/method'
 import { DecisionTask, DecisionWorkspace } from '../v6/ontology/decision'
 import { OPEN_POLICY } from '../v6/policy/context'
-import { FactStore } from '../v6/runtime/eventStore'
 import { buildOntology } from '../v6/runtime/ontology-builder'
 import { createCandidateTools } from '../v6/agent/tools/candidates'
 import { createRuleTools } from '../v6/agent/tools/rules'
@@ -35,7 +34,6 @@ export function newAgentContext(jsonStr: string | any) {
 
 function newUseCase(task: DecisionTask) {
   const policy = OPEN_POLICY
-  const currentFacts = new FactStore()
   const workspace = new DecisionWorkspace('predictive')
 
   const ontology = buildOntology({ version: '1.0.0' })
@@ -47,10 +45,11 @@ function newUseCase(task: DecisionTask) {
   // systemLog(systemPrompt)
   // userLog(userMessage)
 
-  // Build tools (facts store starts empty; executor populates it)
+  // Build tools (workspace.bindings is populated by executor via bind_fact)
+  const currentFacts = workspace.getFacts()
   const graphTools = createGraphTools(graph, policy, currentFacts)
   const methodTools = createMethodTools(graph, currentFacts, policy)
-  const factTools = createFactTools(policy)
+  const factTools = createFactTools(workspace.bindings, policy)
   const candidateTools = createCandidateTools(workspace, policy)
   const ruleTools = createRuleTools(currentFacts, graph, policy)
 
@@ -68,7 +67,8 @@ function newUseCase(task: DecisionTask) {
     tools,
     workspace,
     taskId: task.taskId,
-    facts: currentFacts,
+
+    first: true,
   }
 
   // workspace.debugLog()
@@ -77,6 +77,11 @@ function newUseCase(task: DecisionTask) {
 }
 
 export function streamPredictiveAgent(ctx: ReturnType<typeof newUseCase>, messages: ModelMessage[]) {
+  if (ctx.first) {
+    ctx.first = false
+    systemLog(ctx.system)
+    userLog(ctx.prompt)
+  }
   const result = streamText<any>({
     model: model,
     system: ctx.system,

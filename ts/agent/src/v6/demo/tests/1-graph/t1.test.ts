@@ -5,16 +5,15 @@ import { buildPredictiveSystemPrompt } from '../../../agent/prompt'
 import { createFactTools } from '../../../agent/tools/facts'
 import { createGraphTools } from '../../../agent/tools/graph'
 import { createMethodTools } from '../../../agent/tools/method'
-import { DecisionTask } from '../../../ontology/decision'
+import { DecisionTask, DecisionWorkspace } from '../../../ontology/decision'
 import { OPEN_POLICY } from '../../../policy/context'
-import { FactStore } from '../../../runtime/eventStore'
 import { buildOntology } from '../../../runtime/ontology-builder'
 import { seedGraph } from './seed1'
 
 // 测试: 采用llm-agent模式, 执行预测决策任务，收集证据，做出模型裁决
 async function llm_agent_predictive() {
   const policy = OPEN_POLICY
-  const currentFacts = new FactStore()
+  const workspace = new DecisionWorkspace('predictive')
 
   const ontology = buildOntology({ version: '1.0.0' })
   const graph = seedGraph()
@@ -32,10 +31,11 @@ async function llm_agent_predictive() {
   const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
   const userMessage = `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
 
-  // Build tools (facts store starts empty; executor populates it)
+  // Build tools (workspace.bindings is populated by executor via bind_fact)
+  const currentFacts = workspace.getFacts()
   const graphTools = createGraphTools(graph, policy, currentFacts)
   const methodTools = createMethodTools(graph, currentFacts, policy)
-  const factTools = createFactTools(policy)
+  const factTools = createFactTools(workspace.bindings, policy)
 
   const tools = {
     ...graphTools,

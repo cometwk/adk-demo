@@ -1,4 +1,6 @@
 import type { PolicyContext } from '../policy/context'
+import type { FactBinding } from '../runtime/types'
+import { FactStore } from '../runtime/eventStore'
 
 // ── Decision mode ──
 
@@ -219,6 +221,7 @@ export class DecisionWorkspace {
   id?: string // 用于持久化 debug log
 
   readonly mode: DecisionMode
+  readonly bindings: FactBinding[] = []
   private candidates = new Map<string, CandidateAnswer>()
   private causes = new Map<string, CandidateCause>()
   private evidence = new Map<string, Evidence>()
@@ -230,6 +233,11 @@ export class DecisionWorkspace {
   constructor(mode: DecisionMode, id?: string) {
     this.mode = mode
     this.id = id
+  }
+
+  /** Return a FactStore view of current bindings */
+  getFacts(): FactStore {
+    return new FactStore(this.bindings)
   }
 
   debugLog(): string {
