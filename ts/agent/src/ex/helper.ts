@@ -19,11 +19,11 @@ import { registerGraph2Rules } from './rules'
 // 初始化
 // T
 import '../ex/ontology' // 必须 import 实体类以触发装饰器注册（副作用 import）
+// C
+clearRules()
+registerGraph2Rules()
 // E, R
 const graph = seedGraph()
-// C
-// clearRules()
-// registerGraph2Rules()
 
 export function newAgentContext(jsonStr: string | any) {
   if (typeof jsonStr === 'string') {
@@ -39,13 +39,13 @@ function newUseCase(task: DecisionTask) {
   const workspace = new DecisionWorkspace('predictive')
 
   const ontology = buildOntology({ version: '1.0.0' })
-  console.log('ontology', ontology)
+  // console.log('ontology', ontology)
 
   const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
   const userMessage = `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
 
-  systemLog(systemPrompt)
-  userLog(userMessage)
+  // systemLog(systemPrompt)
+  // userLog(userMessage)
 
   // Build tools (facts store starts empty; executor populates it)
   const graphTools = createGraphTools(graph, policy, currentFacts)
@@ -91,6 +91,9 @@ export function streamPredictiveAgent(ctx: ReturnType<typeof newUseCase>, messag
 }
 
 export async function syncPredictiveAgent(ctx: ReturnType<typeof newUseCase>, messages: ModelMessage[]) {
+  systemLog(ctx.system)
+  userLog(ctx.prompt)
+
   if (messages.length === 0) {
     messages = [
       {

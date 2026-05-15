@@ -5,9 +5,21 @@ import "@xui/agent/ex/ontology";
 import { AgentRegistry } from "@xui/agent";
 
 import { ModelMessage } from "ai";
-import { newAgentContext, S1 } from "@xui/agent/ex/use-case";
+import {
+  newAgentContext,
+  S1,
+  S2,
+  S3,
+  S4,
+  S5,
+  S6,
+  S7,
+  S8,
+  S9,
+  S10,
+} from "@xui/agent/ex/use-case";
 
-console.log("AgentRegistry.all()", AgentRegistry.all());
+// console.log("AgentRegistry.all()", AgentRegistry.all());
 
 type Context = ReturnType<typeof newAgentContext>;
 
@@ -21,6 +33,15 @@ if (!globalCache.__agentContexts) {
 
 const predefinedContexts: Record<string, Context> = {
   S1,
+  S2,
+  S3,
+  S4,
+  S5,
+  S6,
+  S7,
+  S8,
+  S9,
+  S10,
 };
 
 export function getAgentContext(chatId: string) {
@@ -41,7 +62,7 @@ export function parseAgentInput({
   if (!ctx) {
     ctx = newAgentContext(text);
   }
-  console.log("ctx", ctx);
+  // console.log("ctx", ctx);
 
   // save to global cache
   globalCache.__agentContexts[chatId] = ctx;

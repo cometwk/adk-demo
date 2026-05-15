@@ -12,8 +12,10 @@ import { OPEN_POLICY } from '../../v6/index'
 import { seedGraph } from '../seed'
 
 // 必须 import 实体类以触发装饰器注册（副作用 import）
-import './ontology'
+// import './ontology'
 import { runPredictiveAgent as runPredictiveAgentV6 } from '../../v6/helper'
+import { syncPredictiveAgent } from '../helper'
+import { S0 } from '../use-case'
 
 
 // ── 通用执行器 ──
@@ -89,6 +91,11 @@ type AnyToolCall = { toolName: string; input?: Record<string, unknown> } & Recor
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('图书馆增强版 — LLM-Agent 图推理有效性', () => {
+  it('S0', async () => {
+    const r = await syncPredictiveAgent(S0, [])
+    console.log(r.text)
+  }, 150_000)
+
   /*
    * 场景 S1：2 跳跨实体参数传递 — 允许借阅
    *
