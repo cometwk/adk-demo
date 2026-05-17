@@ -126,8 +126,10 @@ export const S5 = newAgentContext({
  */
 export const S6 = newAgentContext({
   taskId: 'S6',
-  goal: '判断小明是否可以借阅《三体·死神永生（第三部）》，需检查系列阅读顺序',
-  entryEntities: ['xiao_ming', 'book_tb3', 'series_three_body'],
+  // goal: '判断小明是否可以借阅《三体·死神永生（第三部）》，需检查系列阅读顺序',
+  // entryEntities: ['xiao_ming', 'book_tb3', 'series_three_body'],
+  goal: '判断小明是否可以借阅《三体·死神永生（第三部）》',
+  entryEntities: ['xiao_ming', 'book_tb3'],
 })
 
 /*

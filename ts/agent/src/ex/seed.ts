@@ -245,7 +245,7 @@ export const data = {
     // ── 读者 → 书籍借阅 ──
     // 小明：借了三体1+三体2（金卡，可借限制类目）
     { from: 'xiao_ming', to: 'book_tb1', type: 'borrows' },
-    { from: 'xiao_ming', to: 'book_tb2', type: 'borrows' },
+    // { from: 'xiao_ming', to: 'book_tb2', type: 'borrows' },
     // 老王：借了 hp1 + sapiens + tb1（silver卡，已借3本达上限）
     { from: 'lao_wang', to: 'book_hp1', type: 'borrows' },
     { from: 'lao_wang', to: 'book_sapiens', type: 'borrows' },
