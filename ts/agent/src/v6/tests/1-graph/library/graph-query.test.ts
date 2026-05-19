@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { OPEN_POLICY } from '../../policy/context'
-import { GraphQueryEngine } from '../../runtime/query-engine'
-import type { GraphQuery } from '../../runtime/query-types'
+import { OPEN_POLICY } from '../../../policy/context'
+import { GraphQueryEngine } from '../../../runtime/query-engine'
+import type { GraphQuery } from '../../../runtime/query-types'
 import { seedGraph } from './seed'
 
 // 所有测试共享同一张图（21 节点，38 条边）

@@ -1,5 +1,5 @@
-import type { RelationSchema } from '../../ontology/schema'
-import { Graph } from '../../runtime/graph'
+import type { RelationSchema } from '../../../ontology/schema'
+import { Graph } from '../../../runtime/graph'
 import { Author, Book, Branch, Category, Reader, Series } from './ontology'
 
 /*

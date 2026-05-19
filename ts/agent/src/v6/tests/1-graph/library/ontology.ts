@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import { data } from './seed'
-import { agentMethod, agentProperty, agentRelation, agentType } from '../../runtime/decorator'
-import { BaseNode } from '../../runtime/graph'
-import type { NodeId } from '../../runtime/types'
+import { agentMethod, agentProperty, agentRelation, agentType } from '../../../runtime/decorator'
+import { BaseNode } from '../../../runtime/graph'
+import type { NodeId } from '../../../runtime/types'
 
 // ─── 辅助：会员等级序数（basic < silver < gold）───
 
