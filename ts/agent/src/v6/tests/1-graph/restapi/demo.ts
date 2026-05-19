@@ -1,29 +1,51 @@
-import axios, { AxiosResponse } from 'axios'
-import { agentProperty, agentType } from '../../../runtime/decorator'
-import { BaseNode } from '../../../runtime/graph'
-import type { Paginated } from '../../../runtime/types'
-import { jusetInitToken, SearchParams, TableData } from './axios'
-import { CommonBaseNode } from './common'
-
-// 参考 ddl/agent.sql
-@agentType({ description: 'demo 代理' })
-export class DemoAgent extends CommonBaseNode<Record<string, any>> {
-  @agentProperty({ type: 'string', description: '名称' })
-  get name(): string {
-    return this.o.name
-  }
-
-  constructor(o: any) {
-    super(o, '/agent')
-  }
-}
+import { jusetInitToken } from './axios'
+import { buildOntology } from '../../../runtime/ontology-builder'
+import { RestCrudGraphStore } from './RestCrudGraph'
+import { parseGlobalId, toGlobalId } from './search-helpers'
+import './ontology'
 
 async function test() {
   await jusetInitToken()
   console.log('jusetInitToken success')
-  const demo = new DemoAgent({ id: 1, name: 'test' })
-  const res = await demo.search()
-  console.log('res = ', res)
+
+  const ontology = buildOntology({ version: 'restapi-1.0' })
+  console.log(
+    'ontology types:',
+    ontology.types.map((t) => t.name),
+  )
+  console.log(
+    'ontology relations:',
+    ontology.relations.map((r) => `${r.fromType} --${r.type}--> ${r.toType}`),
+  )
+
+  const store = new RestCrudGraphStore({ relations: ontology.relations })
+
+  const agents = await store.findNodes({ type: 'Agent', limit: 3 })
+  console.log(
+    'findNodes Agent:',
+    agents.items.map((n) => ({ id: n.id, name: n.properties.name, agent_no: n.properties.agent_no })),
+  )
+
+  const first = agents.items[0]
+  if (!first) {
+    console.log('no agents found')
+    return
+  }
+
+  const node = await store.getNode(first.id)
+  console.log('getNode:', node?.id, node?.properties.name)
+
+  const children = await store.getNeighbors(first.id, { relation: 'child_of', direction: 'out', limit: 10 })
+  console.log(
+    'child_of neighbors:',
+    children.items.map((n) => n.nodeId),
+  )
+
+  const summary = await store.getEdgeSummary(first.id)
+  console.log('edgeSummary:', summary)
+
+  // 全局 id 示例
+  console.log('global id:', toGlobalId('Agent', parseGlobalId(first.id).rawId))
 }
 
-test()
+test().catch(console.error)

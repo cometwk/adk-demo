@@ -144,7 +144,6 @@ export type RelationRegistryEntry = {
   fromType: string
   toType: string
   description: string
-  methodName: string
 }
 
 export class AgentRelationRegistry {
@@ -226,7 +225,7 @@ export const AgentRegistry = {
     return AgentTypeRegistry.getRegisteredClasses()
   },
 
-  /** 获取所有通过 @agentRelation 注册的 RelationSchema */
+  /** 获取所有通过 @agentRelations 注册的 RelationSchema */
   getRelationSchemas(): RelationSchema[] {
     return AgentRelationRegistry.getAllRelationSchemas()
   },

@@ -47,18 +47,19 @@ export type RelationSchemaConfig = {
   description: string
 }
 
-export function agentRelation(config: RelationSchemaConfig) {
-  return (target: object, propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor => {
-    const className = (target as { constructor: { name: string } }).constructor.name
-    const entry: RelationRegistryEntry = {
-      type: config.type,
-      fromType: className,
-      toType: config.toType,
-      description: config.description,
-      methodName: propertyKey,
+/** 类级关系 Schema 声明（DDL），替代已移除的方法级 @agentRelation */
+export function agentRelations(relations: RelationSchemaConfig[]) {
+  return (target: { name: string }): void => {
+    const className = target.name
+    for (const config of relations) {
+      const entry: RelationRegistryEntry = {
+        type: config.type,
+        fromType: className,
+        toType: config.toType,
+        description: config.description,
+      }
+      AgentRelationRegistry.register(className, entry)
     }
-    AgentRelationRegistry.register(className, entry)
-    return descriptor
   }
 }
 

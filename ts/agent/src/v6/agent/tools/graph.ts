@@ -93,7 +93,7 @@ export function createGraphTools(store: GraphStore, policy: PolicyContext, facts
       '查询节点的邻居，可选按关系、方向、类型、属性条件过滤；可用 fields 直接带回邻居属性，避免多次 inspect_node。',
     inputSchema: z.object({
       nodeId: z.string().describe('起始节点 ID'),
-      relation: z.string().optional().describe('按边关系类型过滤'),
+      relation: z.string().describe('边关系类型（必填，如 borrows、registered_at）'),
       direction: z.enum(['out', 'in', 'both']).optional().describe('边方向过滤，默认 both'),
       targetType: z.string().optional().describe('按邻居节点类型名称过滤'),
       where: z.array(PropertyFilterSchema).optional().describe('邻居节点属性过滤（AND）'),
@@ -112,6 +112,10 @@ export function createGraphTools(store: GraphStore, policy: PolicyContext, facts
       offset,
     }): Promise<ToolResult> => {
       maybeLogToolCall('query_neighbors', { nodeId, relation, direction }, policy)
+
+      if (!relation) {
+        return toolErr('INVALID_ARGS', 'relation is required for query_neighbors')
+      }
 
       if (!checkEntityAccess(nodeId, policy)) {
         return toolErr('POLICY_DENIED', `Access to entity '${nodeId}' is denied by policy`)

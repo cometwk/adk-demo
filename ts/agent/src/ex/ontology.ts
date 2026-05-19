@@ -1,6 +1,5 @@
 import { z } from 'zod'
-import { agentMethod, agentProperty, agentRelation, agentType, BaseNode, NodeId } from '../v6/index'
-import { data } from './seed'
+import { agentMethod, agentProperty, agentRelations, agentType, BaseNode } from '../v6/index'
 
 // ─── 辅助：会员等级序数（basic < silver < gold）───
 
@@ -12,6 +11,12 @@ const LEVEL_RANK: Record<string, number> = { basic: 1, silver: 2, gold: 3 }
 // 持有会员证，可借阅、预约书籍，注册在某个分馆。
 
 @agentType({ description: '图书馆读者，持有会员证，注册在某分馆，可借阅和预约书籍' })
+@agentRelations([
+  { type: 'borrows', toType: 'Book', description: '读者当前借阅（已借出、未归还）' },
+  { type: 'overdue', toType: 'Book', description: '读者持有的逾期未还书籍' },
+  { type: 'reserves', toType: 'Book', description: '读者正在预约等待的书籍' },
+  { type: 'registered_at', toType: 'Branch', description: '读者注册所在的分馆' },
+])
 export class Reader extends BaseNode {
   @agentProperty({ type: 'string', description: '读者姓名', agentVisible: true })
   name: string
@@ -46,26 +51,6 @@ export class Reader extends BaseNode {
     this.membershipLevel = membershipLevel
     this.currentBorrowCount = currentBorrowCount
     this.registeredDays = registeredDays
-  }
-
-  @agentRelation({ type: 'borrows', toType: 'Book', description: '读者当前借阅（已借出、未归还）' })
-  getBorrowedBooks(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'borrows').map((r) => r.to)
-  }
-
-  @agentRelation({ type: 'overdue', toType: 'Book', description: '读者持有的逾期未还书籍' })
-  getOverdueBooks(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'overdue').map((r) => r.to)
-  }
-
-  @agentRelation({ type: 'reserves', toType: 'Book', description: '读者正在预约等待的书籍' })
-  getReservedBooks(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'reserves').map((r) => r.to)
-  }
-
-  @agentRelation({ type: 'registered_at', toType: 'Branch', description: '读者注册所在的分馆' })
-  getRegisteredBranch(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'registered_at').map((r) => r.to)
   }
 
   @agentMethod({
@@ -136,6 +121,12 @@ export class Reader extends BaseNode {
 // 馆藏书籍，归属类目、系列、分馆，由作者撰写。
 
 @agentType({ description: '图书馆馆藏书籍，可能属于某类目和系列，在多个分馆有库存' })
+@agentRelations([
+  { type: 'written_by', toType: 'Author', description: '书籍的作者' },
+  { type: 'belongs_to', toType: 'Category', description: '书籍所属类目（决定是否有借阅限制）' },
+  { type: 'part_of', toType: 'Series', description: '书籍所属的系列丛书（若为系列书）' },
+  { type: 'available_at', toType: 'Branch', description: '书籍在哪些分馆有库存' },
+])
 export class Book extends BaseNode {
   @agentProperty({ type: 'string', description: '书名', agentVisible: true })
   title: string
@@ -182,26 +173,6 @@ export class Book extends BaseNode {
     this.totalCopies = totalCopies
     this.availableCopies = availableCopies
     this.seriesVolume = seriesVolume
-  }
-
-  @agentRelation({ type: 'written_by', toType: 'Author', description: '书籍的作者' })
-  getAuthors(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'written_by').map((r) => r.to)
-  }
-
-  @agentRelation({ type: 'belongs_to', toType: 'Category', description: '书籍所属类目（决定是否有借阅限制）' })
-  getCategories(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'belongs_to').map((r) => r.to)
-  }
-
-  @agentRelation({ type: 'part_of', toType: 'Series', description: '书籍所属的系列丛书（若为系列书）' })
-  getSeries(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'part_of').map((r) => r.to)
-  }
-
-  @agentRelation({ type: 'available_at', toType: 'Branch', description: '书籍在哪些分馆有库存' })
-  getAvailableBranches(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'available_at').map((r) => r.to)
   }
 
   @agentMethod({
@@ -258,6 +229,9 @@ export class Book extends BaseNode {
 // 书籍的创作者，专长于某类目。
 
 @agentType({ description: '书籍作者，专长于特定类目，持有多本在馆书籍' })
+@agentRelations([
+  { type: 'specializes_in', toType: 'Category', description: '作者的专长类目' },
+])
 export class Author extends BaseNode {
   @agentProperty({ type: 'string', description: '作者姓名', agentVisible: true })
   name: string
@@ -283,11 +257,6 @@ export class Author extends BaseNode {
     this.name = name
     this.nationality = nationality
     this.activeBookCount = activeBookCount
-  }
-
-  @agentRelation({ type: 'specializes_in', toType: 'Category', description: '作者的专长类目' })
-  getSpecialtyCategories(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'specializes_in').map((r) => r.to)
   }
 
   @agentMethod({
@@ -417,6 +386,9 @@ export class Series extends BaseNode {
 // 图书馆分馆，持有借阅规则配置，与其他分馆建立馆际合作。
 
 @agentType({ description: '图书馆分馆，持有借阅上限和新书保护期配置，可与合作分馆调拨书籍' })
+@agentRelations([
+  { type: 'partners_with', toType: 'Branch', description: '本馆的合作分馆（支持馆际互借）' },
+])
 export class Branch extends BaseNode {
   @agentProperty({ type: 'string', description: '分馆名称', agentVisible: true })
   name: string
@@ -450,15 +422,6 @@ export class Branch extends BaseNode {
     this.allowInterLibraryLoan = allowInterLibraryLoan
   }
 
-  @agentRelation({
-    type: 'partners_with',
-    toType: 'Branch',
-    description: '本馆的合作分馆（支持馆际互借）',
-  })
-  getPartnerBranches(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'partners_with').map((r) => r.to)
-  }
-
   @agentMethod({
     returns: '{ partnerBranchIds: string[]; count: number }',
     description: '返回本分馆所有合作分馆的 ID 列表，用于馆际互借路径查找',
@@ -466,7 +429,11 @@ export class Branch extends BaseNode {
     relatedRuleIds: ['inter_library_loan'],
   })
   findPartnerBranches(_args: Record<string, never> = {}): { partnerBranchIds: string[]; count: number } {
-    const partnerIds = data.relations.filter((r) => r.from === this.id && r.type === 'partners_with').map((r) => r.to)
+    const store = this.getGraphStore()
+    if (!store) {
+      return { partnerBranchIds: [], count: 0 }
+    }
+    const partnerIds = store.getOutEdges(this.id).partners_with ?? []
     return { partnerBranchIds: partnerIds, count: partnerIds.length }
   }
 }

@@ -33,7 +33,7 @@ export type FindNodesOpts = {
 }
 
 export type GetNeighborsOpts = {
-  relation?: string
+  relation: string
   direction?: 'out' | 'in' | 'both'
   targetType?: string
   where?: PropertyFilter[]
@@ -47,6 +47,6 @@ export type GetNeighborsOpts = {
 export interface GraphStore {
   getNode(id: string): Promise<NodeData | undefined>
   findNodes(opts: FindNodesOpts): Promise<Paginated<NodeData>>
-  getNeighbors(nodeId: string, opts?: GetNeighborsOpts): Promise<Paginated<NeighborData>>
+  getNeighbors(nodeId: string, opts: GetNeighborsOpts): Promise<Paginated<NeighborData>>
   getEdgeSummary(nodeId: string): Promise<EdgeSummary[]>
 }

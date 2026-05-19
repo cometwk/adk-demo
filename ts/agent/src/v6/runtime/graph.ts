@@ -13,6 +13,13 @@ import type { RelationSchema } from '../ontology/schema'
 
 const DEFAULT_PAGE_LIMIT = 20
 
+const nodeGraphStores = new WeakMap<BaseNode, InMemoryGraphStore>()
+
+/** 节点加入 InMemoryGraphStore 后，行为层方法可通过此访问边数据 */
+export function getNodeGraphStore(node: BaseNode): InMemoryGraphStore | undefined {
+  return nodeGraphStores.get(node)
+}
+
 // ── BaseNode：本体注册 + 方法执行载体 ──
 
 export abstract class BaseNode {
@@ -45,13 +52,8 @@ export abstract class BaseNode {
     return AgentRelationRegistry.getRelationsForClass(this.constructor.name)
   }
 
-  /** @deprecated 边数据由 GraphStore 存储；保留供过渡期动态解析 */
-  resolveRelation(_relationType: string): NodeId[] {
-    return []
-  }
-
-  resolveAllRelations(): Record<string, NodeId[]> {
-    return {}
+  protected getGraphStore(): InMemoryGraphStore | undefined {
+    return getNodeGraphStore(this)
   }
 }
 
@@ -88,6 +90,7 @@ export class InMemoryGraphStore implements GraphStore {
   }
 
   addNode(node: BaseNode): void {
+    nodeGraphStores.set(node, this)
     this.nodes.set(node.id, node)
   }
 
@@ -187,7 +190,7 @@ export class InMemoryGraphStore implements GraphStore {
     return paginate(all, offset, limit)
   }
 
-  async getNeighbors(nodeId: string, opts: GetNeighborsOpts = {}): Promise<Paginated<NeighborData>> {
+  async getNeighbors(nodeId: string, opts: GetNeighborsOpts): Promise<Paginated<NeighborData>> {
     const {
       relation,
       direction = 'both',
@@ -197,6 +200,10 @@ export class InMemoryGraphStore implements GraphStore {
       limit = DEFAULT_PAGE_LIMIT,
       offset = 0,
     } = opts
+
+    if (!relation) {
+      throw new Error('getNeighbors: relation is required')
+    }
 
     const all: NeighborData[] = []
     const seen = new Set<string>()
@@ -232,7 +239,7 @@ export class InMemoryGraphStore implements GraphStore {
 
     if (direction === 'out' || direction === 'both') {
       for (const e of this.edges) {
-        if (e.from === nodeId && (!relation || e.type === relation)) {
+        if (e.from === nodeId && e.type === relation) {
           const target = this.nodes.get(e.to)
           pushNeighbor(e.to, target?.constructor.name ?? 'Unknown', e.type, 'out')
         }
@@ -241,7 +248,7 @@ export class InMemoryGraphStore implements GraphStore {
 
     if (direction === 'in' || direction === 'both') {
       for (const e of this.edges) {
-        if (e.to === nodeId && (!relation || e.type === relation)) {
+        if (e.to === nodeId && e.type === relation) {
           const source = this.nodes.get(e.from)
           pushNeighbor(e.from, source?.constructor.name ?? 'Unknown', e.type, 'in')
         }

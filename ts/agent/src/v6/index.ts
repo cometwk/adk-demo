@@ -1,4 +1,4 @@
-import { agentMethod, agentProperty, agentRelation, agentType } from '../v6/runtime/decorator'
+import { agentMethod, agentProperty, agentRelations, agentType } from '../v6/runtime/decorator'
 import { BaseNode } from '../v6/runtime/graph'
 import type { NodeId } from '../v6/runtime/types'
 import { registerRule, clearRules } from './ontology/rules'
@@ -14,7 +14,7 @@ export {
   // 注解
   agentMethod,
   agentProperty,
-  agentRelation,
+  agentRelations,
   agentType,
   // Graph
   BaseNode,

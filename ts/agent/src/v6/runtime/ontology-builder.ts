@@ -3,7 +3,7 @@ import type { Ontology, RelationSchema } from '../ontology/schema'
 
 export type OntologyBuildOpts = {
   version: string
-  /** 手动补充的边类型声明（向后兼容；通常不再需要，@agentRelation 会自动收集） */
+  /** 手动补充的边类型声明（向后兼容；通常不再需要，@agentRelations 会自动收集） */
   relations?: RelationSchema[]
 }
 
