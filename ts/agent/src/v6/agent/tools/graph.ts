@@ -4,6 +4,8 @@ import type { PolicyContext } from '../../policy/context'
 import { checkEntityAccess, checkTypeAccess, maybeLogToolCall, redactProperties } from '../../policy/filters'
 import type { FactStore } from '../../runtime/eventStore'
 import type { Graph } from '../../runtime/graph'
+import { GraphQueryEngine } from '../../runtime/query-engine'
+import { GraphQuerySchema } from '../../runtime/query-types'
 import { type ToolResult, toolErr, toolOk } from '../../runtime/types'
 
 type NodeField = 'type' | 'properties' | 'outEdges' | 'inEdges' | 'methods'
@@ -142,5 +144,19 @@ export function createGraphTools(graph: Graph, policy: PolicyContext, facts?: Fa
     },
   })
 
-  return { inspect_node, query_neighbors, search_nodes }
+  const graph_query = tool({
+    description:
+      '声明式图查询。用 JSON 表达多跳遍历 + 属性过滤 + 聚合，一次 tool call 完成复杂查询。' +
+      '适用场景：①需要 2+ 跳关系遍历；②批量属性过滤；③聚合统计。' +
+      '简单的单节点探索仍建议用 inspect_node / query_neighbors / search_nodes（开销更低）。' +
+      '查询结构：match（起点选择）→ traverse[]（多步边遍历）→ return（输出控制）。',
+    inputSchema: GraphQuerySchema,
+    execute: async (query): Promise<ToolResult> => {
+      maybeLogToolCall('graph_query', { match: query.match }, policy)
+      const engine = new GraphQueryEngine(graph, policy, facts)
+      return engine.execute(query)
+    },
+  })
+
+  return { inspect_node, query_neighbors, search_nodes, graph_query }
 }
