@@ -1,11 +1,11 @@
-import { jusetInitToken } from './axios'
+import { setInitToken } from './axios'
 import { buildOntology } from '../../../runtime/ontology-builder'
 import { RestCrudGraphStore } from './RestCrudGraph'
 import { parseGlobalId, toGlobalId } from './search-helpers'
 import './ontology'
 
 async function test() {
-  await jusetInitToken()
+  await setInitToken()
   console.log('jusetInitToken success')
 
   const ontology = buildOntology({ version: 'restapi-1.0' })

@@ -93,7 +93,7 @@ async function signin(data: LoginRequest) {
   return (await axios.post('/login/signin', data)) as LoginResponse
 }
 
-export async function jusetInitToken() {
+export async function setInitToken() {
   const res = await signin({
     mobile: 'wk',
     password: '123123',
