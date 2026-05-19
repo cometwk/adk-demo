@@ -52,22 +52,22 @@ export class Reader extends BaseNode {
 
   @agentRelation({ type: 'borrows', toType: 'Book', description: '读者当前借阅（已借出、未归还）' })
   getBorrowedBooks(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'borrows').map((r) => r.to)
+    return []
   }
 
   @agentRelation({ type: 'overdue', toType: 'Book', description: '读者持有的逾期未还书籍' })
   getOverdueBooks(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'overdue').map((r) => r.to)
+    return []
   }
 
   @agentRelation({ type: 'reserves', toType: 'Book', description: '读者正在预约等待的书籍' })
   getReservedBooks(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'reserves').map((r) => r.to)
+    return []
   }
 
   @agentRelation({ type: 'registered_at', toType: 'Branch', description: '读者注册所在的分馆' })
   getRegisteredBranch(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'registered_at').map((r) => r.to)
+    return []
   }
 
   @agentMethod({
@@ -188,22 +188,22 @@ export class Book extends BaseNode {
 
   @agentRelation({ type: 'written_by', toType: 'Author', description: '书籍的作者' })
   getAuthors(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'written_by').map((r) => r.to)
+    return []
   }
 
   @agentRelation({ type: 'belongs_to', toType: 'Category', description: '书籍所属类目（决定是否有借阅限制）' })
   getCategories(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'belongs_to').map((r) => r.to)
+    return []
   }
 
   @agentRelation({ type: 'part_of', toType: 'Series', description: '书籍所属的系列丛书（若为系列书）' })
   getSeries(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'part_of').map((r) => r.to)
+    return []
   }
 
   @agentRelation({ type: 'available_at', toType: 'Branch', description: '书籍在哪些分馆有库存' })
   getAvailableBranches(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'available_at').map((r) => r.to)
+    return []
   }
 
   @agentMethod({
@@ -289,7 +289,7 @@ export class Author extends BaseNode {
 
   @agentRelation({ type: 'specializes_in', toType: 'Category', description: '作者的专长类目' })
   getSpecialtyCategories(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'specializes_in').map((r) => r.to)
+    return []
   }
 
   @agentMethod({
@@ -458,7 +458,7 @@ export class Branch extends BaseNode {
     description: '本馆的合作分馆（支持馆际互借）',
   })
   getPartnerBranches(): NodeId[] {
-    return data.relations.filter((r) => r.from === this.id && r.type === 'partners_with').map((r) => r.to)
+    return []
   }
 
   @agentMethod({

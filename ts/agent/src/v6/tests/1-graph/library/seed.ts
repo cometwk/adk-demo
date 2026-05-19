@@ -1,5 +1,5 @@
 import type { RelationSchema } from '../../../ontology/schema'
-import { Graph } from '../../../runtime/graph'
+import { InMemoryGraphStore } from '../../../runtime/graph'
 import { Author, Book, Branch, Category, Reader, Series } from './ontology'
 
 /*
@@ -266,8 +266,8 @@ export const data = {
   ],
 }
 
-export function seedGraph(relations?: RelationSchema[]): Graph {
-  const g = new Graph({ relations })
+export function seedGraph(relations?: RelationSchema[]): InMemoryGraphStore {
+  const g = new InMemoryGraphStore({ relations })
 
   for (const b of data.branches) {
     g.addNode(new Branch(b))

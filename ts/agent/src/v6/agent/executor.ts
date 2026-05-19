@@ -50,7 +50,7 @@ export async function runPredictiveExecutor(
 
   // Seed FactStore from graph properties (entry entities)
   for (const eid of task.entryEntities ?? []) {
-    const node = graph.getNode(eid)
+    const node = graph.getBaseNode(eid)
     if (!node) continue
     const props = node.getProperties()
     // We don't auto-bind here — the executor must explicitly bind_fact.

@@ -25,7 +25,7 @@ V6 通过三个机制解决这三个问题：
 |------|------|
 | **本体即代码** | T/R 的声明写在业务类的装饰器上，而非独立 JSON 或手动 seed；`buildOntology` 自动收集 |
 | **渐进披露** | prompt 只注入 schema（类型 + 关系模式），不注入具体实体；Agent 按需探索 |
-| **双源关系解析** | 静态边（`Graph.edges`）和动态解析（`@agentRelation` 方法）合并查询，互补不重复 |
+| **Store 单源关系** | 邻居与边只经 `GraphStore` 查询；`@agentRelation` 仅声明 Schema（见 [1-graph-layers.md](./1-graph-layers.md)） |
 | **策略前置** | 工具层在返回结果前执行 `PolicyContext` 过滤，Agent 只能看到被授权的子图 |
 | **分页防爆** | 所有返回列表的操作都有 `limit + offset` 分页，默认 20 条，防止大图把 context 撑满 |
 | **边类型校验** | `Graph` 构造时可注入 `RelationSchema`，`addEdge` 自动检查边类型 + 端点类型是否合法 |
@@ -225,16 +225,16 @@ const g = new Graph({ relations: ontology.relations })
 
 任何一条不满足会抛出错误。这将 schema 级别的约束提前到数据写入时刻，而不是查询时才发现。
 
-### 6.3 双源关系解析
+### 6.3 关系查询：Store 单源（双源已废弃）
 
-`getOutEdges` 和 `queryNeighbors` 都实现了**双源合并**：
+> **⚠️ 历史**：本节曾描述「双源合并」（`Graph.edges` + `@agentRelation` resolver）。自 GraphStore 抽象落地后已**废弃**。终态设计见 **[1-graph-layers.md](./1-graph-layers.md)**。
 
-1. **静态边**：遍历 `this.edges` 中 `from === nodeId` 的边
-2. **动态解析**：调用节点的 `resolveAllRelations()`（即 `@agentRelation` 装饰器注册的方法）
+当前实现：
 
-合并逻辑：对于某个关系类型，如果静态边已覆盖，则跳过动态解析；只有静态边中没有该类型时才调用 resolver。这避免了数据重复，同时允许业务代码用 resolver 方法惰性计算邻居（如"从数据库查询"）。
-
-`queryNeighbors` 对入边（`direction = 'in'`）也做了反向 lazy resolution：扫描所有节点中 `fromType` 匹配的源节点，调用其 resolver 看是否包含当前节点 ID。
+1. **边事实**：仅存在于 `GraphStore`（`InMemoryGraphStore.edges` 或未来的 `SqlGraphStore`）。
+2. **关系 Schema**：由 `@agentRelation`（或拟议的 `@agentRelations`）注册到 `AgentRelationRegistry`，供 `buildOntology` 与 `addEdge` 校验。
+3. **邻居查询**：`getNeighbors` / `graph_query` TRAVERSE 只读 Store，**不**调用 `BaseNode.resolveRelation`。
+4. **生产映射**：关系类型 → 物理表/FK 通过 `RelationBinding` 配置，由 `SqlGraphStore` 生成 SQL（见 1-graph-layers.md §5）。
 
 ### 6.4 分页机制
 

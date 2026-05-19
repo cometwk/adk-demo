@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { model } from '../../lib/model'
-import type { Graph } from '../runtime/graph'
+import type { InMemoryGraphStore } from '../runtime/graph'
 import { generateStructureOutput } from '../../lib/structure_output'
 
 // ── Entity linker (frontend) ──
@@ -101,7 +101,7 @@ export type EntityLinkerConfig = {
   contextualEntityIds?: string[] // recently seen entities (highest priority for ambiguous)
 }
 
-export function createEntityLinker(graph: Graph, config: EntityLinkerConfig = {}) {
+export function createEntityLinker(graph: InMemoryGraphStore, config: EntityLinkerConfig = {}) {
   const { aliases = {}, contextualEntityIds = [] } = config
 
   /**
@@ -112,7 +112,7 @@ export function createEntityLinker(graph: Graph, config: EntityLinkerConfig = {}
     const lower = name.toLowerCase().trim()
 
     // 1. Exact match
-    const exactNode = graph.getNode(name)
+    const exactNode = graph.getBaseNode(name)
     if (exactNode) {
       return {
         entityId: name,
@@ -125,7 +125,7 @@ export function createEntityLinker(graph: Graph, config: EntityLinkerConfig = {}
     // 2. Alias table
     const aliasMatch = aliases[lower] ?? aliases[name]
     if (aliasMatch) {
-      const aliasNode = graph.getNode(aliasMatch)
+      const aliasNode = graph.getBaseNode(aliasMatch)
       if (aliasNode) {
         return {
           entityId: aliasMatch,
@@ -143,7 +143,7 @@ export function createEntityLinker(graph: Graph, config: EntityLinkerConfig = {}
     ]
     for (const id of candidateIds) {
       if (id.toLowerCase().includes(lower) || lower.includes(id.toLowerCase())) {
-        const node = graph.getNode(id)
+        const node = graph.getBaseNode(id)
         const isContextual = contextualEntityIds.includes(id)
         return {
           entityId: id,
@@ -218,7 +218,7 @@ function dedupByEntityId(results: EntityLinkResult[]): EntityLinkResult[] {
  */
 export async function linkEntities(
   userQuery: string,
-  graph: Graph,
+  graph: InMemoryGraphStore,
   config: EntityLinkerConfig & { typeNames?: string[] } = {}
 ): Promise<LinkEntitiesResult> {
   const knownIds = [...graph.nodes.keys()]

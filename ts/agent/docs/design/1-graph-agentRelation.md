@@ -1,5 +1,7 @@
 # graph.agentRelation 
 
+> **⚠️ 部分过时**：本文中「resolver 方法体写 DB 查询」「双源合并」「静态边 + stub resolver」等描述已被 **[1-graph-layers.md](./1-graph-layers.md)** 取代。终态为：`@agentRelation` 仅声明 Schema；边/邻居只经 `GraphStore`；生产环境用 `RelationBinding` + `SqlGraphStore`。
+
 ## Problem Frame
 
 当前 V6 架构中，边存储在 `Graph.edges[]`，是静态数据事实。业务落地时，边数据实际来自数据库查询（如 `Reader.borrows Book` 的关系存储在 `borrows` 表）。

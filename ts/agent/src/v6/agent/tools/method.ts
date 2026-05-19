@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import type { Graph } from '../../runtime/graph'
+import type { InMemoryGraphStore } from '../../runtime/graph'
 import type { FactStore } from '../../runtime/eventStore'
 import { AgentMethodRegistry } from '../../runtime/registry'
 import { type ToolResult, toolErr, toolOk } from '../../runtime/types'
@@ -14,39 +14,19 @@ function schemaToJsonSchema(schema: z.ZodType<unknown>): Record<string, unknown>
   return {}
 }
 
-// ── Precondition assertion ──
-//
-// Prevents the V5 bug: evaluateRisk({ teamLoad: 0, seniorCount: 0 })
-// — the executor was passing zeros it never fetched.
-//
-// If requiredFacts is set and any listed property is missing or 0 in the
-// FactStore for the given entity, we reject the call with PRECONDITION_FAILED.
-
 function assertPreconditions(
   nodeId: string,
   methodName: string,
   args: Record<string, unknown>,
-  facts: FactStore
+  facts: FactStore,
 ): string | null {
   const node_facts = facts.forEntity(nodeId)
   const factsByProperty = new Map(node_facts.map((f) => [f.property, f.value]))
 
-  const schema = (() => {
-    // We can't get the class name from nodeId alone without the graph.
-    // Preconditions are checked via requiredFacts annotation if available.
-    for (const [, s] of Object.entries(AgentMethodRegistry)) {
-      void s // registry is static; we check all keys
-    }
-    return null
-  })()
-  void schema
+  void methodName
 
-  // Check args that were passed as 0 but the FactStore has no record of them.
-  // This catches the "blind call" pattern.
   for (const [paramName, paramValue] of Object.entries(args)) {
     if (paramValue === 0) {
-      // If FactStore has a binding for this entity.property with non-zero value,
-      // the zero arg is suspicious.
       const bound = factsByProperty.get(paramName)
       if (bound !== undefined && bound !== 0) {
         return (
@@ -55,7 +35,6 @@ function assertPreconditions(
           `Use lookup_fact to get the correct value before calling this method.`
         )
       }
-      // If FactStore has no record for this property, also flag it.
       if (bound === undefined) {
         return (
           `Precondition failed for ${methodName}(${nodeId}): ` +
@@ -66,10 +45,10 @@ function assertPreconditions(
     }
   }
 
-  return null // all preconditions pass
+  return null
 }
 
-export function createMethodTools(graph: Graph, facts: FactStore, policy: PolicyContext) {
+export function createMethodTools(store: InMemoryGraphStore, facts: FactStore, policy: PolicyContext) {
   const describe_method = tool({
     description:
       '获取方法的完整模式：参数、返回值、描述、所需事实和相关规则。' + '在调用不熟悉的方法之前，务必先调用此方法。',
@@ -84,7 +63,7 @@ export function createMethodTools(graph: Graph, facts: FactStore, policy: Policy
         return toolErr('POLICY_DENIED', `Access to entity '${nodeId}' is denied`)
       }
 
-      const node = graph.getNode(nodeId)
+      const node = store.getBaseNode(nodeId)
       if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
 
       const className = node.constructor.name
@@ -128,7 +107,7 @@ export function createMethodTools(graph: Graph, facts: FactStore, policy: Policy
         return toolErr('POLICY_DENIED', `Access to entity '${nodeId}' is denied`)
       }
 
-      const node = graph.getNode(nodeId)
+      const node = store.getBaseNode(nodeId)
       if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
 
       const className = node.constructor.name
@@ -140,7 +119,6 @@ export function createMethodTools(graph: Graph, facts: FactStore, policy: Policy
         })
       }
 
-      // ── Precondition assertion (V6 anti-blind-call guard) ──
       const preconditionError = assertPreconditions(nodeId, method, args, facts)
       if (preconditionError) {
         return toolErr('PRECONDITION_FAILED', preconditionError, {
@@ -148,7 +126,6 @@ export function createMethodTools(graph: Graph, facts: FactStore, policy: Policy
         })
       }
 
-      // ── Schema validation ──
       const parseResult = schema.params.safeParse(args)
       if (!parseResult.success) {
         const issues = parseResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)

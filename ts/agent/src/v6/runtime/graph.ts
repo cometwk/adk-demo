@@ -1,19 +1,19 @@
 import { AgentMethodRegistry, AgentPropertyRegistry, AgentRelationRegistry, type MethodSchema, type RelationRegistryEntry } from './registry'
+import { matchesFilters, projectFields } from './graph-filters'
+import type {
+  EdgeSummary,
+  FindNodesOpts,
+  GetNeighborsOpts,
+  GraphStore,
+  NeighborData,
+  NodeData,
+} from './graph-store'
 import type { Edge, NodeId, PageInfo, Paginated } from './types'
 import type { RelationSchema } from '../ontology/schema'
 
-// Helper: 检查节点的 agentVisible 属性是否匹配 query
-function matchesAgentVisibleProperties(node: BaseNode, query: string): boolean {
-  const className = node.constructor.name
-  const propSchemas = AgentPropertyRegistry.getPropertiesForClass(className)
+const DEFAULT_PAGE_LIMIT = 20
 
-  for (const schema of propSchemas) {
-    if (!schema.agentVisible) continue
-    const value = (node as unknown as Record<string, unknown>)[schema.propertyName]
-    if (typeof value === 'string' && value.includes(query)) return true
-  }
-  return false
-}
+// ── BaseNode：本体注册 + 方法执行载体 ──
 
 export abstract class BaseNode {
   private _id: NodeId
@@ -45,72 +45,49 @@ export abstract class BaseNode {
     return AgentRelationRegistry.getRelationsForClass(this.constructor.name)
   }
 
-  resolveRelation(relationType: string): NodeId[] {
-    const entries = AgentRelationRegistry.getRelationsForClass(this.constructor.name)
-    const entry = entries.find((e) => e.type === relationType)
-    if (!entry) return []
-    const method = (this as unknown as Record<string, () => NodeId[]>)[entry.methodName]
-    if (typeof method !== 'function') return []
-    return method.call(this) ?? []
+  /** @deprecated 边数据由 GraphStore 存储；保留供过渡期动态解析 */
+  resolveRelation(_relationType: string): NodeId[] {
+    return []
   }
 
   resolveAllRelations(): Record<string, NodeId[]> {
-    const entries = AgentRelationRegistry.getRelationsForClass(this.constructor.name)
-    const result: Record<string, NodeId[]> = {}
-    for (const entry of entries) {
-      const method = (this as unknown as Record<string, () => NodeId[]>)[entry.methodName]
-      if (typeof method === 'function') {
-        result[entry.type] = method.call(this) ?? []
-      }
-    }
-    return result
+    return {}
   }
 }
 
-export type NeighborEntry = {
-  nodeId: string
-  type: string
-  relation: string
-  direction: 'out' | 'in'
+function nodeToData(node: BaseNode, fields?: string[]): NodeData {
+  const props = node.getProperties()
+  return {
+    id: node.id,
+    type: node.constructor.name,
+    properties: projectFields(props, fields),
+  }
 }
 
-export type QueryNeighborsOpts = {
-  relation?: string
-  direction?: 'out' | 'in' | 'both'
-  typeFilter?: string
-  limit?: number
-  offset?: number
+function paginate<T>(all: T[], offset: number, limit: number): Paginated<T> {
+  const page = all.slice(offset, offset + limit)
+  const pageInfo: PageInfo = {
+    offset,
+    limit,
+    hasMore: offset + limit < all.length,
+    ...(all.length <= 1000 ? { total: all.length } : {}),
+  }
+  return { items: page, page: pageInfo }
 }
 
-export type SearchNodeResult = {
-  nodeId: string
-  type: string
-  relation?: string
-  direction?: 'out' | 'in'
-}
+// ── InMemoryGraphStore ──
 
-export type SearchNodesOpts = {
-  query?: string
-  type?: string
-  relatedTo?: string
-  limit?: number
-  offset?: number
-}
-
-const DEFAULT_PAGE_LIMIT = 20
-
-export class Graph {
+export class InMemoryGraphStore implements GraphStore {
   nodes = new Map<string, BaseNode>()
   edges: Edge[] = []
 
-  // RelationSchema index: edge type → schema (optional; when present, addEdge validates against it)
   private readonly relationIndex: Map<string, RelationSchema>
 
   constructor(opts: { relations?: RelationSchema[] } = {}) {
     this.relationIndex = new Map((opts.relations ?? []).map((r) => [r.type, r]))
   }
 
-  addNode(node: BaseNode) {
+  addNode(node: BaseNode): void {
     this.nodes.set(node.id, node)
   }
 
@@ -145,7 +122,6 @@ export class Graph {
     this.edges.push(edge)
   }
 
-  /** 当图中已有边时，从实际边派生 RelationSchema（fromType/toType 由节点类型推断） */
   deriveRelationSchemas(): RelationSchema[] {
     const seen = new Map<string, RelationSchema>()
     for (const edge of this.edges) {
@@ -159,8 +135,14 @@ export class Graph {
     return Array.from(seen.values())
   }
 
-  getNode(id: string): BaseNode | undefined {
+  /** 同步获取 BaseNode（方法执行、实体链接等） */
+  getBaseNode(id: string): BaseNode | undefined {
     return this.nodes.get(id)
+  }
+
+  /** @deprecated 使用 getBaseNode */
+  getNodeSync(id: string): BaseNode | undefined {
+    return this.getBaseNode(id)
   }
 
   getOutEdges(nodeId: string): Record<string, string[]> {
@@ -170,19 +152,6 @@ export class Graph {
         ;(result[e.type] ??= []).push(e.to)
       }
     }
-
-    // Lazy resolution: fall back to @agentRelation resolvers for relation types
-    // that have no static edges for this node
-    const node = this.nodes.get(nodeId)
-    if (node) {
-      const resolved = node.resolveAllRelations()
-      for (const [type, ids] of Object.entries(resolved)) {
-        if (!result[type] && ids.length > 0) {
-          result[type] = ids
-        }
-      }
-    }
-
     return result
   }
 
@@ -196,175 +165,125 @@ export class Graph {
     return result
   }
 
-  queryNeighbors(nodeId: string, opts: QueryNeighborsOpts = {}): Paginated<NeighborEntry> {
-    const { relation, direction = 'both', typeFilter, limit = DEFAULT_PAGE_LIMIT, offset = 0 } = opts
-    const all: NeighborEntry[] = []
+  // ── GraphStore ──
+
+  async getNode(id: string): Promise<NodeData | undefined> {
+    const node = this.getBaseNode(id)
+    if (!node) return undefined
+    return nodeToData(node)
+  }
+
+  async findNodes(opts: FindNodesOpts): Promise<Paginated<NodeData>> {
+    const { type, where, fields, limit = DEFAULT_PAGE_LIMIT, offset = 0 } = opts
+    const all: NodeData[] = []
+
+    for (const [, node] of this.nodes) {
+      if (node.constructor.name !== type) continue
+      const props = node.getProperties()
+      if (where && where.length > 0 && !matchesFilters(props, where)) continue
+      all.push(nodeToData(node, fields))
+    }
+
+    return paginate(all, offset, limit)
+  }
+
+  async getNeighbors(nodeId: string, opts: GetNeighborsOpts = {}): Promise<Paginated<NeighborData>> {
+    const {
+      relation,
+      direction = 'both',
+      targetType,
+      where,
+      fields,
+      limit = DEFAULT_PAGE_LIMIT,
+      offset = 0,
+    } = opts
+
+    const all: NeighborData[] = []
     const seen = new Set<string>()
 
+    const pushNeighbor = (
+      targetId: string,
+      typeName: string,
+      rel: string,
+      dir: 'out' | 'in',
+    ) => {
+      if (targetType && typeName !== targetType) return
+      const key = `${dir}:${rel}:${targetId}`
+      if (seen.has(key)) return
+
+      const target = this.getBaseNode(targetId)
+      if (!target) return
+
+      const props = target.getProperties()
+      if (where && where.length > 0 && !matchesFilters(props, where)) return
+
+      seen.add(key)
+      const entry: NeighborData = {
+        nodeId: targetId,
+        type: typeName,
+        relation: rel,
+        direction: dir,
+      }
+      if (fields && fields.length > 0) {
+        entry.properties = projectFields(props, fields)
+      }
+      all.push(entry)
+    }
+
     if (direction === 'out' || direction === 'both') {
-      // Static edges
-      const staticRelTypes = new Set<string>()
       for (const e of this.edges) {
         if (e.from === nodeId && (!relation || e.type === relation)) {
-          staticRelTypes.add(e.type)
           const target = this.nodes.get(e.to)
-          const typeName = target?.constructor.name ?? 'Unknown'
-          if (!typeFilter || typeName === typeFilter) {
-            const key = `out:${e.type}:${e.to}`
-            if (!seen.has(key)) {
-              seen.add(key)
-              all.push({ nodeId: e.to, type: typeName, relation: e.type, direction: 'out' })
-            }
-          }
-        }
-      }
-
-      // Lazy resolution for relation types with no static edges on this node
-      const node = this.nodes.get(nodeId)
-      if (node) {
-        const entries = node.getRelationSchemas()
-        for (const entry of entries) {
-          if (relation && entry.type !== relation) continue
-          if (staticRelTypes.has(entry.type)) continue
-          const ids = node.resolveRelation(entry.type)
-          for (const targetId of ids) {
-            const target = this.nodes.get(targetId)
-            const typeName = target?.constructor.name ?? entry.toType
-            if (!typeFilter || typeName === typeFilter) {
-              const key = `out:${entry.type}:${targetId}`
-              if (!seen.has(key)) {
-                seen.add(key)
-                all.push({ nodeId: targetId, type: typeName, relation: entry.type, direction: 'out' })
-              }
-            }
-          }
+          pushNeighbor(e.to, target?.constructor.name ?? 'Unknown', e.type, 'out')
         }
       }
     }
 
     if (direction === 'in' || direction === 'both') {
-      // Static edges
       for (const e of this.edges) {
         if (e.to === nodeId && (!relation || e.type === relation)) {
           const source = this.nodes.get(e.from)
-          const typeName = source?.constructor.name ?? 'Unknown'
-          if (!typeFilter || typeName === typeFilter) {
-            const key = `in:${e.type}:${e.from}`
-            if (!seen.has(key)) {
-              seen.add(key)
-              all.push({ nodeId: e.from, type: typeName, relation: e.type, direction: 'in' })
-            }
-          }
-        }
-      }
-
-      // Lazy resolution for incoming edges: scan source nodes whose
-      // @agentRelation toType matches this node's type
-      const targetNode = this.nodes.get(nodeId)
-      if (targetNode) {
-        const targetType = targetNode.constructor.name
-        const incomingEntries = AgentRelationRegistry.getRelationsForToType(targetType)
-        for (const entry of incomingEntries) {
-          if (relation && entry.type !== relation) continue
-          for (const [otherId, otherNode] of this.nodes) {
-            if (otherNode.constructor.name !== entry.fromType) continue
-            const ids = otherNode.resolveRelation(entry.type)
-            if (ids.includes(nodeId)) {
-              const typeName = otherNode.constructor.name
-              if (!typeFilter || typeName === typeFilter) {
-                const key = `in:${entry.type}:${otherId}`
-                if (!seen.has(key)) {
-                  seen.add(key)
-                  all.push({ nodeId: otherId, type: typeName, relation: entry.type, direction: 'in' })
-                }
-              }
-            }
-          }
+          pushNeighbor(e.from, source?.constructor.name ?? 'Unknown', e.type, 'in')
         }
       }
     }
 
-    const page = all.slice(offset, offset + limit)
-    const pageInfo: PageInfo = {
-      offset,
-      limit,
-      hasMore: offset + limit < all.length,
-      ...(all.length <= 1000 ? { total: all.length } : {}),
-    }
-
-    return { items: page, page: pageInfo }
+    return paginate(all, offset, limit)
   }
 
-  searchNodes(opts: SearchNodesOpts): Paginated<SearchNodeResult> {
-    const { query, type, relatedTo, limit = DEFAULT_PAGE_LIMIT, offset = 0 } = opts
+  async getEdgeSummary(nodeId: string): Promise<EdgeSummary[]> {
+    const counts = new Map<string, EdgeSummary>()
 
-    // 如果提供 relatedTo，搜索其邻居节点
-    if (relatedTo) {
-      const all: SearchNodeResult[] = []
-
-      // out 方向的邻居
-      for (const e of this.edges) {
-        if (e.from === relatedTo) {
-          const target = this.nodes.get(e.to)
-          if (!target) continue
-          const typeName = target.constructor.name
-          if (type && typeName !== type) continue
-          if (query && !e.to.includes(query) && !matchesAgentVisibleProperties(target, query)) continue
-          all.push({
-            nodeId: e.to,
-            type: typeName,
-            relation: e.type,
-            direction: 'out',
-          })
-        }
+    const bump = (rel: string, dir: 'out' | 'in', targetType: string) => {
+      const key = `${dir}:${rel}:${targetType}`
+      const existing = counts.get(key)
+      if (existing) {
+        existing.count += 1
+      } else {
+        counts.set(key, { relation: rel, direction: dir, targetType, count: 1 })
       }
-
-      // in 方向的邻居
-      for (const e of this.edges) {
-        if (e.to === relatedTo) {
-          const source = this.nodes.get(e.from)
-          if (!source) continue
-          const typeName = source.constructor.name
-          if (type && typeName !== type) continue
-          if (query && !e.from.includes(query) && !matchesAgentVisibleProperties(source, query)) continue
-          all.push({
-            nodeId: e.from,
-            type: typeName,
-            relation: e.type,
-            direction: 'in',
-          })
-        }
-      }
-
-      const page = all.slice(offset, offset + limit)
-      const pageInfo: PageInfo = {
-        offset,
-        limit,
-        hasMore: offset + limit < all.length,
-        ...(all.length <= 1000 ? { total: all.length } : {}),
-      }
-
-      return { items: page, page: pageInfo }
     }
 
-    // 全局搜索（不提供 relatedTo）
-    const all: SearchNodeResult[] = []
-
-    for (const [nodeId, node] of this.nodes) {
-      const typeName = node.constructor.name
-      if (type && typeName !== type) continue
-      if (query && !nodeId.includes(query) && !matchesAgentVisibleProperties(node, query)) continue
-      all.push({ nodeId, type: typeName })
+    for (const e of this.edges) {
+      if (e.from === nodeId) {
+        const targetType = this.nodes.get(e.to)?.constructor.name ?? 'Unknown'
+        bump(e.type, 'out', targetType)
+      }
+      if (e.to === nodeId) {
+        const sourceType = this.nodes.get(e.from)?.constructor.name ?? 'Unknown'
+        bump(e.type, 'in', sourceType)
+      }
     }
 
-    const page = all.slice(offset, offset + limit)
-    const pageInfo: PageInfo = {
-      offset,
-      limit,
-      hasMore: offset + limit < all.length,
-      ...(all.length <= 1000 ? { total: all.length } : {}),
-    }
-
-    return { items: page, page: pageInfo }
+    return Array.from(counts.values())
   }
 }
+
+/** 向后兼容别名 */
+export type Graph = InMemoryGraphStore
+
+// 保留旧类型导出
+export type NeighborEntry = NeighborData
+
+export type QueryNeighborsOpts = GetNeighborsOpts
+export type SearchNodesOpts = FindNodesOpts

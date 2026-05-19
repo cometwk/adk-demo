@@ -46,7 +46,7 @@ export function evaluateRuleDag(
 
   for (const rule of applicableRules) {
     const matchingEntities = entityIds.filter((eid) => {
-      const node = graph.getNode(eid)
+      const node = graph.getBaseNode(eid)
       if (!node) return false
       return rule.appliesTo.includes(node.constructor.name)
     })

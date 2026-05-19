@@ -1,13 +1,13 @@
 import type { PolicyContext } from '../policy/context'
 import { checkEntityAccess, checkTypeAccess, redactProperties } from '../policy/filters'
+import { projectFields } from './graph-filters'
+import type { GraphStore } from './graph-store'
 import type { FactStore } from './eventStore'
-import type { Graph } from './graph'
 import { toolErr, toolOk, type ToolResult } from './types'
 import type {
   AggregateMetric,
   GraphQuery,
   GraphQueryResult,
-  PropertyFilter,
   QueryAggregateRow,
   QueryRow,
   TraverseStep,
@@ -15,36 +15,6 @@ import type {
 
 const MAX_LIMIT = 200
 const MAX_WORKING_SET = 1000
-
-// ── 属性过滤器 ──
-
-function evalFilter(value: unknown, filter: PropertyFilter): boolean {
-  const { op, value: v } = filter
-  switch (op) {
-    case 'eq':
-      return value === v
-    case 'ne':
-      return value !== v
-    case 'gt':
-      return (value as number) > (v as number)
-    case 'gte':
-      return (value as number) >= (v as number)
-    case 'lt':
-      return (value as number) < (v as number)
-    case 'lte':
-      return (value as number) <= (v as number)
-    case 'contains':
-      return String(value).includes(String(v))
-    case 'in':
-      return Array.isArray(v) && v.includes(value)
-  }
-}
-
-function matchesFilters(props: Record<string, unknown>, filters: PropertyFilter[]): boolean {
-  return filters.every((f) => evalFilter(props[f.property], f))
-}
-
-// ── 聚合计算 ──
 
 function applyAggregate(
   rows: QueryRow[],
@@ -95,34 +65,33 @@ function computeMetric(fn: AggregateMetric['fn'], values: unknown[]): number {
   }
 }
 
-// ── 查询引擎 ──
-
 export class GraphQueryEngine {
   constructor(
-    private readonly graph: Graph,
+    private readonly store: GraphStore,
     private readonly policy: PolicyContext,
     private readonly facts?: FactStore,
   ) {}
 
-  execute(query: GraphQuery): ToolResult {
-    // 1. MATCH: 起点选择
+  async execute(query: GraphQuery): Promise<ToolResult> {
     const workingSets = new Map<string, Set<string>>()
     const startAlias = query.match.alias ?? '_start'
 
-    const matchResult = this.matchNodes(query.match)
+    const matchResult = await this.matchNodes(query.match)
     if (!matchResult.ok) return matchResult
     workingSets.set(startAlias, matchResult.data)
 
-    // 2. TRAVERSE: 多步遍历
     let currentAlias = startAlias
     for (const step of query.traverse ?? []) {
       const fromAlias = step.from ?? currentAlias
       const fromSet = workingSets.get(fromAlias)
       if (!fromSet) {
-        return toolErr('INVALID_ARGS', `TRAVERSE: 未找到 alias "${fromAlias}"，已知 alias: [${[...workingSets.keys()].join(', ')}]`)
+        return toolErr(
+          'INVALID_ARGS',
+          `TRAVERSE: 未找到 alias "${fromAlias}"，已知 alias: [${[...workingSets.keys()].join(', ')}]`,
+        )
       }
 
-      const stepResult = this.traverseStep(fromSet, step)
+      const stepResult = await this.traverseStep(fromSet, step)
       if (!stepResult.ok) return stepResult
       const { survivors, targets } = stepResult.data
 
@@ -140,53 +109,47 @@ export class GraphQueryEngine {
       currentAlias = step.alias ?? fromAlias
     }
 
-    // 3. RETURN: 投影 + 聚合 + 分页
     return this.buildReturn(workingSets, query.return, currentAlias)
   }
 
-  // ── MATCH ──
-
-  private matchNodes(match: GraphQuery['match']): ToolResult<Set<string>> {
+  private async matchNodes(match: GraphQuery['match']): Promise<ToolResult<Set<string>>> {
     if (!checkTypeAccess(match.type, this.policy)) {
       return toolErr('POLICY_DENIED', `MATCH: type "${match.type}" 被策略拒绝`)
     }
 
+    const page = await this.store.findNodes({
+      type: match.type,
+      where: match.where,
+      limit: MAX_WORKING_SET,
+      offset: 0,
+    })
+
     const result = new Set<string>()
-    for (const [nodeId, node] of this.graph.nodes) {
-      if (node.constructor.name !== match.type) continue
-      if (!checkEntityAccess(nodeId, this.policy)) continue
-
-      if (match.where && match.where.length > 0) {
-        const props = this.getNodeProperties(nodeId)
-        if (!matchesFilters(props, match.where)) continue
-      }
-
-      result.add(nodeId)
+    for (const node of page.items) {
+      if (!checkEntityAccess(node.id, this.policy)) continue
+      result.add(node.id)
     }
 
     return toolOk(result)
   }
 
-  // ── TRAVERSE ──
-
-  private traverseStep(
+  private async traverseStep(
     fromSet: Set<string>,
     step: TraverseStep,
-  ): ToolResult<{ survivors: Set<string>; targets: Set<string> }> {
+  ): Promise<ToolResult<{ survivors: Set<string>; targets: Set<string> }>> {
     if (step.targetType && !checkTypeAccess(step.targetType, this.policy)) {
       return toolErr('POLICY_DENIED', `TRAVERSE: targetType "${step.targetType}" 被策略拒绝`)
     }
 
-    // survivors: fromSet 中"至少有一个满足条件的目标"的节点
     const survivors = new Set<string>()
-    // targets: 所有满足条件的目标节点
     const targets = new Set<string>()
 
     for (const fromId of fromSet) {
-      const neighbors = this.graph.queryNeighbors(fromId, {
+      const neighbors = await this.store.getNeighbors(fromId, {
         relation: step.relation,
         direction: step.direction ?? 'out',
-        typeFilter: step.targetType,
+        targetType: step.targetType,
+        where: step.where,
         limit: MAX_WORKING_SET,
         offset: 0,
       })
@@ -195,12 +158,6 @@ export class GraphQueryEngine {
       for (const neighbor of neighbors.items) {
         if (!checkEntityAccess(neighbor.nodeId, this.policy)) continue
         if (!checkTypeAccess(neighbor.type, this.policy)) continue
-
-        if (step.where && step.where.length > 0) {
-          const props = this.getNodeProperties(neighbor.nodeId)
-          if (!matchesFilters(props, step.where)) continue
-        }
-
         hasMatch = true
         targets.add(neighbor.nodeId)
       }
@@ -213,23 +170,23 @@ export class GraphQueryEngine {
     return toolOk({ survivors, targets })
   }
 
-  // ── RETURN ──
-
-  private buildReturn(
+  private async buildReturn(
     workingSets: Map<string, Set<string>>,
     ret: GraphQuery['return'],
     defaultAlias: string,
-  ): ToolResult {
+  ): Promise<ToolResult> {
     const alias = ret?.alias ?? defaultAlias
     const nodeSet = workingSets.get(alias)
     if (!nodeSet) {
-      return toolErr('INVALID_ARGS', `RETURN: 未找到 alias "${alias}"，已知 alias: [${[...workingSets.keys()].join(', ')}]`)
+      return toolErr(
+        'INVALID_ARGS',
+        `RETURN: 未找到 alias "${alias}"，已知 alias: [${[...workingSets.keys()].join(', ')}]`,
+      )
     }
 
     const limit = Math.min(ret?.limit ?? 50, MAX_LIMIT)
     const offset = ret?.offset ?? 0
 
-    // 构造所有行
     const allRows: QueryRow[] = []
     let truncated = false
 
@@ -238,26 +195,23 @@ export class GraphQueryEngine {
         truncated = true
         break
       }
-      const node = this.graph.getNode(nodeId)
+      const node = await this.store.getNode(nodeId)
       if (!node) continue
 
-      const rawProps = this.getNodeProperties(nodeId)
+      const rawProps = await this.getNodeProperties(nodeId, node.properties)
       const props = redactProperties(rawProps, this.policy)
-      const projected = ret?.fields && ret.fields.length > 0
-        ? Object.fromEntries(ret.fields.map((f) => [f, props[f]]))
-        : props
+      const projected =
+        ret?.fields && ret.fields.length > 0 ? projectFields(props, ret.fields) : props
 
-      allRows.push({ nodeId, type: node.constructor.name, properties: projected })
+      allRows.push({ nodeId, type: node.type, properties: projected })
     }
 
-    // 聚合模式
     if (ret?.aggregate) {
       const aggRows = applyAggregate(allRows, ret.aggregate.metrics, ret.aggregate.groupBy)
       const result: GraphQueryResult = { mode: 'aggregate', rows: aggRows }
       return toolOk(result)
     }
 
-    // 普通节点列表 + 分页
     const paged = allRows.slice(offset, offset + limit)
     const result: GraphQueryResult = {
       mode: 'nodes',
@@ -268,12 +222,11 @@ export class GraphQueryEngine {
     return toolOk(result)
   }
 
-  // ── 工具方法 ──
-
-  private getNodeProperties(nodeId: string): Record<string, unknown> {
-    const node = this.graph.getNode(nodeId)
-    if (!node) return {}
-    let props = node.getProperties()
+  private async getNodeProperties(
+    nodeId: string,
+    baseProps: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    let props = { ...baseProps }
     if (this.facts) {
       for (const bf of this.facts.forEntity(nodeId)) {
         props = { ...props, [bf.property]: bf.value }
