@@ -16,9 +16,14 @@ function matchesAgentVisibleProperties(node: BaseNode, query: string): boolean {
 }
 
 export abstract class BaseNode {
-  id: NodeId
+  private _id: NodeId
+
   constructor(id: NodeId) {
-    this.id = id
+    this._id = id
+  }
+
+  get id(): NodeId {
+    return this._id
   }
 
   getCapabilities(): MethodSchema[] {
