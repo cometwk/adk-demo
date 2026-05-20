@@ -31,9 +31,12 @@ const local = {
   token: '',
 }
 
+const host = 'http://localhost:5099'
+// const host = 'https://demo.reactgo.cn'
+console.log('host=', host)
+
 axios.interceptors.request.use((config) => {
   // console.log('Request started')
-  const host = 'http://localhost:5099'
   const url = `${host}${config.url}`
 
   return {

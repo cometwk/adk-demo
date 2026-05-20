@@ -19,6 +19,9 @@ async function test() {
   )
 
   const store = new RestCrudGraphStore({ relations: ontology.relations })
+  const x = await store.findNodes({ type: 'AgentRel', limit: 3 })
+  console.log("x=", x)
+  process.exit(0)
 
   const agents = await store.findNodes({ type: 'Agent', limit: 3 })
   console.log(
