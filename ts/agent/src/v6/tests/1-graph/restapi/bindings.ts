@@ -47,4 +47,55 @@ export const paymentRelationBindings: RelationBindingMap = {
     column: 'agent_no',
     toType: 'Agent',
   },
+
+  // 补全所有 L1 Ontology 声明的关系的物理映射
+  bound_by: {
+    kind: 'junction',
+    table: 'agent_rel',
+    fromColumn: 'obj_no',
+    toColumn: 'agent_no',
+    where: "agent_type = 'MERCH'",
+  },
+  created_from: {
+    kind: 'inverse_fk',
+    onType: 'Apply',
+    column: 'merch_no',
+    fromType: 'Merch',
+  },
+  submitted_by: {
+    kind: 'fk',
+    onType: 'Apply',
+    column: 'agent_no',
+    toType: 'Agent',
+  },
+  creates: {
+    kind: 'fk',
+    onType: 'Apply',
+    column: 'merch_no',
+    toType: 'Merch',
+  },
+  for_agent: {
+    kind: 'fk',
+    onType: 'AgentRel',
+    column: 'agent_no',
+    toType: 'Agent',
+  },
+  for_merch: {
+    kind: 'fk',
+    onType: 'AgentRel',
+    column: 'obj_id',
+    toType: 'Merch',
+  },
+  ancestor: {
+    kind: 'fk',
+    onType: 'AgentClosure',
+    column: 'ancestor_id',
+    toType: 'Agent',
+  },
+  descendant: {
+    kind: 'fk',
+    onType: 'AgentClosure',
+    column: 'descendant_id',
+    toType: 'Agent',
+  },
 }

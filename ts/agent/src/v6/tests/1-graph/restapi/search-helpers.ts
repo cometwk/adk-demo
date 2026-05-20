@@ -103,3 +103,48 @@ export async function apiSearch<T extends Record<string, unknown>>(
     },
   }
 }
+
+const unavailablePrefixes = new Set<string>()
+
+export function isNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const status = (err as { status?: number }).status
+  if (status === 404) return true
+  const msg = err instanceof Error ? err.message : String(err)
+  return msg === 'Not Found' || msg.includes('404') || msg.includes('无权限') || msg.includes('禁止访问')
+}
+
+export function emptyPaginated<T>(limit = DEFAULT_LIMIT, offset = 0): Paginated<T> {
+  return {
+    items: [],
+    page: { offset, limit, hasMore: false, total: 0 },
+  }
+}
+
+/** 404 时返回空分页并缓存路径，避免 getEdgeSummary 等探测性调用崩溃 */
+export async function apiSearchSafe<T extends Record<string, unknown>>(
+  prefix: string,
+  query?: SearchParams,
+): Promise<Paginated<T>> {
+  if (unavailablePrefixes.has(prefix)) {
+    const limit = query?.pagesize ?? DEFAULT_LIMIT
+    const offset = (query?.page ?? 0) * limit
+    return emptyPaginated(limit, offset)
+  }
+  try {
+    return await apiSearch<T>(prefix, query)
+  } catch (err) {
+    if (isNotFoundError(err)) {
+      unavailablePrefixes.add(prefix)
+      const limit = query?.pagesize ?? DEFAULT_LIMIT
+      const offset = (query?.page ?? 0) * limit
+      return emptyPaginated(limit, offset)
+    }
+    throw err
+  }
+}
+
+/** 测试用：重置 404 缓存 */
+export function resetUnavailablePrefixes(): void {
+  unavailablePrefixes.clear()
+}

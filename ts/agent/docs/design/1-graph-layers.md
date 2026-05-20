@@ -281,6 +281,40 @@ async getNeighbors(nodeId: string, opts: GetNeighborsOpts): Promise<Paginated<Ne
 
 **入边**：`direction: 'in'` 时对 `junction` 交换 from/to 列；对 `fk` 使用 `inverse_fk` 或反向索引。
 
+### 5.4 `RestAccessBinding` — 关系类型到 REST 查询与编程式保底
+
+为了支持 `RestCrudGraphStore` 等基于 HTTP REST 接口的存储驱动，我们引入了与物理 `RelationBinding` 相互独立但逻辑对齐的 **Access Binding**。此设计既能表达标准、高表现力的 REST 查询，又能通过 `kind: 'custom'` 提供编程式保底，完美应对不公开直接 search 端点的内部服务（如闭包计算、特定代理关系等）。
+
+#### 5.4.1 类型定义
+
+```typescript
+export type RestAccessBinding =
+  | {
+      kind: 'search'
+      relation: string
+      fromType: GraphEntityType
+      toType: GraphEntityType
+      direction: 'out' | 'in'
+      searchOn: GraphEntityType
+      params: (source: NodeData, ctx: AccessContext) => SearchParams
+      optional?: boolean
+    }
+  | {
+      kind: 'custom' // 编程式保底
+      relation: string
+      fromType: GraphEntityType
+      toType: GraphEntityType
+      direction: 'out' | 'in'
+      handler: CustomHandler
+    }
+```
+
+#### 5.4.2 核心设计规范
+
+1. **ID 统一剥离前缀**：为防止在编写 `RestAccessBinding` 规则或 custom handler 时混用 `Type:rawId` 全局唯一 ID 造成 REST 请求 404，执行上下文 `AccessContext` 强制提供 `ctx.rawId(source)` 助手函数统一获取纯净的数据库 raw ID。
+2. **批量 Resolve 的上限控制**：当通过 junction 或多跳查询来批量 Resolve 目标节点时，执行器底层强制设定单批次绝对 resolve 上限（默认 `MAX_RESOLVE_LIMIT = 100`），超过上限的记录被截断，避免 N+1 爆炸。
+3. **编程式 Fallback 鲁棒性**：当目标服务不支持通用 search 功能或未公开时，使用 `kind: 'custom'` 注册 `handler`，以特定的业务代码（NeighborHandler）实现编程式保底，且 `getEdgeSummary` 在探测由于 404 或未授权抛错时，执行器自动捕获异常并跳过，防止图概要探测导致崩溃。
+
 ---
 
 ## 6. `GraphStore` 接口（保持不变）
