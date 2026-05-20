@@ -1,28 +1,19 @@
 import type { NodeData, GetNeighborsOpts, NeighborData } from '../../../runtime/graph-store'
 import type { Paginated } from '../../../runtime/types'
+import type { RestEntityType, RestAccessBinding, AccessContext, CustomHandler } from '../../../provider/rest'
 import type { GraphEntityType } from './types'
-import type { SearchParams } from './axios'
+import type { SearchParams } from '../../../provider/rest'
 
-export type AccessContext = {
-  rawId: (node: NodeData) => string
-  toGlobalId: (type: GraphEntityType, rawId: string | number) => string
-  apiSearch: <T extends Record<string, unknown>>(prefix: string, query?: SearchParams) => Promise<Paginated<T>>
-  apiSearchSafe: <T extends Record<string, unknown>>(prefix: string, query?: SearchParams) => Promise<Paginated<T>>
-  fetchOne: (type: GraphEntityType, rawId: string) => Promise<NodeData | undefined>
-  agentsByNos: (agentNos: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
+export type { CustomHandler } from '../../../provider/rest'
+
+// 扩展 AccessContext 包含业务专用方法
+export type PaymentAccessContext = AccessContext & {
   agentsByIds: (agentIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
+  agentsByNos: (agentNos: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
   merchsByIds: (merchIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
-  neighborsFromNodes: (nodes: NodeData[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts, pageInfo?: Paginated<NodeData>['page']) => Paginated<NeighborData>
-  emptyNeighbors: (limit: number, offset: number) => Paginated<NeighborData>
 }
 
-export type CustomHandler = (
-  source: NodeData,
-  opts: GetNeighborsOpts,
-  ctx: AccessContext
-) => Promise<Paginated<NeighborData>>
-
-export type RestAccessBinding =
+export type PaymentAccessBinding =
   | {
       kind: 'search'
       relation: string
@@ -30,21 +21,21 @@ export type RestAccessBinding =
       toType: GraphEntityType
       direction: 'out' | 'in'
       searchOn: GraphEntityType
-      params: (source: NodeData, ctx: AccessContext) => SearchParams
+      params: (source: NodeData, ctx: PaymentAccessContext) => SearchParams
       optional?: boolean
     }
   | {
-      kind: 'custom' // 编程式保底，用于不对外公开或需要特定编码的关系
+      kind: 'custom'
       relation: string
       fromType: GraphEntityType
       toType: GraphEntityType
       direction: 'out' | 'in'
-      handler: CustomHandler
+      handler: (source: NodeData, opts: GetNeighborsOpts, ctx: PaymentAccessContext) => Promise<Paginated<NeighborData>>
     }
 
-export type RestAccessBindingMap = Record<string, RestAccessBinding>
+export type PaymentAccessBindingMap = Record<string, PaymentAccessBinding>
 
-export const paymentAccessBindings: RestAccessBindingMap = {
+export const paymentAccessBindings: PaymentAccessBindingMap = {
   // Agent -> 直接下级 (Agent:child_of:out)
   'Agent:child_of:out': {
     kind: 'search',

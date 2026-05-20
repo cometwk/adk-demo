@@ -1,7 +1,7 @@
-import { setInitToken } from './axios'
+import { setInitToken } from '../../../provider/rest'
 import { buildOntology } from '../../../runtime/ontology-builder'
 import { RestCrudGraphStore } from './RestCrudGraph'
-import { parseGlobalId, toGlobalId } from './search-helpers'
+// import { parseGlobalId, toGlobalId } from './search-helpers'
 import './ontology'
 
 async function test() {
@@ -20,6 +20,8 @@ async function test() {
 
   const store = new RestCrudGraphStore({ relations: ontology.relations })
   const x = await store.findNodes({ type: 'AgentRel', limit: 3 })
+  console.log("AgentRel=", x)
+  // process.exit(-1)
 
   const agents = await store.findNodes({ type: 'Agent', limit: 3 })
   console.log(
@@ -46,7 +48,7 @@ async function test() {
   console.log('edgeSummary:', summary)
 
   // 全局 id 示例
-  console.log('global id:', toGlobalId('Agent', parseGlobalId(first.id).rawId))
+  // console.log('global id:', toGlobalId('Agent', parseGlobalId(first.id).rawId))
 }
 
 test().catch(console.error)

@@ -1,22 +1,36 @@
 import type { NodeData, GetNeighborsOpts, NeighborData } from '../../../runtime/graph-store'
 import type { Paginated } from '../../../runtime/types'
 import { projectFields } from '../../../runtime/graph-filters'
-import type { RestAccessBinding, AccessContext } from './access-bindings'
+import type { RestAccessBinding, AccessContext, RestEntityType } from '../../../provider/rest'
 import type { GraphEntityType } from './types'
-import type { SearchParams } from './axios'
+import type { SearchParams } from '../../../provider/rest'
+import type { PaymentAccessContext } from './access-bindings'
 import {
   apiSearch,
   apiSearchSafe,
   emptyPaginated,
   filtersToSearchParams,
-  parseGlobalId,
-  rowToNodeData,
   toGlobalId,
-  TYPE_API_PREFIX,
-} from './search-helpers'
+} from '../../../provider/rest'
+import { TYPE_API_PREFIX } from './search-helpers'
 
 const DEFAULT_PAGE_LIMIT = 20
-const MAX_RESOLVE_LIMIT = 100 // 批量 Resolve 绝对上限控制
+const MAX_RESOLVE_LIMIT = 100
+
+// ── 业务专用: rowToNodeData (处理 AgentClosure 复合键) ──
+
+function rowToNodeData(type: GraphEntityType, row: Record<string, unknown>): NodeData {
+  let rawId = String(row.id ?? '')
+  if (type === 'AgentClosure') {
+    rawId = `${row.ancestor_id}_${row.descendant_id}`
+  }
+  const { id: _id, ...rest } = row
+  return {
+    id: toGlobalId(type, rawId),
+    type,
+    properties: rest,
+  }
+}
 
 /** 剥离 ID 的类型前缀 */
 export function rawIdOf(node: NodeData): string {
@@ -165,12 +179,12 @@ export async function merchsByIds(
 }
 
 /** 注入给声明式/编程式 Bindings 的上下文实现 */
-export const sharedAccessContext: AccessContext = {
+export const sharedAccessContext: PaymentAccessContext = {
   rawId: rawIdOf,
   toGlobalId: toGlobalId,
   apiSearch: apiSearch,
   apiSearchSafe: apiSearchSafe,
-  fetchOne: fetchOne,
+  fetchOne: fetchOne as (type: string, rawId: string) => Promise<NodeData | undefined>,
   agentsByIds: agentsByIds,
   agentsByNos: agentsByNos,
   merchsByIds: merchsByIds,
@@ -196,9 +210,9 @@ export async function executeAccessBinding(
       ...filtersToSearchParams(opts.where, opts.fields, offset, limit),
       ...extraParams,
     }
-    const searchPrefix = TYPE_API_PREFIX[binding.searchOn]
+    const searchPrefix = TYPE_API_PREFIX[binding.searchOn as GraphEntityType]
     const page = await apiSearchSafe<Record<string, unknown>>(searchPrefix, searchParams)
-    const nodes = page.items.map((row) => rowToNodeData(binding.toType, row))
+    const nodes = page.items.map((row: Record<string, unknown>) => rowToNodeData(binding.toType as GraphEntityType, row))
     return neighborsFromNodes(nodes, binding.relation, binding.direction, opts, page.page)
   }
 

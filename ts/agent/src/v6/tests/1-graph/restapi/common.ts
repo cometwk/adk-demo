@@ -1,8 +1,8 @@
-import axios, { AxiosResponse } from 'axios'
+import axios from 'axios'
 import { agentProperty, agentType } from '../../../runtime/decorator'
 import { BaseNode } from '../../../runtime/graph'
 import type { Paginated } from '../../../runtime/types'
-import { SearchParams, TableData } from './axios'
+import type { SearchParams, TableData } from '../../../provider/rest'
 
 export class CommonBaseNode<T> extends BaseNode {
   constructor(
