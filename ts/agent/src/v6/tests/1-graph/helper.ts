@@ -11,18 +11,34 @@
 // import { createRuleTools } from '../../agent/tools/rules'
 
 // import { makeTask, onStep, systemLog, userLog } from '../../helper'
-// import { seedGraph } from './seed'
+// // import { seedGraph } from './seed'
 // // import { clearRules } from '../../index'
 // // import { registerGraph2Rules } from './rules'
 
 // // 初始化
 // // T
 // import '../../ex/ontology' // 必须 import 实体类以触发装饰器注册（副作用 import）
+// import { RestCrudGraphStore } from './restapi/RestCrudGraph'
 // // C
 // // clearRules()
 // // registerGraph2Rules()
 // // E, R
-// const graph = seedGraph()
+// const graph = newGraph()
+// function newGraph() {
+//   const ontology = buildOntology({ version: 'restapi-1.0' })
+//   console.log(
+//     'ontology types:',
+//     ontology.types.map((t) => t.name)
+//   )
+//   console.log(
+//     'ontology relations:',
+//     ontology.relations.map((r) => `${r.fromType} --${r.type}--> ${r.toType}`)
+//   )
+
+//   const store = new RestCrudGraphStore({ relations: ontology.relations })
+//   //   const x = await store.findNodes({ type: 'AgentRel', limit: 3 })
+//   return store
+// }
 
 // export function newAgentContext(jsonStr: string | any) {
 //   if (typeof jsonStr === 'string') {
