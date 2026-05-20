@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { model } from '../../lib/model'
-import type { InMemoryGraphStore } from '../runtime/graph'
+import type { InMemoryGraphStore } from '../provider/in-memory'
 import { generateStructureOutput } from '../../lib/structure_output'
 
 // ── Entity linker (frontend) ──

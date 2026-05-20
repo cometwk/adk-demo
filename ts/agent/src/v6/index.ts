@@ -3,7 +3,7 @@ import { BaseNode } from '../v6/runtime/graph'
 import type { NodeId } from '../v6/runtime/types'
 import { registerRule, clearRules } from './ontology/rules'
 import type { RelationSchema, TypeSchema } from './ontology/schema'
-import { InMemoryGraphStore, type Graph } from './runtime/graph'
+import { InMemoryGraphStore, type Graph } from './provider/in-memory'
 import type { DecisionTask } from './ontology/decision'
 import { OPEN_POLICY } from './policy/context'
 

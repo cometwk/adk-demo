@@ -1,5 +1,6 @@
 import type { PropertyFilter } from './query-types'
 import type { Paginated } from './types'
+import type { BaseNode } from './graph'
 
 // ── DTOs ──
 
@@ -50,3 +51,10 @@ export interface GraphStore {
   getNeighbors(nodeId: string, opts: GetNeighborsOpts): Promise<Paginated<NeighborData>>
   getEdgeSummary(nodeId: string): Promise<EdgeSummary[]>
 }
+
+// ── NodeInstanceContainer ──
+
+export interface NodeInstanceContainer {
+  getBaseNode(id: string): BaseNode | undefined
+}
+

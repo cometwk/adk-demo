@@ -1,5 +1,5 @@
 import type { FactStore } from '../runtime/eventStore'
-import type { Graph } from '../runtime/graph'
+import type { Graph } from '../provider/in-memory'
 
 // ── Rule kinds ──
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import type { DecisionTask, DecisionResponse, OutcomeEvent } from './ontology/decision'
-import type { Graph } from './runtime/graph'
+import type { Graph } from './provider/in-memory'
 import type { FactStore, EventStore } from './runtime/eventStore'
 import type { Ontology } from './ontology/schema'
 import type { CausalGraph } from './ontology/causal'

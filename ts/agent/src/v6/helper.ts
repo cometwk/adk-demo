@@ -11,7 +11,7 @@ import { OPEN_POLICY } from './policy/context'
 import { buildOntology } from './runtime/ontology-builder'
 import { createCandidateTools } from './agent/tools/candidates'
 import { createRuleTools } from './agent/tools/rules'
-import { Graph } from './runtime/graph'
+import { Graph } from './provider/in-memory'
 
 export const systemLog = (x: any) => {
   console.log('system:', chalk.bold.red(x))

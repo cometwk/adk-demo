@@ -5,7 +5,7 @@ import type { ScoringProfile } from '../ontology/scoring'
 import { scoreCandidates } from '../ontology/scoring'
 import { evaluateRuleDag } from '../ontology/ruleDag'
 import { getRules } from '../ontology/rules'
-import type { Graph } from '../runtime/graph'
+import type { Graph } from '../provider/in-memory'
 import type { CandidateAnswer } from '../ontology/decision'
 
 // ── Predictive Critic ──

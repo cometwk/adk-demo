@@ -1,5 +1,5 @@
 import type { RelationSchema } from '../../../ontology/schema'
-import { InMemoryGraphStore } from '../../../runtime/graph'
+import { InMemoryGraphStore } from '../../../provider/in-memory'
 import { Author, Book, Branch, Category, Reader, Series } from './ontology'
 
 /*

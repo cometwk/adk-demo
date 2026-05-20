@@ -64,19 +64,20 @@ flowchart TB
     BO["buildOntology()"]
   end
 
-  subgraph L2["Layer 2 — GraphStore"]
+  subgraph L2["Layer 2 — GraphStore (只读 DTO)"]
     GN["getNode / findNodes"]
     GB["getNeighbors / getEdgeSummary"]
     GQ["graph_query → GraphQueryEngine"]
-    IM["InMemoryGraphStore"]
+    IM["InMemoryGraphStore (L2 部分)"]
     SQL["SqlGraphStore + RelationBinding"]
     REST["RestGraphStore"]
   end
 
-  subgraph L3["Layer 3 — Behavior"]
+  subgraph L3["Layer 3 — Behavior (方法执行)"]
     AM["@agentMethod"]
     CM["call_method"]
-    BN["getBaseNode(id)"]
+    NIC["NodeInstanceContainer (接口)"]
+    MC["InMemoryGraphStore / SqlNodeContainer"]
   end
 
   AT --> BO
@@ -88,12 +89,13 @@ flowchart TB
   IM --> GN
   SQL --> GN
   REST --> GN
-  GN --> Tools["inspect_node / search_nodes / query_neighbors / graph_query"]
-  GB --> Tools
-  GQ --> Tools
+  GN --> L2Tools["inspect_node / search_nodes / query_neighbors / graph_query"]
+  GB --> L2Tools
+  GQ --> L2Tools
 
   AM --> CM
-  BN --> CM
+  NIC --> CM
+  MC -- "implements" --> NIC
 ```
 
 ---
@@ -317,7 +319,13 @@ export type RestAccessBinding =
 
 ---
 
-## 6. `GraphStore` 接口（保持不变）
+## 6. `GraphStore` 与 `NodeInstanceContainer` 接口
+
+为了实现「面向未来的优雅解耦方案 (The Elegant Path Forward)」，我们将 Layer 2（只读 DTO 存储层）与 Layer 3（有状态的方法执行层）进行完全解耦：
+1. **`GraphStore` 接口**：定义纯 DTO 查询，面向只读的图探索、搜索与邻居查询，对底层存储介质（SQL, REST, 内存）完全透明。
+2. **`NodeInstanceContainer` 接口**：属于 Layer 3 运行时容器，用于在执行 `call_method`（或行为层方法）时，在内存中动态恢复/查找具有业务能力的 `BaseNode` 类实例。
+
+### 6.1 `GraphStore` 接口
 
 ```typescript
 export interface GraphStore {
@@ -343,12 +351,37 @@ export type GetNeighborsOpts = {
 | `getNeighbors` | JOIN / 子查询 | **`relation` 必填**；依赖 `RelationBinding` |
 | `getEdgeSummary` | `GROUP BY relation` COUNT | 大图上避免拉全量邻居 |
 
-**`InMemoryGraphStore` 额外能力**（不进入 `GraphStore` 接口）：
+### 6.2 `NodeInstanceContainer` 接口（行为实例容器）
 
 ```typescript
-addNode(node: BaseNode): void
-addEdge(edge: Edge): void
-getBaseNode(id: string): BaseNode | undefined  // 仅行为层
+export interface NodeInstanceContainer {
+  /** 同步获取内存中的 BaseNode 实例（用于方法执行、动态反射等） */
+  getBaseNode(id: string): BaseNode | undefined
+}
+```
+
+### 6.3 `InMemoryGraphStore` 的多重实现
+
+`InMemoryGraphStore` 作为默认的 Layer 2 内存存储提供者，它同时实现 `GraphStore` 与 `NodeInstanceContainer` 两个接口。在物理架构上，为了保持 `runtime` 的核心纯粹，建议将其实现移动到 `src/v6/provider/in-memory.ts` 目录下。
+
+```typescript
+export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
+  // 同时提供 GraphStore 接口与 NodeInstanceContainer 接口的实现
+}
+```
+
+### 6.4 `createMethodTools` 的解耦
+
+`createMethodTools`（即 `call_method`）属于行为工具层，其参数中不再传入具体的 `InMemoryGraphStore`，而是声明依赖 `NodeInstanceContainer`。这样在未来切换为 `SqlGraphStore` 等外部数据库时，只需提供实现了该接口的 `SqlNodeContainer`（在内存中根据数据库数据动态实例化/反序列化 `BaseNode` 类），即可做到对工具层和执行层无缝兼容：
+
+```typescript
+export function createMethodTools(
+  container: NodeInstanceContainer, // 解耦：依赖抽象容器，而非具体内存 Store
+  facts: FactStore,
+  policy: PolicyContext
+) {
+  // ...
+}
 ```
 
 ---
@@ -385,13 +418,13 @@ const partners = await store.getNeighbors(this.id, { relation: 'partners_with' }
 
 ## 8. Agent 工具与三层的关系
 
-| 工具 | 使用层 |
-|------|--------|
-| `inspect_node` | L2 `getNode` + `getEdgeSummary`；L1 类型来自 `NodeData.type` |
-| `search_nodes` | L2 `findNodes` |
-| `query_neighbors` | L2 `getNeighbors` |
-| `graph_query` | L2 `GraphQueryEngine` → Store |
-| `call_method` | L3 `getBaseNode` + MethodRegistry |
+| 工具 | 依赖接口 / 实现 | 职责与行为 |
+|------|-----------------|------------|
+| `inspect_node` | L2 `GraphStore.getNode` + `getEdgeSummary` | 探查节点基础属性与出入度 |
+| `search_nodes` | L2 `GraphStore.findNodes` | 支持多条件、下推式检索 DTO 数据 |
+| `query_neighbors`| L2 `GraphStore.getNeighbors` | 根据 Binding 获取邻居 DTO 数据 |
+| `graph_query` | L2 `GraphStore` (通过 `GraphQueryEngine`) | 声明式图路径深度查询 |
+| `call_method` | L3 `NodeInstanceContainer.getBaseNode` | 动态反射执行节点上的充血业务方法 |
 
 System Prompt 仅注入 L1（`Ontology` 的 types + relations），不注入具体边。
 

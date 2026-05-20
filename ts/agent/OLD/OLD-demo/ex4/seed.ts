@@ -1,4 +1,4 @@
-import { InMemoryGraphStore, type Graph } from '../../runtime/graph'
+import { InMemoryGraphStore, type Graph } from '../../provider/in-memory'
 import { EventStore, FactStore } from '../../runtime/eventStore'
 import { clearRules } from '../../ontology/rules'
 import type { FactBinding } from '../../runtime/types'

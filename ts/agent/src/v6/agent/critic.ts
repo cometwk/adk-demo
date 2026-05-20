@@ -1,7 +1,7 @@
 import type { DecisionTask, SystemVerdict_Predictive, DiagnosticVerdict, CandidateCause } from '../ontology/decision'
 import type { FactStore } from '../runtime/eventStore'
 import type { EventStore } from '../runtime/eventStore'
-import type { Graph } from '../runtime/graph'
+import type { Graph } from '../provider/in-memory'
 import type { Ontology } from '../ontology/schema'
 import type { CausalGraph } from '../ontology/causal'
 import type { ScoringProfile } from '../ontology/scoring'

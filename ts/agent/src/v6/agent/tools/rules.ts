@@ -4,7 +4,7 @@ import { type ToolResult, toolOk, toolErr } from '../../runtime/types'
 import { getRuleById, getRules, queryRules } from '../../ontology/rules'
 import { evaluateSingleRule } from '../../ontology/ruleDag'
 import type { FactStore } from '../../runtime/eventStore'
-import type { Graph } from '../../runtime/graph'
+import type { Graph } from '../../provider/in-memory'
 import type { PolicyContext } from '../../policy/context'
 import { maybeLogToolCall } from '../../policy/filters'
 

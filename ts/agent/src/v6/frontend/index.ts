@@ -7,7 +7,7 @@ import {
   type ClarifyQuestion,
 } from './clarify'
 import type { DecisionTask } from '../ontology/decision'
-import type { Graph } from '../runtime/graph'
+import type { Graph } from '../provider/in-memory'
 import type { Ontology } from '../ontology/schema'
 import type { PolicyContext } from '../policy/context'
 import { OPEN_POLICY } from '../policy/context'

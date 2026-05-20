@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import type { InMemoryGraphStore } from '../../runtime/graph'
+import type { NodeInstanceContainer } from '../../runtime/graph-store'
 import type { FactStore } from '../../runtime/eventStore'
 import { AgentMethodRegistry } from '../../runtime/registry'
 import { type ToolResult, toolErr, toolOk } from '../../runtime/types'
@@ -48,7 +48,7 @@ function assertPreconditions(
   return null
 }
 
-export function createMethodTools(store: InMemoryGraphStore, facts: FactStore, policy: PolicyContext) {
+export function createMethodTools(container: NodeInstanceContainer, facts: FactStore, policy: PolicyContext) {
   const describe_method = tool({
     description:
       '获取方法的完整模式：参数、返回值、描述、所需事实和相关规则。' + '在调用不熟悉的方法之前，务必先调用此方法。',
@@ -63,7 +63,7 @@ export function createMethodTools(store: InMemoryGraphStore, facts: FactStore, p
         return toolErr('POLICY_DENIED', `Access to entity '${nodeId}' is denied`)
       }
 
-      const node = store.getBaseNode(nodeId)
+      const node = container.getBaseNode(nodeId)
       if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
 
       const className = node.constructor.name
@@ -107,7 +107,7 @@ export function createMethodTools(store: InMemoryGraphStore, facts: FactStore, p
         return toolErr('POLICY_DENIED', `Access to entity '${nodeId}' is denied`)
       }
 
-      const node = store.getBaseNode(nodeId)
+      const node = container.getBaseNode(nodeId)
       if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
 
       const className = node.constructor.name
