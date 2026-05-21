@@ -9,7 +9,8 @@ import { BaseNode } from '../../../runtime/graph'
 
 @agentType({ description: '代理商；parent_id 为直接上级，层级全貌见 AgentClosure' })
 @agentRelations([
-  { type: 'child_of', toType: 'Agent', description: '直接下级代理商（parent_id 指向本节点）' },
+  { type: 'parent', toType: 'Agent', description: '上级代理商（本节点的 parent_id 指向该代理商）' },
+  { type: 'children', toType: 'Agent', description: '直接下级代理商（parent_id 指向本节点）' },
   { type: 'descendant_of', toType: 'Agent', description: '所有下级代理商（经 agent_closure 闭包）' },
   { type: 'ancestor_of', toType: 'Agent', description: '所有上级代理商（经 agent_closure 闭包）' },
   { type: 'binds_merch', toType: 'Merch', description: '代理绑定的商户（agent_rel, agent_type=MERCH）' },

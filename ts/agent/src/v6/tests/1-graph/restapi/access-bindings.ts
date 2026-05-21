@@ -37,24 +37,13 @@ export type PaymentAccessBinding =
 export type PaymentAccessBindingMap = Record<string, PaymentAccessBinding>
 
 export const paymentAccessBindings: PaymentAccessBindingMap = {
-  // Agent -> 直接下级 (Agent:child_of:out)
-  'Agent:child_of:out': {
-    kind: 'search',
-    relation: 'child_of',
+  // Agent -> 直接上级 (Agent:parent:out)
+  'Agent:parent:out': {
+    kind: 'custom',
+    relation: 'parent',
     fromType: 'Agent',
     toType: 'Agent',
     direction: 'out',
-    searchOn: 'Agent',
-    params: (source, ctx) => ({ 'where.parent_id.eq': ctx.rawId(source) }),
-  },
-
-  // Agent -> 直接上级 (Agent:child_of:in)
-  'Agent:child_of:in': {
-    kind: 'custom',
-    relation: 'child_of',
-    fromType: 'Agent',
-    toType: 'Agent',
-    direction: 'in',
     handler: async (source, opts, ctx) => {
       const parentId = source.properties.parent_id
       if (!parentId || parentId === '0') {
@@ -64,8 +53,19 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
       if (!parent) {
         return ctx.emptyNeighbors(opts.limit ?? 20, opts.offset ?? 0)
       }
-      return ctx.neighborsFromNodes([parent], 'child_of', 'in', opts)
+      return ctx.neighborsFromNodes([parent], 'parent', 'out', opts)
     },
+  },
+
+  // Agent -> 直接下级 (Agent:children:out)
+  'Agent:children:out': {
+    kind: 'search',
+    relation: 'children',
+    fromType: 'Agent',
+    toType: 'Agent',
+    direction: 'out',
+    searchOn: 'Agent',
+    params: (source, ctx) => ({ 'where.parent_id.eq': ctx.rawId(source) }),
   },
 
   // Agent -> 闭包后代 (Agent:descendant_of:out)

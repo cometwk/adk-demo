@@ -38,9 +38,9 @@ async function test() {
   const node = await store.getNode(first.id)
   console.log('getNode:', node?.id, node?.properties.name)
 
-  const children = await store.getNeighbors(first.id, { relation: 'child_of', direction: 'out', limit: 10 })
+  const children = await store.getNeighbors(first.id, { relation: 'children', direction: 'out', limit: 10 })
   console.log(
-    'child_of neighbors:',
+    'children neighbors:',
     children.items.map((n) => n.nodeId),
   )
 
