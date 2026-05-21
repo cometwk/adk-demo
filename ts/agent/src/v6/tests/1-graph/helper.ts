@@ -11,9 +11,6 @@ import { createCandidateTools } from '../../agent/tools/candidates'
 import { createRuleTools } from '../../agent/tools/rules'
 
 import { makeTask, onStep, systemLog, userLog } from '../../helper'
-// import { seedGraph } from './seed'
-// import { clearRules } from '../../index'
-// import { registerGraph2Rules } from './rules'
 
 // 初始化
 // T
