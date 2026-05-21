@@ -17,7 +17,7 @@ import { makeTask, onStep, systemLog, userLog } from '../../helper'
 
 // 初始化
 // T
-import '../../ex/ontology' // 必须 import 实体类以触发装饰器注册（副作用 import）
+import './restapi/ontology' // 必须 import 实体类以触发装饰器注册（副作用 import）
 import { RestCrudGraphStore } from './restapi/RestCrudGraph'
 // C
 // clearRules()

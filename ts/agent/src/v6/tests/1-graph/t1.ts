@@ -1,11 +1,21 @@
-import { S0, syncPredictiveAgent } from './use-case'
+import { setInitToken } from '../../provider/rest'
+import { newAgentContext, S0, syncPredictiveAgent } from './use-case'
 
-await syncPredictiveAgent(S0, [])
+await setInitToken()
+console.log('jusetInitToken success')
 
-console.log("over: =================================")
-console.log("\n\n\n")
+const testS0 = newAgentContext({
+  taskId: 'S0',
+  goal: '周洪波有几个下级代理商, 分别是谁？',
+  entryEntities: [],
+})
 
-console.log("facts =================================")
+await syncPredictiveAgent(testS0, [])
+
+console.log('over: =================================')
+console.log('\n\n\n')
+
+console.log('facts =================================')
 console.log(S0.workspace.bindings)
-console.log("workspace =================================")
+console.log('workspace =================================')
 // console.log(S0.workspace.debugLog())
