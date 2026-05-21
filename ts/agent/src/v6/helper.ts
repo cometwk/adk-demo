@@ -12,6 +12,7 @@ import { buildOntology } from './runtime/ontology-builder'
 import { createCandidateTools } from './agent/tools/candidates'
 import { createRuleTools } from './agent/tools/rules'
 import type { GraphStore } from './runtime/graph-store'
+import { getRules } from './ontology/rules'
 
 export const systemLog = (x: any) => {
   console.log('system:', chalk.bold.red(x))
@@ -66,8 +67,9 @@ export async function runPredictiveAgent(task: DecisionTask, graph: GraphStore) 
 
   const ontology = buildOntology({ version: '1.0.0' })
   // const graph = seedGraph()
+  const rules = getRules()
 
-  const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
+  const systemPrompt = buildPredictiveSystemPrompt(ontology, rules)
   const userMessage = `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
   systemLog(systemPrompt)
   userLog(userMessage)

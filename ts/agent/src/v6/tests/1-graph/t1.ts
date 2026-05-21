@@ -10,7 +10,7 @@ const testS0 = newAgentContext({
   entryEntities: [],
 })
 
-await syncPredictiveAgent(testS0, [])
+await syncPredictiveAgent(testS0)
 
 console.log('over: =================================')
 console.log('\n\n\n')

@@ -1,13 +1,25 @@
 import type { Ontology } from '../ontology/schema'
 import type { DecisionTask } from '../ontology/decision'
-import { getRules } from '../ontology/rules'
+import { getRules, Rule } from '../ontology/rules'
 
 // ── Predictive system prompt ──
 
-export function buildPredictiveSystemPrompt(task: DecisionTask, ontology: Ontology): string {
-  const rules = getRules().filter((r) =>
-    r.appliesTo.some((t) => (task.scope.typesOfInterest ?? ontology.types.map((ot) => ot.name)).includes(t))
-  )
+// export function buildPredictiveSystemPrompt(task: DecisionTask, ontology: Ontology): string {
+// }
+
+/**
+ * 构建 Predictive 模式下的系统提示词
+ * 
+ * @param ontology 本体
+ * @param rules 规则集, 根据任务传入过滤后的规则集，不包含任务无关的规则
+ * @returns 
+ */
+export function buildPredictiveSystemPrompt(ontology: Ontology, rules?: Rule[]): string {
+  // const rules = getRules().filter((r) =>
+  //   r.appliesTo.some((t) => (task.scope.typesOfInterest ?? ontology.types.map((ot) => ot.name)).includes(t))
+  // )
+
+  rules = rules ?? getRules()
 
   const rulesSummary = rules
     .map(
@@ -28,13 +40,15 @@ export function buildPredictiveSystemPrompt(task: DecisionTask, ontology: Ontolo
     .map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}: ${r.description}`)
     .join('\n')
 
-  const entryEntities = (task.entryEntities ?? []).join(', ')
+//   const entryEntities = (task.entryEntities ?? []).join(', ')
+//   let taskSummary = `
+// # 任务
+// 目标：${task.goal}
+// 入口实体：${entryEntities}
+// `
 
   return `你是一个结构化决策支持 Agent，当前模式：Predictive（前向推断）。
 
-# 任务
-目标：${task.goal}
-入口实体：${entryEntities}
 Ontology 版本：${ontology.version}
 
 # Ontology 类型摘要
@@ -88,9 +102,7 @@ ${rulesSummary}
 
 export function buildPlannerPrompt(task: DecisionTask, ontology: Ontology): string {
   const typeNames = ontology.types.map((t) => t.name).join(', ')
-  const relations = ontology.relations
-    .map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}`)
-    .join('\n')
+  const relations = ontology.relations.map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}`).join('\n')
   return `你是 Planner Agent。你的唯一职责是生成一份结构化 ExplorationPlan，不得调用任何工具。
 
 任务目标：${task.goal}

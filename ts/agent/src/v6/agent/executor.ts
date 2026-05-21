@@ -16,6 +16,7 @@ import { createCandidateTools } from './tools/candidates'
 import { createCounterfactualTools, resetCounterfactuals } from './tools/counterfactual'
 import { createEventTools } from './tools/events'
 import { model } from '../../lib/model'
+import { getRules } from '../ontology/rules'
 
 // ── Executor result ──
 
@@ -58,7 +59,8 @@ export async function runPredictiveExecutor(
     void props
   }
 
-  const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
+  const rules = getRules()
+  const systemPrompt = buildPredictiveSystemPrompt(ontology, rules)
   const userMessage = `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
 
   // Build tools (workspace.bindings is populated by executor via bind_fact)

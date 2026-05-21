@@ -52,7 +52,7 @@ function newUseCase(task: DecisionTask) {
   const ontology = buildOntology({ version: '1.0.0' })
   // console.log('ontology', ontology)
 
-  const systemPrompt = buildPredictiveSystemPrompt(task, ontology)
+  const systemPrompt = buildPredictiveSystemPrompt(ontology)
   const userMessage = `请对以下实体进行决策分析：${(task.entryEntities ?? []).join(', ')}。\n目标：${task.goal}`
 
   // systemLog(systemPrompt)
@@ -64,7 +64,7 @@ function newUseCase(task: DecisionTask) {
   const methodTools = createMethodTools(graph, currentFacts, policy)
   const factTools = createFactTools(workspace.bindings, policy)
   const candidateTools = createCandidateTools(workspace, policy)
-//   const ruleTools = createRuleTools(currentFacts, graph, policy)
+  //   const ruleTools = createRuleTools(currentFacts, graph, policy)
 
   const tools = {
     ...graphTools,
@@ -109,26 +109,30 @@ export function streamPredictiveAgent(ctx: ReturnType<typeof newUseCase>, messag
   return result
 }
 
-export async function syncPredictiveAgent(ctx: ReturnType<typeof newUseCase>, messages: ModelMessage[]) {
+export async function syncPredictiveAgent(
+  ctx: ReturnType<typeof newUseCase>,
+  chatInput: string = '',
+  messages: ModelMessage[] = []
+) {
   systemLog(ctx.system)
-  userLog(ctx.prompt)
+  // userLog(ctx.prompt)
 
   if (messages.length === 0) {
-    messages = [
-      {
-        role: 'system',
-        content: ctx.system,
-      },
-      {
-        role: 'user',
-        content: ctx.prompt,
-      },
-    ]
+    messages.push({
+      role: 'system',
+      content: ctx.system,
+    })
+  }
+  if (chatInput) {
+    messages.push({
+      role: 'user',
+      content: chatInput,
+    })
   }
   const result = await generateText<any>({
     model: model,
     system: ctx.system,
-    messages,
+    messages: messages,
     // prompt: userMessage,
     tools: ctx.tools,
     stopWhen: stepCountIs(50),
@@ -136,5 +140,9 @@ export async function syncPredictiveAgent(ctx: ReturnType<typeof newUseCase>, me
     onStepFinish: onStep,
   })
   ctx.workspace.debugLog()
+
+  // 将响应消息添加到 messages 数组
+  messages.push(...result.response.messages)
+
   return result
 }
