@@ -39,6 +39,7 @@ export type AccessContext = {
   apiSearch: <T extends Record<string, unknown>>(prefix: string, query?: import('./axios').SearchParams) => Promise<Paginated<T>>
   apiSearchSafe: <T extends Record<string, unknown>>(prefix: string, query?: import('./axios').SearchParams) => Promise<Paginated<T>>
   fetchOne: (type: RestEntityType, rawId: string) => Promise<NodeData | undefined>
+  fetchMany: (type: RestEntityType, rawIds: string[]) => Promise<NodeData[]>
   neighborsFromNodes: (
     nodes: NodeData[],
     relation: string,

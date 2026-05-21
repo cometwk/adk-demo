@@ -23,7 +23,7 @@ export function emptyPaginated<T>(limit = DEFAULT_LIMIT, offset = 0): Paginated<
 
 export async function apiSearch<T extends Record<string, unknown>>(
   prefix: string,
-  query?: SearchParams,
+  query?: SearchParams
 ): Promise<Paginated<T>> {
   const r = (await axios.get(`/admin${prefix}/search`, { params: query })) as TableData<T>
   const limit = r.pagesize || DEFAULT_LIMIT
@@ -39,9 +39,17 @@ export async function apiSearch<T extends Record<string, unknown>>(
   }
 }
 
+export async function apiSearchArray<T extends Record<string, unknown>>(
+  prefix: string,
+  query?: SearchParams
+): Promise<T[]> {
+  const r = (await axios.get(`/admin${prefix}/searchWhere`, { params: query })) as T[]
+  return r
+}
+
 export async function apiSearchSafe<T extends Record<string, unknown>>(
   prefix: string,
-  query?: SearchParams,
+  query?: SearchParams
 ): Promise<Paginated<T>> {
   if (unavailablePrefixes.has(prefix)) {
     const limit = query?.pagesize ?? DEFAULT_LIMIT
@@ -56,6 +64,24 @@ export async function apiSearchSafe<T extends Record<string, unknown>>(
       const limit = query?.pagesize ?? DEFAULT_LIMIT
       const offset = (query?.page ?? 0) * limit
       return emptyPaginated(limit, offset)
+    }
+    throw err
+  }
+}
+
+export async function apiSearchArraySafe<T extends Record<string, unknown>>(
+  prefix: string,
+  query?: SearchParams
+): Promise<T[]> {
+  if (unavailablePrefixes.has(prefix)) {
+    return []
+  }
+  try {
+    return await apiSearchArray<T>(prefix, query)
+  } catch (err) {
+    if (isNotFoundError(err)) {
+      unavailablePrefixes.add(prefix)
+      return []
     }
     throw err
   }

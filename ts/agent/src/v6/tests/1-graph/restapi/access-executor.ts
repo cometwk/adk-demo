@@ -129,21 +129,20 @@ export function neighborsFromNodes(
 }
 
 export async function agentsByIds(
+  ctx: PaymentAccessContext,
   rawIds: string[],
   relation: string,
   direction: 'out' | 'in',
   opts: GetNeighborsOpts,
 ): Promise<Paginated<NeighborData>> {
   const unique = [...new Set(rawIds.filter(Boolean))].slice(0, MAX_RESOLVE_LIMIT)
-  const nodes: NodeData[] = []
-  for (const id of unique) {
-    const n = await fetchOne('Agent', id)
-    if (n) nodes.push(n)
-  }
+  // 使用 ctx.fetchMany 批量查询（经过 RestGraphStore.fetchManyImpl）
+  const nodes = await ctx.fetchMany('Agent', unique)
   return neighborsFromNodes(nodes, relation, direction, opts)
 }
 
 export async function agentsByNos(
+  ctx: PaymentAccessContext,
   agentNos: string[],
   relation: string,
   direction: 'out' | 'in',
@@ -152,7 +151,7 @@ export async function agentsByNos(
   const unique = [...new Set(agentNos.filter(Boolean))].slice(0, MAX_RESOLVE_LIMIT)
   const nodes: NodeData[] = []
   for (const no of unique) {
-    const page = await apiSearchSafe<any>(TYPE_API_PREFIX.Agent, {
+    const page = await ctx.apiSearchSafe<any>(TYPE_API_PREFIX.Agent, {
       'where.agent_no.eq': no,
       pagesize: 1,
       page: 0,
@@ -164,17 +163,15 @@ export async function agentsByNos(
 }
 
 export async function merchsByIds(
+  ctx: PaymentAccessContext,
   rawIds: string[],
   relation: string,
   direction: 'out' | 'in',
   opts: GetNeighborsOpts,
 ): Promise<Paginated<NeighborData>> {
   const unique = [...new Set(rawIds.filter(Boolean))].slice(0, MAX_RESOLVE_LIMIT)
-  const nodes: NodeData[] = []
-  for (const id of unique) {
-    const n = await fetchOne('Merch', id)
-    if (n) nodes.push(n)
-  }
+  // 使用 ctx.fetchMany 批量查询（经过 RestGraphStore.fetchManyImpl）
+  const nodes = await ctx.fetchMany('Merch', unique)
   return neighborsFromNodes(nodes, relation, direction, opts)
 }
 
@@ -185,9 +182,13 @@ export const sharedAccessContext: PaymentAccessContext = {
   apiSearch: apiSearch,
   apiSearchSafe: apiSearchSafe,
   fetchOne: fetchOne as (type: string, rawId: string) => Promise<NodeData | undefined>,
-  agentsByIds: agentsByIds,
-  agentsByNos: agentsByNos,
-  merchsByIds: merchsByIds,
+  // fetchMany 由 RestGraphStore.buildAccessContext 提供（会被合并覆盖）
+  fetchMany: async (_type: string, _rawIds: string[]) => {
+    throw new Error('fetchMany should be provided by RestGraphStore, not sharedAccessContext')
+  },
+  agentsByIds: agentsByIds as (ctx: PaymentAccessContext, agentIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>,
+  agentsByNos: agentsByNos as (ctx: PaymentAccessContext, agentNos: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>,
+  merchsByIds: merchsByIds as (ctx: PaymentAccessContext, merchIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>,
   neighborsFromNodes: neighborsFromNodes,
   emptyNeighbors: (limit, offset) => emptyPaginated(limit, offset),
 }

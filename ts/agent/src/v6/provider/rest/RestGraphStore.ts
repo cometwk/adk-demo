@@ -10,7 +10,7 @@ import type {
 import { BaseNode, setNodeGraphStore } from '../../runtime/graph'
 import type { Paginated } from '../../runtime/types'
 import type { SearchParams } from './axios'
-import { apiSearch, apiSearchSafe } from './api-search'
+import { apiSearch, apiSearchArraySafe, apiSearchSafe } from './api-search'
 import { emptyPaginated } from './api-search'
 import { toGlobalId, parseGlobalId, filtersToSearchParams, rawIdOf, neighborsFromNodes } from './helpers'
 import type { RestEntityType, RestAccessBinding, RestAccessBindingMap, AccessContext } from './types'
@@ -59,6 +59,9 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
       fetchOne: async (type: RestEntityType, rawId: string): Promise<NodeData | undefined> => {
         return self.fetchOneImpl(type, rawId)
       },
+      fetchMany: async (type: RestEntityType, rawIds: string[]): Promise<NodeData[]> => {
+        return self.fetchManyImpl(type, rawIds)
+      },
       neighborsFromNodes: neighborsFromNodes,
       emptyNeighbors: (limit, offset) => emptyPaginated(limit, offset),
     }
@@ -72,6 +75,30 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
     const page = await apiSearchSafe<Record<string, unknown>>(prefix, params)
     const row = page.items[0]
     return row ? this.rowToNodeData(type, row) : undefined
+  }
+
+  /**
+   * 批量获取多个节点数据（fake impl，TODO: 实现批量查询优化）
+   * 当前实现：并发调用 fetchOne
+   * 优化方向：后端提供批量查询接口，一次性获取多个节点
+   */
+  protected async fetchManyImpl(type: RestEntityType, rawIds: string[]): Promise<NodeData[]> {
+    console.log('fetchManyImpl', type, rawIds)
+    throw "test error111"
+
+    const prefix = this.typeToPrefix[type]
+    if (!prefix) throw new Error(`fetchMany: unknown type "${type}"`)
+
+    // TODO: 实现批量查询优化
+    // 当前 fake impl：并发调用 fetchOne
+    // const results = await Promise.all(rawIds.map(id => this.fetchOneImpl(type, id)))
+    // return results.filter(Boolean) as NodeData[]
+
+    throw "test error"
+
+    const params: SearchParams = { 'where.id.in': rawIds.join(',') }
+    const rows = await apiSearchArraySafe<Record<string, unknown>>(prefix, params)
+    return rows.map((row) => this.rowToNodeData(type, row))
   }
 
   protected rowToNodeData(type: RestEntityType, row: Record<string, unknown>): NodeData {

@@ -19,8 +19,8 @@ async function test() {
   )
 
   const store = new RestCrudGraphStore({ relations: ontology.relations })
-  const x = await store.findNodes({ type: 'AgentRel', limit: 3 })
-  console.log("AgentRel=", x)
+  // const x = await store.findNodes({ type: 'AgentRel', limit: 3 })
+  // console.log("AgentRel=", x)
   // process.exit(-1)
 
   const agents = await store.findNodes({ type: 'Agent', limit: 3 })
@@ -45,8 +45,8 @@ async function test() {
   )
 
   // DEAD LOOP , WHY ???
-  // const summary = await store.getEdgeSummary(first.id)
-  // console.log('edgeSummary:', summary)
+  const summary = await store.getEdgeSummary(first.id)
+  console.log('edgeSummary:', summary)
 
   // 全局 id 示例
   // console.log('global id:', toGlobalId('Agent', parseGlobalId(first.id).rawId))

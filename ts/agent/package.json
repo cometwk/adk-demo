@@ -9,7 +9,7 @@
     "./runtime/*": "./src/v6/runtime/*.ts"
   },
   "scripts": {
-    "dev": "tsx --env-file=.env ./src/ex/t1.ts",
+    "dev": "tsx --env-file=.env ./src/tests/1-graph/t1.ts",
     "llm": "tsx src/demo/agent/llm.ts",
     "hello": "tsx src/lib/hello.ts",
     "build": "tsc",

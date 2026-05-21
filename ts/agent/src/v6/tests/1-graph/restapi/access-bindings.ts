@@ -8,9 +8,9 @@ export type { CustomHandler } from '../../../provider/rest'
 
 // 扩展 AccessContext 包含业务专用方法
 export type PaymentAccessContext = AccessContext & {
-  agentsByIds: (agentIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
-  agentsByNos: (agentNos: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
-  merchsByIds: (merchIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
+  agentsByIds: (ctx: PaymentAccessContext, agentIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
+  agentsByNos: (ctx: PaymentAccessContext, agentNos: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
+  merchsByIds: (ctx: PaymentAccessContext, merchIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
 }
 
 export type PaymentAccessBinding =
@@ -85,7 +85,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
         page: limit > 0 ? Math.floor(offset / limit) : 0,
       })
       const agentIds = closures.items.map((c) => String(c.descendant_id))
-      return ctx.agentsByIds(agentIds, 'descendant_of', 'out', opts)
+      return ctx.agentsByIds(ctx, agentIds, 'descendant_of', 'out', opts)
     },
   },
 
@@ -107,7 +107,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
         page: limit > 0 ? Math.floor(offset / limit) : 0,
       })
       const agentIds = closures.items.map((c) => String(c.ancestor_id))
-      return ctx.agentsByIds(agentIds, 'ancestor_of', 'out', opts)
+      return ctx.agentsByIds(ctx, agentIds, 'ancestor_of', 'out', opts)
     },
   },
 
@@ -127,7 +127,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
         page: 0,
       })
       const merchIds = rels.items.map((r) => String(r.obj_id))
-      return ctx.merchsByIds(merchIds, 'binds_merch', 'out', opts)
+      return ctx.merchsByIds(ctx, merchIds, 'binds_merch', 'out', opts)
     },
   },
 
@@ -169,7 +169,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
         page: 0,
       })
       const agentNos = [...new Set(rels.items.map((r) => String(r.agent_no)))]
-      return ctx.agentsByNos(agentNos, 'bound_by', 'out', opts)
+      return ctx.agentsByNos(ctx, agentNos, 'bound_by', 'out', opts)
     },
   },
 
@@ -204,7 +204,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
     direction: 'out',
     handler: async (source, opts, ctx) => {
       const agentNo = String(source.properties.agent_no ?? '')
-      return ctx.agentsByNos([agentNo], 'submitted_by', 'out', opts)
+      return ctx.agentsByNos(ctx, [agentNo], 'submitted_by', 'out', opts)
     },
   },
 
@@ -245,7 +245,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
     direction: 'out',
     handler: async (source, opts, ctx) => {
       const agentNo = String(source.properties.agent_no ?? '')
-      return ctx.agentsByNos([agentNo], 'for_agent', 'out', opts)
+      return ctx.agentsByNos(ctx, [agentNo], 'for_agent', 'out', opts)
     },
   },
 
@@ -329,7 +329,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
     direction: 'out',
     handler: async (source, opts, ctx) => {
       const agentNo = String(source.properties.agent_no ?? '')
-      return ctx.agentsByNos([agentNo], 'for_agent', 'out', opts)
+      return ctx.agentsByNos(ctx, [agentNo], 'for_agent', 'out', opts)
     },
   },
 }
