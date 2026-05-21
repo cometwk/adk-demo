@@ -4,7 +4,7 @@ import { type ToolResult, toolOk, toolErr } from '../../runtime/types'
 import { getRuleById, getRules, queryRules } from '../../ontology/rules'
 import { evaluateSingleRule } from '../../ontology/ruleDag'
 import type { FactStore } from '../../runtime/eventStore'
-import type { Graph } from '../../provider/in-memory'
+import type { GraphStore } from '../../runtime/graph-store'
 import type { PolicyContext } from '../../policy/context'
 import { maybeLogToolCall } from '../../policy/filters'
 
@@ -14,7 +14,7 @@ import { maybeLogToolCall } from '../../policy/filters'
 // The executor CANNOT modify rules or weights.
 // Fine-grained evaluate_rule replaces V5's evaluate_candidates as the scoring oracle.
 
-export function createRuleTools(facts: FactStore, graph: Graph, policy: PolicyContext) {
+export function createRuleTools(facts: FactStore, graph: GraphStore, policy: PolicyContext) {
   const inspect_rules = tool({
     description:
       '列出适用于给定实体类型和/或意图的规则。返回规则元数据（id, kind, description, direction, weight, requiredFacts）。' +
@@ -66,7 +66,7 @@ export function createRuleTools(facts: FactStore, graph: Graph, policy: PolicyCo
         })
       }
 
-      const evaluated = evaluateSingleRule(ruleId, facts, graph, entityId)
+      const evaluated = await evaluateSingleRule(ruleId, facts, graph, entityId)
       if (!evaluated) {
         return toolErr('INTERNAL_ERROR', `Failed to evaluate rule '${ruleId}'`)
       }

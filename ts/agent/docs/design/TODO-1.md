@@ -187,3 +187,372 @@ flowchart TD
 2. **异步的 `populateNodeProperties`**：把网络/DB的异步获取延迟**收拢在规则执行之前**，通过异步批量并发完成 Hydration（水合）。
 
 通过这一设计，上层高频、同步、极速的 CPU 规则求值引擎，和底层异构、异步、多变的 I/O 存储驱动（SQL/REST）得以在物理边界上完美和谐地协作！
+
+# 分析3
+
+# "B1 + B3 组合"详解
+
+## 当前问题代码（C2 规则为例）
+
+```typescript
+// src/ex/rules.ts:94-105 —— 当前"不优雅"的降级路径
+evaluator(ctx) {
+  const entityId = ctx.entityId
+  if (!entityId) return { triggered: false }
+
+  // 优先读 FactStore
+  let overdueCount = ctx.facts.getValue(entityId, 'overdueBookCount') as number | undefined
+
+  // 🔴 问题：降级到图遍历 —— 直接依赖 ctx.graph.getOutEdges
+  if (overdueCount === undefined) {
+    const outEdges = ctx.graph.getOutEdges(entityId)  // ← 同步图遍历！
+    overdueCount = (outEdges['overdue'] ?? []).length
+  }
+
+  const triggered = overdueCount > 0
+  return { triggered, ... }
+}
+```
+
+**问题**：这条降级路径让规则引擎**同步穿透到图存储**，REST 模式无法支持。
+
+---
+
+## B1 = 严格预绑定（Strict Pre-binding）
+
+**含义**：删除降级路径，规则只读 FactStore，缺事实就报 `missingFacts`。
+
+```typescript
+// 终态 B1 版本的 C2 规则
+evaluator(ctx) {
+  const entityId = ctx.entityId
+  if (!entityId) return { triggered: false }
+
+  // 🟢 只读 FactStore，不降级到图遍历
+  const overdueCount = ctx.facts.getValue(entityId, 'overdueBookCount') as number | undefined
+
+  // 🟢 缺事实就返回 missingFacts，让调用方知道需要补绑定
+  if (overdueCount === undefined) {
+    return {
+      triggered: false,
+      missingFacts: [{ entityId, property: 'overdueBookCount' }]
+    }
+  }
+
+  const triggered = overdueCount > 0
+  return { triggered, ... }
+}
+```
+
+**效果**：规则 evaluator 与图存储完全解耦。
+
+---
+
+## B3 = 边事实化（Edge-as-Fact）
+
+**含义**：把边的语义信息预先计算成事实值，由调用方绑定。
+
+```typescript
+// Agent 在调用 Critic 前的"预加载阶段"
+async function prepareFactsForCritic(graph: GraphStore, readerIds: string[]): Promise<FactStore> {
+  const facts = createFactStore()
+
+  for (const readerId of readerIds) {
+    // 🟢 异步查询图，把边统计结果计算成事实
+    const neighbors = await graph.getNeighbors(readerId, {
+      relation: 'overdue',
+      direction: 'out'
+    })
+
+    // 🟢 绑定边数量作为事实
+    facts.setValue(readerId, 'overdueBookCount', neighbors.items.length)
+  }
+
+  return facts
+}
+```
+
+---
+
+## B1 + B3 组合的完整流程图
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Phase 1: 异步预加载阶段（调用方负责）                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   async function runDecisionPipeline() {                            │
+│     // 1. 确定相关实体                                               │
+│     const entityIds = ['Reader:001', 'Reader:002']                  │
+│                                                                     │
+│     // 2. 异步查询图存储（GraphStore，可以是 REST/SQL）               │
+│     for (const id of entityIds) {                                   │
+│       const neighbors = await graph.getNeighbors(id, {              │
+│         relation: 'overdue', direction: 'out'                       │
+│       })                                                            │
+│                                                                     │
+│       // 3. 边事实化：把边数量写入 FactStore                          │
+│       facts.setValue(id, 'overdueBookCount', neighbors.items.length)│
+│                                                                     │
+│       // 同理：预绑定其他规则所需的事实                                │
+│       const nodeData = await graph.getNode(id)                      │
+│       facts.setValue(id, 'currentBorrowCount', nodeData.properties.currentBorrow)│
+│     }                                                               │
+│   }                                                                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+                              ↓ facts (纯内存快照)
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│  Phase 2: 同步规则评测阶段（规则引擎负责）                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   function evaluateRuleDag(facts, entityTypes, entityIds) {         │
+│     // 🟢 纯同步、纯内存、不穿透图存储                                 │
+│     for (const rule of rules) {                                     │
+│       for (const entityId of matchingEntities) {                    │
+│         // 只读 facts，不调 graph.getOutEdges                        │
+│         const result = rule.evaluator({ entityId, facts })          │
+│                                                                     │
+│         // 缺事实就返回 missingFacts（B1）                            │
+│         if (result.missingFacts) {                                  │
+│           console.warn('需要补绑定:', result.missingFacts)           │
+│         }                                                           │
+│       }                                                             │
+│     }                                                               │
+│   }                                                                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 对比：当前 vs 终态
+
+| 方面 | 当前（有降级路径） | 终态（B1 + B3） |
+|------|-------------------|----------------|
+| 规则 evaluator | 可直接调 `ctx.graph.getOutEdges` | 只读 `ctx.facts`，无图依赖 |
+| 缺事实处理 | 降级到图遍历 | 返回 `missingFacts`，不触发 |
+| 调用方职责 | 可懒加载事实 | 必须预绑定所有 `requiredFacts` |
+| 图存储耦合 | 规则引擎同步穿透 | 完全解耦，支持 REST/SQL |
+| 性能 | 内存模式极快，REST 模式不可用 | 预加载异步，评测纯同步 |
+
+---
+
+## 终态代码示例
+
+**规则定义（简化版）**：
+```typescript
+// B1 版本的规则 —— 只声明 requiredFacts，不降级
+registerRule({
+  id: 'overdue_blocks_borrow',
+  requiredFacts: [{ property: 'overdueBookCount', scope: 'entity' }],
+  evaluator(ctx) {
+    // 🟢 简洁：只读事实，不穿透图
+    const count = ctx.facts.getValue(ctx.entityId, 'overdueBookCount')
+    if (count === undefined) {
+      return { triggered: false, missingFacts: [{ entityId: ctx.entityId, property: 'overdueBookCount' }] }
+    }
+    return { triggered: count > 0 }
+  }
+})
+```
+
+**调用方预绑定（B3）**：
+```typescript
+// B3 边事实化 —— 预计算边数量
+async function bindOverdueFacts(graph: GraphStore, facts: FactStore, readerIds: string[]) {
+  for (const readerId of readerIds) {
+    // 异步查询边关系
+    const overdueNeighbors = await graph.getNeighbors(readerId, {
+      relation: 'overdue',
+      direction: 'out'
+    })
+    // 把边数量作为事实绑定
+    facts.setValue(readerId, 'overdueBookCount', overdueNeighbors.items.length)
+  }
+}
+```
+
+---
+
+## 总结
+
+**B1 + B3 组合**的本质是：
+
+1. **B1**：规则 evaluator 内部删除所有图遍历降级路径，变成**纯内存函数**
+2. **B3**：调用方在进入规则评测前，通过异步图查询**预计算边的语义**（如 overdue 边数量），把结果写入 FactStore
+
+**终态效果**：规则引擎与图存储**物理无关**，可在分布式/序列化场景下复用，同时保持**同步、极速的内存求值性能**。
+
+# 分析4
+
+# 异步 evaluator 方案分析
+
+## 如果 evaluator 变成异步
+
+```typescript
+// 当前同步版本
+evaluator(ctx) {
+  const count = ctx.facts.getValue(entityId, 'overdueBookCount')
+  return { triggered: count > 0 }
+}
+
+// 异步版本
+async evaluator(ctx) {
+  // 可以直接调异步图方法！
+  const neighbors = await ctx.graph.getNeighbors(entityId, { relation: 'overdue' })
+  const count = neighbors.items.length
+  return { triggered: count > 0 }
+}
+```
+
+**表面上看**：确实解决了降级路径问题，不再需要 B1 + B3 的预绑定。
+
+---
+
+## 1. 会造成什么后果？
+
+### 后果 A：规则引擎失去"纯计算"特性
+
+```
+当前模式：
+┌──────────────┐     ┌──────────────────────┐
+│ 异步预加载    │ →  │ 同步规则评测（纯计算） │ → 结果
+│ (一次性 I/O) │     │ (0 I/O, 极速)        │
+└──────────────┘     └──────────────────────┘
+
+异步 evaluator：
+┌──────────────────────────────────────────────┐
+│ 异步规则评测（每条规则都可能触发 I/O）          │ → 结果
+│ (N 次 Promise 调度, N 次 await)               │
+└──────────────────────────────────────────────┘
+```
+
+### 后果 B：性能损耗（即使是内存存储）
+
+```typescript
+// 即使 InMemoryGraphStore 本身是同步的，async 包装也会产生开销
+
+// 同步执行（一条 CPU 时间片）
+for (const rule of 100Rules) {
+  for (const entity of 10Entities) {
+    rule.evaluator(ctx)  // 1000 次同步调用，约 1ms
+  }
+}
+
+// 异步执行（1000 次 microtask 调度）
+for (const rule of 100Rules) {
+  for (const entity of 10Entities) {
+    await rule.evaluator(ctx)  // 1000 次 await，约 10-50ms
+  }
+}
+```
+
+**关键点**：每次 `await` 都会产生：
+- Promise 对象创建
+- microtask 队列调度
+- 上下文切换（即便底层是同步实现）
+
+### 后果 C：连锁 async 传播
+
+```typescript
+// 规则定义
+type Rule = {
+  evaluator: (ctx) => Promise<RuleResult>  // async
+}
+
+// ruleDag
+async function evaluateRuleDag(): Promise<DagEvaluationOutput> { ... }
+
+// Critic
+async function runPredictiveCritic(): Promise<SystemVerdict> { ... }
+
+// Executor
+async function runDecisionPipeline(): Promise<DecisionOutput> { ... }
+
+// 整个调用链全部 async
+```
+
+### 后果 D：并发控制变得复杂
+
+```typescript
+// 同步模式：自然串行，无需考虑并发
+for (const rule of rules) {
+  evaluate(rule)  // 一个接一个，确定性执行顺序
+}
+
+// 异步模式：可能需要并发控制
+await Promise.all(rules.map(r => evaluate(r)))  // 并发？串行？
+// 如果并发：规则之间可能有依赖顺序问题
+// 如果串行：await 循环效率低
+```
+
+---
+
+## 2. 这个后果是否"完全不可接受"？
+
+**答案：不是完全不可接受，但有代价权衡。**
+
+### 可以接受的场景
+
+| 场景 | 异步 evaluator 可行性 |
+|------|----------------------|
+| 规则数量少（< 20） | ✅ 可接受，开销小 |
+| 实体数量少（< 10） | ✅ 可接受 |
+| 评测频率低（秒级） | ✅ 可接受 |
+| 底层是 REST/SQL | ✅ 本来就必须异步 |
+| Demo/原型阶段 | ✅ 可接受 |
+
+### 难以接受的场景
+
+| 场景 | 异步 evaluator 风险 |
+|------|---------------------|
+| 规则数量多（> 50） | ⚠️ Promise 调度开销显著 |
+| 实体数量多（> 100） | ⚠️ 循环中大量 await |
+| 高频评测（毫秒级） | ❌ 性能瓶颈 |
+| 实时决策系统 | ❌ 响应延迟不可控 |
+| 批量评测（数千次） | ❌ microtask 队列爆炸 |
+
+---
+
+## 3. 两方案的对比
+
+| 方案 | 异步 evaluator | B1 + B3 预绑定 |
+|------|---------------|---------------|
+| **实现复杂度** | 低（改 async 即可） | 中（需预加载逻辑） |
+| **调用方职责** | 无（规则自理） | 高（必须预绑定） |
+| **性能（内存模式）** | 中等（Promise 开销） | 极高（纯同步） |
+| **性能（REST 模式）** | 低（N 次网络请求） | 中（批量预加载） |
+| **确定性** | 低（异步执行顺序） | 高（同步确定性） |
+| **架构纯净度** | 低（规则引擎产生 I/O） | 高（规则引擎纯计算） |
+
+---
+
+## 4. 结论
+
+**异步 evaluator 不是"完全不可接受"，但它改变了规则引擎的本质定位：**
+
+```
+当前设计：规则引擎 = 纯计算层（无 I/O）
+异步设计：规则引擎 = 计算 + I/O 混合层
+```
+
+**推荐策略**：
+
+1. **Demo/原型阶段**：可以用异步 evaluator，简单直接
+2. **生产/高频场景**：采用 B1 + B3，保持规则引擎的"纯计算"特性
+3. **混合方案**：规则引擎支持两种模式
+   ```typescript
+   type Rule = {
+     // 同步版本（要求预绑定）
+     evaluator: (ctx) => RuleResult
+     // 异步版本（可自理 I/O）
+     asyncEvaluator?: (ctx) => Promise<RuleResult>
+   }
+   ```
+
+**核心问题不是"能否接受"，而是"你想要规则引擎承担什么角色"：**
+- 只做计算 → B1 + B3
+- 也做 I/O → 异步 evaluator

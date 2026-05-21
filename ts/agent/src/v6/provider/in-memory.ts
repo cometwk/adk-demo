@@ -7,7 +7,6 @@ import type {
   GraphStore,
   NeighborData,
   NodeData,
-  NodeInstanceContainer,
 } from '../runtime/graph-store'
 import type { Edge, NodeId, PageInfo, Paginated } from '../runtime/types'
 import type { RelationSchema } from '../ontology/schema'
@@ -36,7 +35,7 @@ function paginate<T>(all: T[], offset: number, limit: number): Paginated<T> {
 
 // ── InMemoryGraphStore ──
 
-export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
+export class InMemoryGraphStore implements GraphStore {
   nodes = new Map<string, BaseNode>()
   edges: Edge[] = []
 
@@ -95,40 +94,15 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
     return Array.from(seen.values())
   }
 
-  /** 同步获取 BaseNode（方法执行、实体链接等） */
-  getBaseNode(id: string): BaseNode | undefined {
+  /** 异步获取 BaseNode（方法执行、实体链接等） */
+  async getBaseNode(id: string): Promise<BaseNode | undefined> {
     return this.nodes.get(id)
-  }
-
-  /** @deprecated 使用 getBaseNode */
-  getNodeSync(id: string): BaseNode | undefined {
-    return this.getBaseNode(id)
-  }
-
-  getOutEdges(nodeId: string): Record<string, string[]> {
-    const result: Record<string, string[]> = {}
-    for (const e of this.edges) {
-      if (e.from === nodeId) {
-        ;(result[e.type] ??= []).push(e.to)
-      }
-    }
-    return result
-  }
-
-  getInEdges(nodeId: string): Record<string, string[]> {
-    const result: Record<string, string[]> = {}
-    for (const e of this.edges) {
-      if (e.to === nodeId) {
-        ;(result[e.type] ??= []).push(e.from)
-      }
-    }
-    return result
   }
 
   // ── GraphStore ──
 
   async getNode(id: string): Promise<NodeData | undefined> {
-    const node = this.getBaseNode(id)
+    const node = await this.getBaseNode(id)
     if (!node) return undefined
     return nodeToData(node)
   }
@@ -165,7 +139,7 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
     const all: NeighborData[] = []
     const seen = new Set<string>()
 
-    const pushNeighbor = (
+    const pushNeighbor = async (
       targetId: string,
       typeName: string,
       rel: string,
@@ -175,7 +149,7 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
       const key = `${dir}:${rel}:${targetId}`
       if (seen.has(key)) return
 
-      const target = this.getBaseNode(targetId)
+      const target = await this.getBaseNode(targetId)
       if (!target) return
 
       const props = target.getProperties()
@@ -198,7 +172,7 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
       for (const e of this.edges) {
         if (e.from === nodeId && e.type === relation) {
           const target = this.nodes.get(e.to)
-          pushNeighbor(e.to, target?.constructor.name ?? 'Unknown', e.type, 'out')
+          await pushNeighbor(e.to, target?.constructor.name ?? 'Unknown', e.type, 'out')
         }
       }
     }
@@ -207,7 +181,7 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
       for (const e of this.edges) {
         if (e.to === nodeId && e.type === relation) {
           const source = this.nodes.get(e.from)
-          pushNeighbor(e.from, source?.constructor.name ?? 'Unknown', e.type, 'in')
+          await pushNeighbor(e.from, source?.constructor.name ?? 'Unknown', e.type, 'in')
         }
       }
     }
@@ -243,11 +217,7 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
   }
 }
 
-/** 向后兼容别名 */
-export type Graph = InMemoryGraphStore
-
-// 保留旧类型导出
+// 保留旧类型导出（向后兼容）
 export type NeighborEntry = NeighborData
-
 export type QueryNeighborsOpts = GetNeighborsOpts
 export type SearchNodesOpts = FindNodesOpts

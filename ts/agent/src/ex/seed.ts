@@ -1,4 +1,4 @@
-import { InMemoryGraphStore, type Graph, type RelationSchema } from '../v6/index'
+import { InMemoryGraphStore, type GraphStore, type RelationSchema } from '../v6/index'
 import { Author, Book, Branch, Category, Reader, Series } from './ontology'
 
 /*

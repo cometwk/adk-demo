@@ -26,7 +26,7 @@ export type EdgeSummary = {
 }
 
 export type FindNodesOpts = {
-  type: string
+  type?: string
   where?: PropertyFilter[]
   fields?: string[]
   limit?: number
@@ -34,7 +34,7 @@ export type FindNodesOpts = {
 }
 
 export type GetNeighborsOpts = {
-  relation: string
+  relation?: string
   direction?: 'out' | 'in' | 'both'
   targetType?: string
   where?: PropertyFilter[]
@@ -44,17 +44,20 @@ export type GetNeighborsOpts = {
 }
 
 // ── GraphStore ──
+// 单一异步接口，包含数据方法 + 实例方法
 
 export interface GraphStore {
+  // 数据方法（返回 DTO）
   getNode(id: string): Promise<NodeData | undefined>
   findNodes(opts: FindNodesOpts): Promise<Paginated<NodeData>>
   getNeighbors(nodeId: string, opts: GetNeighborsOpts): Promise<Paginated<NeighborData>>
   getEdgeSummary(nodeId: string): Promise<EdgeSummary[]>
+
+  // 实例方法（返回 BaseNode）
+  getBaseNode(id: string): Promise<BaseNode | undefined>
 }
 
 // ── NodeInstanceContainer ──
-
-export interface NodeInstanceContainer {
-  getBaseNode(id: string): BaseNode | undefined
-}
+// 向后兼容别名（已合并入 GraphStore）
+export type NodeInstanceContainer = GraphStore
 

@@ -1,7 +1,7 @@
 import type { DecisionTask, SystemVerdict_Predictive, DiagnosticVerdict, CandidateCause } from '../ontology/decision'
 import type { FactStore } from '../runtime/eventStore'
 import type { EventStore } from '../runtime/eventStore'
-import type { Graph } from '../provider/in-memory'
+import type { GraphStore } from '../runtime/graph-store'
 import type { Ontology } from '../ontology/schema'
 import type { CausalGraph } from '../ontology/causal'
 import type { ScoringProfile } from '../ontology/scoring'
@@ -16,7 +16,7 @@ import { runDiagnosticCritic } from './criticDiagnostic'
 
 export type CriticInput = {
   task: DecisionTask
-  graph: Graph
+  graph: GraphStore
   ontology: Ontology
   // Predictive
   facts?: FactStore
@@ -33,7 +33,7 @@ export type CriticOutput =
   | { mode: 'predictive'; verdict: SystemVerdict_Predictive }
   | { mode: 'diagnostic'; verdict: DiagnosticVerdict }
 
-export function runCritic(input: CriticInput): CriticOutput {
+export async function runCritic(input: CriticInput): Promise<CriticOutput> {
   if (input.task.mode === 'diagnostic') {
     if (!input.eventStore || !input.causalGraph) {
       return {
@@ -73,7 +73,7 @@ export function runCritic(input: CriticInput): CriticOutput {
     }
   }
 
-  const verdict = runPredictiveCritic({
+  const verdict = await runPredictiveCritic({
     task: input.task,
     facts: input.facts,
     candidates: input.candidates ?? [],

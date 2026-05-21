@@ -7,7 +7,7 @@ import {
   type ClarifyQuestion,
 } from './clarify'
 import type { DecisionTask } from '../ontology/decision'
-import type { Graph } from '../provider/in-memory'
+import type { GraphStore } from '../runtime/graph-store'
 import type { Ontology } from '../ontology/schema'
 import type { PolicyContext } from '../policy/context'
 import { OPEN_POLICY } from '../policy/context'
@@ -42,7 +42,7 @@ export type FrontEndResult =
  */
 export async function frontEnd(
   userQuery: string,
-  graph: Graph,
+  graph: GraphStore,
   ontology: Ontology,
   ctx: FrontEndContext = {},
 ): Promise<FrontEndResult> {
