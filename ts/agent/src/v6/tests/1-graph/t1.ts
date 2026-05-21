@@ -6,7 +6,7 @@ console.log('jusetInitToken success')
 
 const testS0 = newAgentContext({
   taskId: 'S0',
-  goal: '周洪波有几个下级代理商, 分别是谁？',
+  goal: '康传兵有几个下级代理商, 分别是谁？',
   entryEntities: [],
 })
 

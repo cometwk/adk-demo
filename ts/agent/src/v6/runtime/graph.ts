@@ -1,3 +1,4 @@
+import { agentProperty } from './decorator'
 import { AgentMethodRegistry, AgentPropertyRegistry, AgentRelationRegistry, type MethodSchema, type RelationRegistryEntry } from './registry'
 import type { NodeId } from './types'
 
@@ -17,19 +18,27 @@ export function setNodeGraphStore(node: BaseNode, store: any): void {
 // ── BaseNode：本体注册 + 方法执行载体 ──
 
 export abstract class BaseNode {
-  private _id: NodeId
+  // private _id: NodeId
+
+  // constructor(id: NodeId) {
+  //   this._id = id
+  // }
+
+  // get id(): NodeId {
+  //   return this._id
+  // }
+
+  // set id(id: NodeId) {
+  //   this._id = id
+  // }
+
 
   constructor(id: NodeId) {
-    this._id = id
+    this.id = id
   }
 
-  get id(): NodeId {
-    return this._id
-  }
 
-  set id(id: NodeId) {
-    this._id = id
-  }
+  id: NodeId
 
   getCapabilities(): MethodSchema[] {
     const className = this.constructor.name

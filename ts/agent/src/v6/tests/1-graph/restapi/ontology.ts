@@ -17,6 +17,15 @@ import { BaseNode } from '../../../runtime/graph'
   { type: 'has_profit_daily', toType: 'ProfitDaily', description: '代理商日分润统计' },
 ])
 export class Agent extends BaseNode {
+  // @agentProperty({ type: 'string', description: '分布式雪花ID', agentVisible: true })
+  // id!: string
+
+  @agentProperty({ type: 'string', description: '创建时间' })
+  created_at!: string
+
+  @agentProperty({ type: 'string', description: '更新时间' })
+  updated_at!: string
+
   @agentProperty({ type: 'string', description: '代理商编号', agentVisible: true })
   agent_no!: string
 
@@ -58,6 +67,15 @@ export class Agent extends BaseNode {
   { type: 'has_order_daily', toType: 'OrderDaily', description: '商户日交易统计' },
 ])
 export class Merch extends BaseNode {
+  // @agentProperty({ type: 'string', description: '分布式雪花ID', agentVisible: true })
+  // id!: string
+
+  @agentProperty({ type: 'string', description: '创建时间' })
+  created_at!: string
+
+  @agentProperty({ type: 'string', description: '更新时间' })
+  updated_at!: string
+
   @agentProperty({ type: 'string', description: '商户编号', agentVisible: true })
   merch_no!: string
 
@@ -110,6 +128,15 @@ export class Merch extends BaseNode {
   { type: 'creates', toType: 'Merch', description: '申请成功后创建的商户（merch_no）' },
 ])
 export class Apply extends BaseNode {
+  // @agentProperty({ type: 'string', description: '分布式雪花ID', agentVisible: true })
+  // id!: string
+
+  @agentProperty({ type: 'string', description: '创建时间' })
+  created_at!: string
+
+  @agentProperty({ type: 'string', description: '更新时间' })
+  updated_at!: string
+
   @agentProperty({ type: 'string', description: '代理商编号' })
   agent_no!: string
 
@@ -168,6 +195,15 @@ export class Apply extends BaseNode {
   { type: 'for_merch', toType: 'Merch', description: '绑定的商户（agent_type=MERCH 时）' },
 ])
 export class AgentRel extends BaseNode {
+  // @agentProperty({ type: 'string', description: '分布式雪花ID', agentVisible: true })
+  // id!: string
+
+  @agentProperty({ type: 'string', description: '创建时间' })
+  created_at!: string
+
+  @agentProperty({ type: 'string', description: '更新时间' })
+  updated_at!: string
+
   @agentProperty({ type: 'string', description: '代理商编号' })
   agent_no!: string
 
@@ -224,6 +260,15 @@ export class AgentClosure extends BaseNode {
 @agentType({ description: '商户日交易统计（导入）' })
 @agentRelations([{ type: 'for_merch', toType: 'Merch', description: '统计所属商户' }])
 export class OrderDaily extends BaseNode {
+  // @agentProperty({ type: 'string', description: '分布式雪花ID', agentVisible: true })
+  // id!: string
+
+  @agentProperty({ type: 'string', description: '创建时间' })
+  created_at!: string
+
+  @agentProperty({ type: 'string', description: '更新时间' })
+  updated_at!: string
+
   @agentProperty({ type: 'string', description: '结算日期' })
   report_date!: string
 
@@ -252,6 +297,15 @@ export class OrderDaily extends BaseNode {
 @agentType({ description: '代理商日分润统计' })
 @agentRelations([{ type: 'for_agent', toType: 'Agent', description: '分润所属代理商' }])
 export class ProfitDaily extends BaseNode {
+  // @agentProperty({ type: 'string', description: '分布式雪花ID', agentVisible: true })
+  // id!: string
+
+  @agentProperty({ type: 'string', description: '创建时间' })
+  created_at!: string
+
+  @agentProperty({ type: 'string', description: '更新时间' })
+  updated_at!: string
+
   @agentProperty({ type: 'string', description: '统计日期' })
   stat_date!: string
 

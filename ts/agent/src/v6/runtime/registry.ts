@@ -104,6 +104,18 @@ export class AgentTypeRegistry {
   }
 }
 
+// ── 基类属性注册（BaseNode）──
+
+const BASE_NODE_PROPERTIES: PropertySchema[] = [
+  {
+    propertyName: 'id',
+    type: 'string',
+    description: '分布式雪花ID',
+    agentVisible: true,
+    sensitive: false,
+  },
+]
+
 // ── Property Registry ──
 
 export class AgentPropertyRegistry {
@@ -117,8 +129,9 @@ export class AgentPropertyRegistry {
     return AgentPropertyRegistry.properties.get(`${className}:${propertyName}`)
   }
 
+  /** 获取类的属性，包含基类 BaseNode 的属性 */
   static getPropertiesForClass(className: string): PropertySchema[] {
-    const props: PropertySchema[] = []
+    const props: PropertySchema[] = [...BASE_NODE_PROPERTIES]
     for (const [key, schema] of AgentPropertyRegistry.properties) {
       if (key.startsWith(`${className}:`)) props.push(schema)
     }
