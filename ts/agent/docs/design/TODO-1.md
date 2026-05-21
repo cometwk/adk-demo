@@ -95,3 +95,95 @@ export type Graph = InMemoryGraphStore
 ### 总结
 * `getBaseNode` 代表了 **有状态的行为（Layer 3）**，而 `GraphStore` 代表了 **无状态的数据 DTO（Layer 2）**，二者有本质区别，不合并是为了不绑死具体的底层驱动。
 * `type Graph` 是为了向后兼容、避免大范围重构，以及照顾**规则引擎高频、同步、极速内存求值**的需求所特意保留的平滑过渡桥梁，它与纯异步的 `GraphStore` 接口形成了完美的分工。
+
+
+---
+
+# 2
+
+
+**User**
+
+但是，类似 @src/v6/provider/rest/RestGraphStore.ts:22-23 
+针对 rest 接口，如何 照顾规则引擎高频、同步、极速内存求值的需求 ？？？
+
+---
+
+**Cursor**
+
+针对 `RestGraphStore`（以及未来的 `SqlGraphStore`）这种底层具有 I/O 延迟、本身必须异步（`Promise`）获取数据的存储，要让**规则引擎（Rule Engine）**依然能够进行高频、同步、极速的内存求值，在 V6 的架构中是通过以下两个核心设计模式协同解决的：
+
+---
+
+### 🌟 核心解决方案：基于“预加载水合 (Pre-hydration)”与“上下文快照”的 CQRS 架构
+
+```mermaid
+flowchart TD
+  subgraph Phase1["Phase 1: 异步预加载阶段（I/O 阶段）"]
+    A["Agent / Executor 发起决策"] -->|"1. 确定相关实体 (Reader, Book)"| B["RestGraphStore"]
+    B -->|"2. 批量并发异步拉取 (REST/DB)"| C["fetchOne / apiSearch"]
+    C -->|"3. 填充属性与出度，完成 Hydration"| D["NodeCache (本地内存快照)"]
+  end
+
+  subgraph Phase2["Phase 2: 同步规则评测阶段（纯内存极速 CPU 阶段）"]
+    D -->|"4. 启动评测"| E["evaluateRuleDag (纯同步)"]
+    E -->|"5. 同步读取快照"| F["FactStore (O(1) 内存 Map)"]
+    E -->|"6. 同步获取已水合的实例"| G["getBaseNode() (O(1) 缓存命返)"]
+    G -->|"7. 极速同步规则计算"| H["Rule Triggered / MCDA 评分"]
+  end
+```
+
+#### 1. 职责解耦：`FactStore`（事实快照）作为第一求值通道
+规则引擎评测规则（如 C1, C2, C3 等）时，其 `evaluator` 最优先也是最主要的取数通道是 **`FactStore`（事实库）**，而不是在 evaluator 内部去实时穿透到底层的图去查。
+* **`FactStore` 是纯内存 Map**：其 `facts.getValue(entityId, property)` 存取操作是 **纯同步、O(1) 性能** 的。
+* 跨实体参数（如 `branchMaxBorrowPerReader` 等）会由 Agent 在调用 Critic（规则评测）前，利用图工具查出并使用 `bind_fact` 显式写入事实库，从而**将有 I/O 延迟的动态数据转化为静态内存快照**。
+
+#### 2. 空壳代理 (Skeleton Nodes) + 预加载水合 (Pre-hydration)
+如果某些规则由于降级，必须在评测期间同步穿透读取 `ctx.graph`（例如 C2 规则没有绑定 facts 时，需要降级到统计 `overdue` 出边：`ctx.graph.getOutEdges`），就会触发 **Pre-hydration（属性/边水合）** 机制：
+
+* **第一步：同步构建空壳（Skeleton Node）**
+  当规则引擎调用 `graph.getBaseNode(id)` 时，`RestGraphStore` 同步返回一个具有正确类类型（例如 `new Reader(id)`）但属性全空的“空壳”实例：
+  ```typescript
+  getBaseNode(id: string): BaseNode | undefined {
+    const cached = this.nodeCache.get(id)
+    if (cached) return cached // 同步 O(1) 缓存命中
+
+    const { type } = this.parseGlobalId(id)
+    const NodeClass = this.nodeClassRegistry[type]
+    
+    const node = new NodeClass(id) // 同步 new 实例
+    setNodeGraphStore(node, this)
+    this.nodeCache.set(id, node)
+    return node
+  }
+  ```
+  这样 `evaluateRuleDag` 中的同步过滤器 `rule.appliesTo.includes(node.constructor.name)` 能够**同步、极速地执行类型匹配**，无需等待网络。
+
+* **第二步：并发、批量异步预加载**
+  在调用 `evaluateRuleDag`（同步评测）**之前**，决策流（Pipeline/Critic 执行器）会提前识别出当前决策任务涉及的所有实体 ID。
+  随后，通过 `Promise.all` 并发、批量地调用 `populateNodeProperties`：
+  ```typescript
+  // 在执行评测前，批量将属性/出边数据从 REST 灌入内存实例中
+  await Promise.all(
+    entityIds.map(id => {
+      const node = store.getBaseNode(id);
+      return store.populateNodeProperties(node); // 执行异步网络/DB I/O，完成水合
+    })
+  );
+  ```
+
+* **第三步：无 network I/O 的极速同步求值**
+  此时，内存中的 `nodeCache` 已经被彻底“灌满”了。
+  接下来，当评测流程在高频 CPU 循环中调用 `evaluateRuleDag` 评测成百上千条规则时：
+  * `getBaseNode(id)` 变为**纯同步且 100% 命中内存缓存**。
+  * `getOutEdges(id)` 访问的全部是**在第一步预加载中就已经存入内存的本地静态边**。
+  * 整个评测过程实现了 **0 网络 I/O，100% 同步执行**。
+
+---
+
+### 总结
+这就是为什么 `RestGraphStore` 中将异步取数的设计分解为了：
+1. **同步的 `getBaseNode`**：保障规则类型匹配过滤和类反射可以在同步代码中完美运行。
+2. **异步的 `populateNodeProperties`**：把网络/DB的异步获取延迟**收拢在规则执行之前**，通过异步批量并发完成 Hydration（水合）。
+
+通过这一设计，上层高频、同步、极速的 CPU 规则求值引擎，和底层异构、异步、多变的 I/O 存储驱动（SQL/REST）得以在物理边界上完美和谐地协作！

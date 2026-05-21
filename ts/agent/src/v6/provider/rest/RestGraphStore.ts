@@ -12,13 +12,7 @@ import type { Paginated } from '../../runtime/types'
 import type { SearchParams } from './axios'
 import { apiSearch, apiSearchSafe } from './api-search'
 import { emptyPaginated } from './api-search'
-import {
-  toGlobalId,
-  parseGlobalId,
-  filtersToSearchParams,
-  rawIdOf,
-  neighborsFromNodes,
-} from './helpers'
+import { toGlobalId, parseGlobalId, filtersToSearchParams, rawIdOf, neighborsFromNodes } from './helpers'
 import type { RestEntityType, RestAccessBinding, RestAccessBindingMap, AccessContext } from './types'
 
 const DEFAULT_PAGE_LIMIT = 20
@@ -40,7 +34,7 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
     opts?: {
       idGenerator?: (type: RestEntityType, row: Record<string, unknown>) => string
       nodeClassRegistry?: NodeClassRegistry
-    },
+    }
   ) {
     this.bindings = bindings
     this.typeToPrefix = typeToPrefix
@@ -119,7 +113,16 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
     return node
   }
 
-  /** 异步填充 BaseNode 的属性（用于方法执行前） */
+  /** 异步填充 BaseNode 的属性（用于方法执行前）
+   * 
+   *  TODO: 这是个大问题
+   * 
+   *   架构说明
+   *
+   *  - 同步 getBaseNode: 返回"空壳" BaseNode 实例（仅 id）
+   *  - 异步 populateNodeProperties: 从 REST API 获取数据填充属性
+   *  - 调用方法前需要先 await store.populateNodeProperties(node)
+   */
   async populateNodeProperties(node: BaseNode): Promise<void> {
     const { type, rawId } = this.parseGlobalId(node.id)
     const data = await this.ctx.fetchOne(type, rawId)
@@ -167,7 +170,7 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
 
     if (!binding) {
       throw new Error(
-        `getNeighbors: unsupported relation "${opts.relation}" direction="${direction}" from type ${source.type}`,
+        `getNeighbors: unsupported relation "${opts.relation}" direction="${direction}" from type ${source.type}`
       )
     }
 
@@ -211,7 +214,7 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
   protected executeBinding(
     binding: RestAccessBinding,
     source: NodeData,
-    opts: GetNeighborsOpts,
+    opts: GetNeighborsOpts
   ): Promise<Paginated<NeighborData>> {
     if (binding.kind === 'custom') {
       return binding.handler(source, opts, this.ctx)
@@ -234,7 +237,7 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
   protected async executeSearchBinding(
     binding: RestAccessBinding & { kind: 'search' },
     searchParams: SearchParams,
-    opts: GetNeighborsOpts,
+    opts: GetNeighborsOpts
   ): Promise<Paginated<NeighborData>> {
     const searchPrefix = this.typeToPrefix[binding.searchOn]
     const page = await apiSearchSafe<Record<string, unknown>>(searchPrefix, searchParams)

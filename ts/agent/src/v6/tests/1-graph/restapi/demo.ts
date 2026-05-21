@@ -44,8 +44,9 @@ async function test() {
     children.items.map((n) => n.nodeId),
   )
 
-  const summary = await store.getEdgeSummary(first.id)
-  console.log('edgeSummary:', summary)
+  // DEAD LOOP , WHY ???
+  // const summary = await store.getEdgeSummary(first.id)
+  // console.log('edgeSummary:', summary)
 
   // 全局 id 示例
   // console.log('global id:', toGlobalId('Agent', parseGlobalId(first.id).rawId))
