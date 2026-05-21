@@ -27,6 +27,10 @@ export abstract class BaseNode {
     return this._id
   }
 
+  set id(id: NodeId) {
+    this._id = id
+  }
+
   getCapabilities(): MethodSchema[] {
     const className = this.constructor.name
     return AgentMethodRegistry.getMethodsForClass(className)

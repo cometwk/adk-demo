@@ -17,10 +17,11 @@ export function buildPredictiveSystemPrompt(task: DecisionTask, ontology: Ontolo
     .join('\n')
 
   const typesSummary = ontology.types
-    .map(
-      (t) =>
-        `  ${t.name}: ${t.properties.map((p) => p.name).join(', ')} | methods: ${t.methods.map((m) => m.name).join(', ')}`
-    )
+    .map((t) => {
+      const props = t.properties.map((p) => `${p.name}(${p.description})`).join(', ')
+      const methods = t.methods.length > 0 ? t.methods.map((m) => `${m.name}(${m.description})`).join(', ') : '无'
+      return `  ${t.name}: ${t.description}\n    属性: ${props}\n    方法: ${methods}`
+    })
     .join('\n')
 
   const relationsSummary = ontology.relations
@@ -120,7 +121,11 @@ export function buildDiagnosticSystemPrompt(task: DecisionTask, ontology: Ontolo
   const outcome = task.outcome
   const tw = task.timeWindow
   const typesSummary = ontology.types
-    .map((t) => `  ${t.name}: ${t.properties.map((p) => p.name).join(', ')}`)
+    .map((t) => {
+      const props = t.properties.map((p) => `${p.name}(${p.description})`).join(', ')
+      const methods = t.methods.length > 0 ? t.methods.map((m) => `${m.name}(${m.description})`).join(', ') : '无'
+      return `  ${t.name}: ${t.description}\n    属性: ${props}\n    方法: ${methods}`
+    })
     .join('\n')
   const relationsSummary = ontology.relations
     .map((r) => `  ${r.fromType} --${r.type}--> ${r.toType}: ${r.description}`)

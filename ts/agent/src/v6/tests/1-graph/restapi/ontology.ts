@@ -41,6 +41,9 @@ export class Agent extends BaseNode {
   @agentProperty({ type: 'string', description: '直接父节点 id' })
   parent_id!: string
 
+  @agentProperty({ type: 'number', description: '同级排序（数值越小越靠前）' })
+  sort!: number
+
   constructor(id: string) {
     super(id)
   }
@@ -69,6 +72,30 @@ export class Merch extends BaseNode {
 
   @agentProperty({ type: 'number', description: '是否禁用' })
   disabled!: number
+
+  @agentProperty({ type: 'string', description: '联系人姓名' })
+  contact_name!: string
+
+  @agentProperty({ type: 'string', description: '联系人手机号' })
+  contact_phone!: string
+
+  @agentProperty({ type: 'string', description: '商户地址' })
+  address!: string
+
+  @agentProperty({ type: 'string', description: '当前机构商户 ID' })
+  chan_merch_id!: string
+
+  @agentProperty({ type: 'string', description: '机构商户编号' })
+  chan_merch_no!: string
+
+  @agentProperty({ type: 'string', description: '机构商户名称' })
+  chan_merch_name!: string
+
+  @agentProperty({ type: 'string', description: '商户 API 密钥' })
+  api_key!: string
+
+  @agentProperty({ type: 'string', description: '备注' })
+  remark!: string
 
   constructor(id: string) {
     super(id)
@@ -101,6 +128,33 @@ export class Apply extends BaseNode {
   @agentProperty({ type: 'number', description: '签约费率（十万分比）' })
   rate!: number
 
+  @agentProperty({ type: 'string', description: '网点 ID' })
+  branch_id!: string
+
+  @agentProperty({ type: 'string', description: '申请状态原因说明' })
+  status_reason!: string
+
+  @agentProperty({ type: 'string', description: '机构商户 ID（申请成功后分配）' })
+  chan_merch_id!: string
+
+  @agentProperty({ type: 'string', description: '机构商户号' })
+  chan_merch_no!: string
+
+  @agentProperty({ type: 'string', description: '机构商户名称' })
+  chan_merch_name!: string
+
+  @agentProperty({ type: 'string', description: '联系人姓名' })
+  contact_name!: string
+
+  @agentProperty({ type: 'string', description: '联系人手机号' })
+  contact_phone!: string
+
+  @agentProperty({ type: 'number', description: '通知状态：1-PENDING, 2-SUCCESS, 3-FAIL' })
+  notify!: number
+
+  @agentProperty({ type: 'string', description: '通知状态原因说明' })
+  notify_reason!: string
+
   constructor(id: string) {
     super(id)
   }
@@ -128,6 +182,15 @@ export class AgentRel extends BaseNode {
 
   @agentProperty({ type: 'number', description: '进件人标志：1 表示该代理为进件人' })
   apply!: number
+
+  @agentProperty({ type: 'string', description: '对象名称（商户名称或通道名称）' })
+  obj_name!: string
+
+  @agentProperty({ type: 'number', description: '分润模式：1-PERCENT(百分比), 2-FIXED(十万分比)' })
+  mode!: number
+
+  @agentProperty({ type: 'number', description: '用户设置的费率值，不参与计算' })
+  rate_value!: number
 
   constructor(id: string) {
     super(id)
@@ -173,6 +236,12 @@ export class OrderDaily extends BaseNode {
   @agentProperty({ type: 'number', description: '总交易额（分）' })
   total_amount!: number
 
+  @agentProperty({ type: 'string', description: '通道编号' })
+  chan_no!: string
+
+  @agentProperty({ type: 'string', description: '通道机构商户号' })
+  chan_merch_no!: string
+
   constructor(id: string) {
     super(id)
   }
@@ -197,6 +266,51 @@ export class ProfitDaily extends BaseNode {
 
   @agentProperty({ type: 'number', description: '结算状态' })
   status!: number
+
+  @agentProperty({ type: 'string', description: '代理类型：MERCH / CHAN' })
+  agent_type!: string
+
+  @agentProperty({ type: 'number', description: '分润比例（十万分比）' })
+  rate!: number
+
+  @agentProperty({ type: 'number', description: '当日交易总金额（分）' })
+  total_trade_amt!: number
+
+  @agentProperty({ type: 'number', description: '当日成功订单数' })
+  order_cnt!: number
+
+  @agentProperty({ type: 'number', description: '当日分润总收入（分）' })
+  total_profit!: number
+
+  @agentProperty({ type: 'number', description: '当日退款总金额（分）' })
+  total_refund_amt!: number
+
+  @agentProperty({ type: 'number', description: '当日退款笔数' })
+  refund_cnt!: number
+
+  @agentProperty({ type: 'number', description: '当日退款需扣除的分润（分）' })
+  total_refund_deduct!: number
+
+  @agentProperty({ type: 'number', description: '自己进件商户的交易金额（分）' })
+  own_trade_amt!: number
+
+  @agentProperty({ type: 'number', description: '自己进件商户的订单数' })
+  own_order_cnt!: number
+
+  @agentProperty({ type: 'number', description: '自己进件商户的分润收入（分）' })
+  own_profit!: number
+
+  @agentProperty({ type: 'number', description: '自己进件商户的退款金额（分）' })
+  own_refund_amt!: number
+
+  @agentProperty({ type: 'number', description: '自己进件商户的退款笔数' })
+  own_refund_cnt!: number
+
+  @agentProperty({ type: 'number', description: '自己进件商户的退款扣除分润（分）' })
+  own_refund_deduct!: number
+
+  @agentProperty({ type: 'string', description: '关联的结算记录 ID' })
+  profit_settle_id!: string
 
   constructor(id: string) {
     super(id)
