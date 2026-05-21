@@ -1,5 +1,5 @@
 import type { FactStore } from '../runtime/eventStore'
-import type { Graph } from '../provider/in-memory'
+import type { GraphStore } from '../runtime/graph-store'
 
 // ── Rule kinds ──
 
@@ -33,7 +33,7 @@ export type VetoConfig = {
 export type RuleContext = {
   entityId?: string // set when rule is evaluated per-entity
   facts: FactStore
-  graph: Graph
+  graph: GraphStore
 }
 
 // ── Evaluation result ──
@@ -59,7 +59,7 @@ export type Rule = {
 
   veto?: VetoConfig // 否决配置：hard_constraint 触发时直接否决某些候选
 
-  evaluator: (ctx: RuleContext) => RuleResult
+  evaluator: (ctx: RuleContext) => Promise<RuleResult> // 异步 evaluator
   explanation: (result: RuleResult, ctx: RuleContext) => string
 }
 

@@ -11,7 +11,7 @@ import { OPEN_POLICY } from './policy/context'
 import { buildOntology } from './runtime/ontology-builder'
 import { createCandidateTools } from './agent/tools/candidates'
 import { createRuleTools } from './agent/tools/rules'
-import { Graph } from './provider/in-memory'
+import type { GraphStore } from './runtime/graph-store'
 
 export const systemLog = (x: any) => {
   console.log('system:', chalk.bold.red(x))
@@ -60,7 +60,7 @@ export function onStep(step: any) {
 }
 
 // 测试: 采用llm-agent模式, 执行预测决策任务，收集证据，做出模型裁决
-export async function runPredictiveAgent(task: DecisionTask, graph: Graph) {
+export async function runPredictiveAgent(task: DecisionTask, graph: GraphStore) {
   const policy = OPEN_POLICY
   const workspace = new DecisionWorkspace('predictive')
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { model } from '../../lib/model'
-import type { InMemoryGraphStore } from '../provider/in-memory'
+import type { GraphStore } from '../runtime/graph-store'
 import { generateStructureOutput } from '../../lib/structure_output'
 
 // ── Entity linker (frontend) ──
@@ -101,18 +101,18 @@ export type EntityLinkerConfig = {
   contextualEntityIds?: string[] // recently seen entities (highest priority for ambiguous)
 }
 
-export function createEntityLinker(graph: InMemoryGraphStore, config: EntityLinkerConfig = {}) {
+export function createEntityLinker(graph: GraphStore, config: EntityLinkerConfig = {}) {
   const { aliases = {}, contextualEntityIds = [] } = config
 
   /**
    * Try to link a single name to an entity ID.
    * Returns null if no match found.
    */
-  function link(name: string): EntityLinkResult | null {
+  async function link(name: string): Promise<EntityLinkResult | null> {
     const lower = name.toLowerCase().trim()
 
     // 1. Exact match
-    const exactNode = graph.getBaseNode(name)
+    const exactNode = await graph.getBaseNode(name)
     if (exactNode) {
       return {
         entityId: name,
@@ -125,7 +125,7 @@ export function createEntityLinker(graph: InMemoryGraphStore, config: EntityLink
     // 2. Alias table
     const aliasMatch = aliases[lower] ?? aliases[name]
     if (aliasMatch) {
-      const aliasNode = graph.getBaseNode(aliasMatch)
+      const aliasNode = await graph.getBaseNode(aliasMatch)
       if (aliasNode) {
         return {
           entityId: aliasMatch,
@@ -137,13 +137,15 @@ export function createEntityLinker(graph: InMemoryGraphStore, config: EntityLink
     }
 
     // 3. Substring match (prefer contextual entities first)
+    // Note: we need to get nodes from graph via findNodes for substring match
+    const allNodes = await graph.findNodes({})
     const candidateIds = [
       ...contextualEntityIds,
-      ...[...graph.nodes.keys()].filter((id) => !contextualEntityIds.includes(id)),
+      ...allNodes.items.map((n) => n.id).filter((id) => !contextualEntityIds.includes(id)),
     ]
     for (const id of candidateIds) {
       if (id.toLowerCase().includes(lower) || lower.includes(id.toLowerCase())) {
-        const node = graph.getBaseNode(id)
+        const node = await graph.getBaseNode(id)
         const isContextual = contextualEntityIds.includes(id)
         return {
           entityId: id,
@@ -160,19 +162,20 @@ export function createEntityLinker(graph: InMemoryGraphStore, config: EntityLink
   /**
    * Link multiple names; returns all results (including nulls for unlinked).
    */
-  function linkAll(names: string[]): Array<EntityLinkResult | null> {
-    return names.map(link)
+  async function linkAll(names: string[]): Promise<Array<EntityLinkResult | null>> {
+    return Promise.all(names.map(link))
   }
 
   /**
    * Find all entities of a given type (for broad queries like "all engineers").
    */
-  function findByType(typeName: string): EntityLinkResult[] {
+  async function findByType(typeName: string): Promise<EntityLinkResult[]> {
     const results: EntityLinkResult[] = []
-    for (const [id, node] of graph.nodes) {
-      if (node.constructor.name === typeName) {
+    const allNodes = await graph.findNodes({})
+    for (const node of allNodes.items) {
+      if (node.type === typeName) {
         results.push({
-          entityId: id,
+          entityId: node.id,
           typeName,
           confidence: 1.0,
           matchKind: 'exact',
@@ -218,10 +221,12 @@ function dedupByEntityId(results: EntityLinkResult[]): EntityLinkResult[] {
  */
 export async function linkEntities(
   userQuery: string,
-  graph: InMemoryGraphStore,
+  graph: GraphStore,
   config: EntityLinkerConfig & { typeNames?: string[] } = {}
 ): Promise<LinkEntitiesResult> {
-  const knownIds = [...graph.nodes.keys()]
+  // Get all node IDs for NER rules
+  const allNodes = await graph.findNodes({})
+  const knownIds = allNodes.items.map((n) => n.id)
 
   // Phase 1: NER
   // let mentions = extractMentionsByRules(userQuery, knownIds)
@@ -236,12 +241,12 @@ export async function linkEntities(
 
   // Phase 2: Resolution
   const linker = createEntityLinker(graph, config)
-  const details = mentions.map((mention) => {
-    const directResult = linker.link(mention.text)
+  const details = await Promise.all(mentions.map(async (mention) => {
+    const directResult = await linker.link(mention.text)
 
     // When we have a type hint, also search by type and filter by name similarity
     const byType: EntityLinkResult[] = mention.hintType
-      ? linker.findByType(mention.hintType).filter((r) => {
+      ? (await linker.findByType(mention.hintType)).filter((r) => {
           const idL = r.entityId.toLowerCase()
           const textL = mention.text.toLowerCase()
           return idL.includes(textL) || textL.includes(idL)
@@ -256,7 +261,7 @@ export async function linkEntities(
       candidates,
       picked: candidates[0] ?? null,
     }
-  })
+  }))
 
   // Phase 3: Ambiguity score
   // multiCandidate → 1 point; unlinked → 2 points; normalise to [0,1]

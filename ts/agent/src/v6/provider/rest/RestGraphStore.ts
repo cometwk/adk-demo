@@ -5,7 +5,6 @@ import type {
   GraphStore,
   NeighborData,
   NodeData,
-  NodeInstanceContainer,
 } from '../../runtime/graph-store'
 import { BaseNode, setNodeGraphStore } from '../../runtime/graph'
 import type { Paginated } from '../../runtime/types'
@@ -17,7 +16,7 @@ import type { RestEntityType, RestAccessBinding, RestAccessBindingMap, AccessCon
 
 const DEFAULT_PAGE_LIMIT = 20
 
-export class RestGraphStore implements GraphStore, NodeInstanceContainer {
+export class RestGraphStore implements GraphStore {
   protected readonly bindings: RestAccessBindingMap
   protected readonly ctx: AccessContext
   protected readonly idGenerator?: (type: RestEntityType, row: Record<string, unknown>) => string
@@ -114,10 +113,11 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
     return parseGlobalId(id, typeToPrefix)
   }
 
-  // ── NodeInstanceContainer ──
+  // ── GraphStore.getBaseNode ──
+  // 异步获取完整 BaseNode 实例（属性已填充）
 
-  getBaseNode(id: string): BaseNode | undefined {
-    // 检查缓存
+  async getBaseNode(id: string): Promise<BaseNode | undefined> {
+    // 检查缓存（完整实例）
     const cached = this.nodeCache.get(id)
     if (cached) return cached
 
@@ -125,30 +125,20 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
     const NodeClass = this.ctx.typeRegistry[type]?.class
     if (!NodeClass) return undefined
 
-    // 创建 BaseNode 实例（属性需要通过 fetchOne 异步获取后设置）
-    // 这里返回一个"空壳"实例，属性通过 Object.assign 在需要时填充
+    // 异步获取数据
+    const data = await this.ctx.fetchOne(type, rawId)
+    if (!data) return undefined
+
+    // 创建完整实例
     const node = new NodeClass(id)
     setNodeGraphStore(node, this)
-    this.nodeCache.set(id, node)
-    return node
-  }
-
-  /** 异步填充 BaseNode 的属性（用于方法执行前）
-   * 
-   *  TODO: 这是个大问题
-   * 
-   *   架构说明
-   *
-   *  - 同步 getBaseNode: 返回"空壳" BaseNode 实例（仅 id）
-   *  - 异步 populateNodeProperties: 从 REST API 获取数据填充属性
-   *  - 调用方法前需要先 await store.populateNodeProperties(node)
-   */
-  async populateNodeProperties(node: BaseNode): Promise<void> {
-    const { type, rawId } = this.parseGlobalId(node.id)
-    const data = await this.ctx.fetchOne(type, rawId)
-    if (data?.properties) {
+    if (data.properties) {
       Object.assign(node, data.properties)
     }
+
+    // 缓存完整实例
+    this.nodeCache.set(id, node)
+    return node
   }
 
   async getNode(id: string): Promise<NodeData | undefined> {

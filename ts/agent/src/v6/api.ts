@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import type { DecisionTask, DecisionResponse, OutcomeEvent } from './ontology/decision'
-import type { Graph } from './provider/in-memory'
+import type { GraphStore } from './runtime/graph-store'
 import type { FactStore, EventStore } from './runtime/eventStore'
 import type { Ontology } from './ontology/schema'
 import type { CausalGraph } from './ontology/causal'
@@ -19,7 +19,7 @@ import type { ScoringProfile } from './ontology/scoring'
 // ── Public API ──
 
 export type RunDecisionOptions = {
-  graph: Graph
+  graph: GraphStore
   ontology: Ontology
   factStore?: FactStore // predictive: initial facts; if omitted, executor starts fresh
   eventStore?: EventStore // diagnostic: required
@@ -119,7 +119,7 @@ export async function runDecisionAssistant(input: RunDecisionInput): Promise<Dec
 // ── Session dispatcher ──
 
 type SessionContext = {
-  graph: Graph
+  graph: GraphStore
   ontology: Ontology
   factStore?: FactStore
   eventStore?: EventStore
@@ -160,7 +160,7 @@ async function runTaskSession(task: DecisionTask, ctx: SessionContext): Promise<
 
 async function runPredictiveSession(
   task: DecisionTask,
-  graph: Graph,
+  graph: GraphStore,
   ontology: Ontology,
   initialFacts: FactStore | undefined,
   scoringProfile: ScoringProfile | undefined,
@@ -183,7 +183,7 @@ async function runPredictiveSession(
   }
 
   // Critic: deterministic MCDA scoring
-  const criticOutput = runCritic({
+  const criticOutput = await runCritic({
     task,
     graph,
     ontology,
@@ -246,7 +246,7 @@ async function runPredictiveSession(
 
 async function runDiagnosticSession(
   task: DecisionTask,
-  graph: Graph,
+  graph: GraphStore,
   ontology: Ontology,
   eventStore: EventStore,
   causalGraph: CausalGraph,
@@ -264,7 +264,7 @@ async function runDiagnosticSession(
   }
 
   // Critic: deterministic attribution scoring
-  const criticOutput = runCritic({
+  const criticOutput = await runCritic({
     task,
     graph,
     ontology,

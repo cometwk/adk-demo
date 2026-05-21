@@ -48,7 +48,7 @@ export function registerGraph2Rules(): void {
     direction: 'risk_up',
     weight: 1.0,
     veto: { candidatesByLabel: ['ALLOWED'] },
-    evaluator(ctx) {
+    async evaluator(ctx) {
       const entityId = ctx.entityId
       if (!entityId) return { triggered: false }
 
@@ -91,7 +91,7 @@ export function registerGraph2Rules(): void {
     direction: 'risk_up',
     weight: 1.0,
     veto: { candidatesByLabel: ['ALLOWED'] },
-    evaluator(ctx) {
+    async evaluator(ctx) {
       const entityId = ctx.entityId
       if (!entityId) return { triggered: false }
 
@@ -100,8 +100,8 @@ export function registerGraph2Rules(): void {
 
       // 若 Agent 未绑定，降级到图遍历：统计 overdue 出边数量
       if (overdueCount === undefined) {
-        const outEdges = ctx.graph.getOutEdges(entityId)
-        overdueCount = (outEdges['overdue'] ?? []).length
+        const neighbors = await ctx.graph.getNeighbors(entityId, { direction: 'out' })
+        overdueCount = neighbors.items.filter((n) => n.relation === 'overdue').length
       }
 
       const triggered = overdueCount > 0
@@ -139,7 +139,7 @@ export function registerGraph2Rules(): void {
     direction: 'risk_up',
     weight: 1.0,
     veto: { candidatesByLabel: ['ALLOWED'] },
-    evaluator(ctx) {
+    async evaluator(ctx) {
       const entityId = ctx.entityId
       if (!entityId) return { triggered: false }
 
@@ -190,7 +190,7 @@ export function registerGraph2Rules(): void {
     direction: 'risk_up',
     weight: 1.0,
     veto: { candidatesByLabel: ['ALLOWED'] },
-    evaluator(ctx) {
+    async evaluator(ctx) {
       const entityId = ctx.entityId
       if (!entityId) return { triggered: false }
 
@@ -248,7 +248,7 @@ export function registerGraph2Rules(): void {
     direction: 'risk_up',
     weight: 0.8,
     veto: { candidatesByLabel: ['ALLOWED'] },
-    evaluator(ctx) {
+    async evaluator(ctx) {
       const entityId = ctx.entityId
       if (!entityId) return { triggered: false }
 
@@ -295,7 +295,7 @@ export function registerGraph2Rules(): void {
     direction: 'risk_up',
     weight: 1.0,
     veto: { candidatesByLabel: ['ALLOWED'] },
-    evaluator(ctx) {
+    async evaluator(ctx) {
       const entityId = ctx.entityId
       if (!entityId) return { triggered: false }
 
@@ -335,7 +335,7 @@ export function registerGraph2Rules(): void {
     direction: 'risk_up',
     weight: 0.9,
     veto: { candidatesByLabel: ['ALLOWED'] },
-    evaluator(ctx) {
+    async evaluator(ctx) {
       const entityId = ctx.entityId
       if (!entityId) return { triggered: false }
 
@@ -344,8 +344,8 @@ export function registerGraph2Rules(): void {
 
       // 降级：从图中统计反向 reserves 边
       if (reserveCount === undefined) {
-        const inEdges = ctx.graph.getInEdges(entityId)
-        reserveCount = (inEdges['reserves'] ?? []).length
+        const neighbors = await ctx.graph.getNeighbors(entityId, { direction: 'in' })
+        reserveCount = neighbors.items.filter((n) => n.relation === 'reserves').length
       }
 
       const RESERVE_LIMIT = 5
@@ -379,7 +379,7 @@ export function registerGraph2Rules(): void {
     requiredFacts: [{ property: 'authorIsPopular', scope: 'entity' }],
     direction: 'risk_down',
     weight: 0.3,
-    evaluator(ctx) {
+    async evaluator(ctx) {
       const entityId = ctx.entityId
       if (!entityId) return { triggered: false }
 
@@ -414,7 +414,7 @@ export function registerGraph2Rules(): void {
     requiredFacts: [{ property: 'currentBorrowCount', scope: 'entity' }],
     direction: 'risk_down',
     weight: 0.4,
-    evaluator(ctx) {
+    async evaluator(ctx) {
       const entityId = ctx.entityId
       if (!entityId) return { triggered: false }
 
@@ -424,8 +424,8 @@ export function registerGraph2Rules(): void {
       }
 
       // 从图中统计逾期边（无需 Agent 显式绑定）
-      const outEdges = ctx.graph.getOutEdges(entityId)
-      const overdueCount = (outEdges['overdue'] ?? []).length
+      const neighbors = await ctx.graph.getNeighbors(entityId, { direction: 'out' })
+      const overdueCount = neighbors.items.filter((n) => n.relation === 'overdue').length
 
       const triggered = (count as number) < 2 && overdueCount === 0
       return {

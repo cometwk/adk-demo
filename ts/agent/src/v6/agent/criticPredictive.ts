@@ -5,7 +5,7 @@ import type { ScoringProfile } from '../ontology/scoring'
 import { scoreCandidates } from '../ontology/scoring'
 import { evaluateRuleDag } from '../ontology/ruleDag'
 import { getRules } from '../ontology/rules'
-import type { Graph } from '../provider/in-memory'
+import type { GraphStore } from '../runtime/graph-store'
 import type { CandidateAnswer } from '../ontology/decision'
 
 // ── Predictive Critic ──
@@ -21,18 +21,18 @@ export type CriticPredictiveInput = {
   task: DecisionTask
   facts: FactStore
   candidates: CandidateAnswer[]
-  graph: Graph
+  graph: GraphStore
   ontology: Ontology
   scoringProfile?: ScoringProfile
   ruleIds?: string[] // planner hint — subset to evaluate
 }
 
-export function runPredictiveCritic(input: CriticPredictiveInput): SystemVerdict_Predictive {
+export async function runPredictiveCritic(input: CriticPredictiveInput): Promise<SystemVerdict_Predictive> {
   const { task, facts, candidates, graph, ontology, scoringProfile, ruleIds } = input
 
   // Step 1: evaluate rule DAG
   const entityIds = task.entryEntities ?? []
-  const dagOutput = evaluateRuleDag(facts, graph, entityIds, ruleIds)
+  const dagOutput = await evaluateRuleDag(facts, graph, entityIds, ruleIds)
 
   // Step 2: score candidates
   const allRules = getRules()

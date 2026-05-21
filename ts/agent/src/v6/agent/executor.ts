@@ -2,7 +2,7 @@ import { generateText, stepCountIs } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { DecisionTask, ModelVerdict_Predictive, DiagnosticVerdict } from '../ontology/decision'
 import type { Ontology } from '../ontology/schema'
-import type { Graph } from '../provider/in-memory'
+import type { GraphStore } from '../runtime/graph-store'
 import { FactStore } from '../runtime/eventStore'
 import type { EventStore } from '../runtime/eventStore'
 import { DecisionWorkspace } from '../ontology/decision'
@@ -38,7 +38,7 @@ export type DiagnosticExecutorResult = {
 
 export async function runPredictiveExecutor(
   task: DecisionTask,
-  graph: Graph,
+  graph: GraphStore,
   initialFacts: FactStore,
   ontology: Ontology,
   modelId = 'gpt-4o'
@@ -50,7 +50,7 @@ export async function runPredictiveExecutor(
 
   // Seed FactStore from graph properties (entry entities)
   for (const eid of task.entryEntities ?? []) {
-    const node = graph.getBaseNode(eid)
+    const node = await graph.getBaseNode(eid)
     if (!node) continue
     const props = node.getProperties()
     // We don't auto-bind here — the executor must explicitly bind_fact.
@@ -104,7 +104,7 @@ export async function runPredictiveExecutor(
 
 export async function runDiagnosticExecutor(
   task: DecisionTask,
-  graph: Graph,
+  graph: GraphStore,
   eventStore: EventStore,
   ontology: Ontology,
   causalGraph: CausalGraph,

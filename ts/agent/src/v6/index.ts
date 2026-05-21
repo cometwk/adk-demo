@@ -3,7 +3,8 @@ import { BaseNode } from '../v6/runtime/graph'
 import type { NodeId } from '../v6/runtime/types'
 import { registerRule, clearRules } from './ontology/rules'
 import type { RelationSchema, TypeSchema } from './ontology/schema'
-import { InMemoryGraphStore, type Graph } from './provider/in-memory'
+import { InMemoryGraphStore } from './provider/in-memory'
+import type { GraphStore } from './runtime/graph-store'
 import type { DecisionTask } from './ontology/decision'
 import { OPEN_POLICY } from './policy/context'
 
@@ -18,7 +19,7 @@ export {
   agentType,
   // Graph
   BaseNode,
-  Graph,
+  GraphStore,
   InMemoryGraphStore,
   // Registry
   AgentRegistry,
