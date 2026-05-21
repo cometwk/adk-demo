@@ -5,6 +5,7 @@ export type {
   RestAccessBinding,
   RestAccessBindingMap,
   AccessContext,
+  RestNodeClassRegistry,
 } from './types'
 
 // Axios config & types
@@ -25,4 +26,4 @@ export {
 } from './helpers'
 
 // RestGraphStore class
-export { RestGraphStore, type NodeClassRegistry } from './RestGraphStore'
+export { RestGraphStore } from './RestGraphStore'

@@ -1,9 +1,15 @@
+import type { BaseNode } from '../../runtime/graph'
 import type { GetNeighborsOpts, NeighborData, NodeData } from '../../runtime/graph-store'
 import type { Paginated } from '../../runtime/types'
 
 // ── Types ──
 
 export type RestEntityType = string
+
+export type RestNodeClassRegistry = Record<RestEntityType, {
+  class?: new (id: string) => BaseNode
+  prefix: string
+}>
 
 export type CustomHandler = (
   source: NodeData,
@@ -34,6 +40,7 @@ export type RestAccessBinding =
 export type RestAccessBindingMap = Record<string, RestAccessBinding>
 
 export type AccessContext = {
+  typeRegistry: RestNodeClassRegistry
   rawId: (node: NodeData) => string
   toGlobalId: (type: RestEntityType, rawId: string | number) => string
   apiSearch: <T extends Record<string, unknown>>(prefix: string, query?: import('./axios').SearchParams) => Promise<Paginated<T>>

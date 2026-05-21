@@ -1,7 +1,7 @@
 import type { NodeData, GetNeighborsOpts, NeighborData } from '../../../runtime/graph-store'
 import type { Paginated } from '../../../runtime/types'
 import { projectFields } from '../../../runtime/graph-filters'
-import type { RestAccessBinding, AccessContext, RestEntityType } from '../../../provider/rest'
+import type { RestAccessBinding, AccessContext, RestEntityType, RestNodeClassRegistry } from '../../../provider/rest'
 import type { GraphEntityType } from './types'
 import type { SearchParams } from '../../../provider/rest'
 import type { PaymentAccessContext } from './access-bindings'
@@ -12,10 +12,24 @@ import {
   filtersToSearchParams,
   toGlobalId,
 } from '../../../provider/rest'
-import { TYPE_API_PREFIX } from './search-helpers'
 
 const DEFAULT_PAGE_LIMIT = 20
 const MAX_RESOLVE_LIMIT = 100
+
+// ── 实体类型注册表 ──
+
+import { Agent, Merch, Apply, AgentRel, AgentClosure, OrderDaily, ProfitDaily } from './ontology'
+
+/** 统一的实体类型注册表（包含 class 和 prefix） */
+export const typeRegistry: RestNodeClassRegistry = {
+  Agent: { class: Agent, prefix: '/agent' },
+  Merch: { class: Merch, prefix: '/merch' },
+  Apply: { class: Apply, prefix: '/apply' },
+  AgentRel: { class: AgentRel, prefix: '/agent_rel' },
+  AgentClosure: { class: AgentClosure, prefix: '/agent_closure' },
+  OrderDaily: { class: OrderDaily, prefix: '/order_daily' },
+  ProfitDaily: { class: ProfitDaily, prefix: '/profit_daily' },
+}
 
 // ── 业务专用: rowToNodeData (处理 AgentClosure 复合键) ──
 
@@ -53,7 +67,9 @@ export async function fetchOne(type: GraphEntityType, rawId: string): Promise<No
         })()
       : { 'where.id.eq': rawId, pagesize: 1, page: 0 }
 
-  const page = await apiSearchSafe<Record<string, unknown>>(TYPE_API_PREFIX[type], params)
+  const prefix = typeRegistry[type]?.prefix
+  if (!prefix) throw new Error(`fetchOne: unknown type "${type}"`)
+  const page = await apiSearchSafe<Record<string, unknown>>(prefix, params)
   const row = page.items[0]
   return row ? rowToNodeData(type, row) : undefined
 }
@@ -150,8 +166,10 @@ export async function agentsByNos(
 ): Promise<Paginated<NeighborData>> {
   const unique = [...new Set(agentNos.filter(Boolean))].slice(0, MAX_RESOLVE_LIMIT)
   const nodes: NodeData[] = []
+  const prefix = ctx.typeRegistry['Agent']?.prefix
+  if (!prefix) throw new Error('agentsByNos: unknown type "Agent"')
   for (const no of unique) {
-    const page = await ctx.apiSearchSafe<any>(TYPE_API_PREFIX.Agent, {
+    const page = await ctx.apiSearchSafe<any>(prefix, {
       'where.agent_no.eq': no,
       pagesize: 1,
       page: 0,
@@ -177,6 +195,7 @@ export async function merchsByIds(
 
 /** 注入给声明式/编程式 Bindings 的上下文实现 */
 export const sharedAccessContext: PaymentAccessContext = {
+  typeRegistry: typeRegistry,
   rawId: rawIdOf,
   toGlobalId: toGlobalId,
   apiSearch: apiSearch,
@@ -211,7 +230,8 @@ export async function executeAccessBinding(
       ...filtersToSearchParams(opts.where, opts.fields, offset, limit),
       ...extraParams,
     }
-    const searchPrefix = TYPE_API_PREFIX[binding.searchOn as GraphEntityType]
+    const searchPrefix = typeRegistry[binding.searchOn as GraphEntityType]?.prefix
+    if (!searchPrefix) throw new Error(`executeAccessBinding: unknown type "${binding.searchOn}"`)
     const page = await apiSearchSafe<Record<string, unknown>>(searchPrefix, searchParams)
     const nodes = page.items.map((row: Record<string, unknown>) => rowToNodeData(binding.toType as GraphEntityType, row))
     return neighborsFromNodes(nodes, binding.relation, binding.direction, opts, page.page)

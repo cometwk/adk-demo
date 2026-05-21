@@ -1,6 +1,6 @@
 import type { NodeData, GetNeighborsOpts, NeighborData } from '../../../runtime/graph-store'
 import type { Paginated } from '../../../runtime/types'
-import type { RestEntityType, RestAccessBinding, AccessContext, CustomHandler } from '../../../provider/rest'
+import type { RestEntityType, RestAccessBinding, AccessContext, CustomHandler, RestNodeClassRegistry } from '../../../provider/rest'
 import type { GraphEntityType } from './types'
 import type { SearchParams } from '../../../provider/rest'
 
@@ -8,6 +8,7 @@ export type { CustomHandler } from '../../../provider/rest'
 
 // 扩展 AccessContext 包含业务专用方法
 export type PaymentAccessContext = AccessContext & {
+  typeRegistry: RestNodeClassRegistry
   agentsByIds: (ctx: PaymentAccessContext, agentIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
   agentsByNos: (ctx: PaymentAccessContext, agentNos: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>
   merchsByIds: (ctx: PaymentAccessContext, merchIds: string[], relation: string, direction: 'out' | 'in', opts: GetNeighborsOpts) => Promise<Paginated<NeighborData>>

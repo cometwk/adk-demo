@@ -13,33 +13,25 @@ import type { SearchParams } from './axios'
 import { apiSearch, apiSearchArraySafe, apiSearchSafe } from './api-search'
 import { emptyPaginated } from './api-search'
 import { toGlobalId, parseGlobalId, filtersToSearchParams, rawIdOf, neighborsFromNodes } from './helpers'
-import type { RestEntityType, RestAccessBinding, RestAccessBindingMap, AccessContext } from './types'
+import type { RestEntityType, RestAccessBinding, RestAccessBindingMap, AccessContext, RestNodeClassRegistry } from './types'
 
 const DEFAULT_PAGE_LIMIT = 20
 
-export type NodeClassRegistry = Record<string, new (id: string) => BaseNode>
-
 export class RestGraphStore implements GraphStore, NodeInstanceContainer {
   protected readonly bindings: RestAccessBindingMap
-  protected readonly typeToPrefix: Record<RestEntityType, string>
   protected readonly ctx: AccessContext
   protected readonly idGenerator?: (type: RestEntityType, row: Record<string, unknown>) => string
-  protected readonly nodeClassRegistry?: NodeClassRegistry
   protected readonly nodeCache: Map<string, BaseNode> = new Map()
 
   constructor(
     bindings: RestAccessBindingMap,
-    typeToPrefix: Record<RestEntityType, string>,
     partialCtx?: Partial<AccessContext>,
     opts?: {
       idGenerator?: (type: RestEntityType, row: Record<string, unknown>) => string
-      nodeClassRegistry?: NodeClassRegistry
     }
   ) {
     this.bindings = bindings
-    this.typeToPrefix = typeToPrefix
     this.idGenerator = opts?.idGenerator
-    this.nodeClassRegistry = opts?.nodeClassRegistry
     this.ctx = this.buildAccessContext(partialCtx)
   }
 
@@ -52,6 +44,7 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
   protected createBaseContext(): AccessContext {
     const self = this
     return {
+      typeRegistry: {},
       rawId: rawIdOf,
       toGlobalId: toGlobalId,
       apiSearch: apiSearch,
@@ -68,7 +61,7 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
   }
 
   protected async fetchOneImpl(type: RestEntityType, rawId: string): Promise<NodeData | undefined> {
-    const prefix = this.typeToPrefix[type]
+    const prefix = this.ctx.typeRegistry[type]?.prefix
     if (!prefix) throw new Error(`fetchOne: unknown type "${type}"`)
 
     const params: SearchParams = { 'where.id.eq': rawId, pagesize: 1, page: 0 }
@@ -86,7 +79,7 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
     console.log('fetchManyImpl', type, rawIds)
     throw "test error111"
 
-    const prefix = this.typeToPrefix[type]
+    const prefix = this.ctx.typeRegistry[type]?.prefix
     if (!prefix) throw new Error(`fetchMany: unknown type "${type}"`)
 
     // TODO: 实现批量查询优化
@@ -115,7 +108,10 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
   }
 
   parseGlobalId(id: string): { type: RestEntityType; rawId: string } {
-    return parseGlobalId(id, this.typeToPrefix)
+    const typeToPrefix = Object.fromEntries(
+      Object.entries(this.ctx.typeRegistry).map(([t, cfg]) => [t, cfg.prefix])
+    )
+    return parseGlobalId(id, typeToPrefix)
   }
 
   // ── NodeInstanceContainer ──
@@ -125,11 +121,8 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
     const cached = this.nodeCache.get(id)
     if (cached) return cached
 
-    // 没有 nodeClassRegistry 则返回 undefined
-    if (!this.nodeClassRegistry) return undefined
-
     const { type, rawId } = this.parseGlobalId(id)
-    const NodeClass = this.nodeClassRegistry[type]
+    const NodeClass = this.ctx.typeRegistry[type]?.class
     if (!NodeClass) return undefined
 
     // 创建 BaseNode 实例（属性需要通过 fetchOne 异步获取后设置）
@@ -165,7 +158,7 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
 
   async findNodes(opts: FindNodesOpts): Promise<Paginated<NodeData>> {
     const type = opts.type as RestEntityType
-    const prefix = this.typeToPrefix[type]
+    const prefix = this.ctx.typeRegistry[type]?.prefix
     if (!prefix) {
       throw new Error(`findNodes: unknown type "${opts.type}"`)
     }
@@ -266,7 +259,7 @@ export class RestGraphStore implements GraphStore, NodeInstanceContainer {
     searchParams: SearchParams,
     opts: GetNeighborsOpts
   ): Promise<Paginated<NeighborData>> {
-    const searchPrefix = this.typeToPrefix[binding.searchOn]
+    const searchPrefix = this.ctx.typeRegistry[binding.searchOn]?.prefix
     const page = await apiSearchSafe<Record<string, unknown>>(searchPrefix, searchParams)
     const nodes = page.items.map((row) => this.rowToNodeData(binding.toType, row))
     return neighborsFromNodes(nodes, binding.relation, binding.direction, opts, page.page)
