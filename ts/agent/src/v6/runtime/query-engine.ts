@@ -14,7 +14,7 @@ import type {
 } from './query-types'
 
 const MAX_LIMIT = 200
-const MAX_WORKING_SET = 1000
+const MAX_WORKING_SET = 500
 
 function applyAggregate(
   rows: QueryRow[],

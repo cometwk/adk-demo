@@ -28,7 +28,7 @@ function paginate<T>(all: T[], offset: number, limit: number): Paginated<T> {
     offset,
     limit,
     hasMore: offset + limit < all.length,
-    ...(all.length <= 1000 ? { total: all.length } : {}),
+    ...(all.length <= 500 ? { total: all.length } : {}),
   }
   return { items: page, page: pageInfo }
 }
