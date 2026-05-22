@@ -45,7 +45,7 @@ import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
-import { streamPredictiveAgent } from "@xui/agent/ex/use-case";
+import { streamPredictiveAgent } from "@xui/agent/ex2";
 import { getAgentContext } from "@/lib/agent";
 
 export const maxDuration = 60;
@@ -120,7 +120,11 @@ export async function POST(request: Request) {
 
     // Agent chat: use DB messages directly, ignore frontend message
     if (ctx) {
-      uiMessages = convertToUIMessages(messagesFromDb);
+      // uiMessages = convertToUIMessages(messagesFromDb);
+      uiMessages = [
+        ...convertToUIMessages(messagesFromDb),
+        message as ChatMessage,
+      ];
     } else if (isToolApprovalFlow && messages) {
       const dbMessages = convertToUIMessages(messagesFromDb);
       const approvalStates = new Map(

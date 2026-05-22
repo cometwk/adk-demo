@@ -1,24 +1,24 @@
 // 必须 import 实体类以触发装饰器注册（副作用 import）
-import "@xui/agent/ex/ontology";
+// import "@xui/agent/ex/ontology";
 
 // 从 @xui/agent 导入，确保与 ontology 使用同一个 Registry 实例
-import { AgentRegistry } from "@xui/agent";
+// import { AgentRegistry } from "@xui/agent";
 
 import { ModelMessage } from "ai";
 import {
   newAgentContext,
   S0,
-  S1,
-  S2,
-  S3,
-  S4,
-  S5,
-  S6,
-  S7,
-  S8,
-  S9,
-  S10,
-} from "@xui/agent/ex/use-case";
+  // S1,
+  // S2,
+  // S3,
+  // S4,
+  // S5,
+  // S6,
+  // S7,
+  // S8,
+  // S9,
+  // S10,
+} from "@xui/agent/ex2";
 
 // console.log("AgentRegistry.all()", AgentRegistry.all());
 
@@ -34,16 +34,16 @@ if (!globalCache.__agentContexts) {
 
 const predefinedContexts: Record<string, Context> = {
   S0,
-  S1,
-  S2,
-  S3,
-  S4,
-  S5,
-  S6,
-  S7,
-  S8,
-  S9,
-  S10,
+  // S1,
+  // S2,
+  // S3,
+  // S4,
+  // S5,
+  // S6,
+  // S7,
+  // S8,
+  // S9,
+  // S10,
 };
 
 export function getAgentContext(chatId: string) {
@@ -59,7 +59,8 @@ export function parseAgentInput({
   text: string;
   chatId: string;
 }) {
-  console.log("text", text);
+  // console.log("text", text);
+  text = "S0";
   let ctx = predefinedContexts[text.trim()];
   if (!ctx) {
     ctx = newAgentContext(text);
@@ -76,13 +77,17 @@ export function parseAgentInput({
   );
 
   const init: ModelMessage[] = [
-    {
-      role: "system",
-      content: "```\n" + ctx.system + "\n```",
-    },
+    // {
+    //   role: "system",
+    //   content: "```\n" + ctx.system + "\n```",
+    // },
+    // {
+    //   role: "user",
+    //   content: ctx.prompt,
+    // },
     {
       role: "user",
-      content: ctx.prompt,
+      content: "请采用中文回答后续的问题",
     },
   ];
 

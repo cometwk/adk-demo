@@ -37,7 +37,7 @@ export function GraphAgentDialog({
   const router = useRouter();
   const { mutate } = useSWRConfig();
   const [mode, setMode] = useState<InputMode>("paste");
-  const [textContent, setTextContent] = useState("");
+  const [textContent, setTextContent] = useState("S0");
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

@@ -2,7 +2,6 @@ import axios, { AxiosResponse } from 'axios'
 import { z } from 'zod'
 
 // ── SearchParams ──
-
 export const SearchParamsSchema = z
   .object({
     page: z.number().int().min(0).optional().describe('页码，从0开始'),
@@ -27,22 +26,22 @@ export interface TableData<T> {
 }
 
 // ── Axios Config ──
-
-const local = {
-  token: '',
-}
-
+// 业务用的全局 axios，配置 baseURL 后不需要手动拼 host
 const host = 'http://localhost:5099'
 console.log('host=', host)
+axios.defaults.baseURL = host
 
-axios.interceptors.request.use((config) => {
-  const url = `${host}${config.url}`
+// ── 拦截器：自动初始化 token ──
+axios.interceptors.request.use(async (config) => {
+  if (!token) {
+    await initToken()
+  }
+
   return {
     ...config,
-    url: url,
     headers: {
-      ...config['headers'],
-      authorization: 'Bearer ' + local.token,
+      ...config.headers,
+      authorization: 'Bearer ' + token,
     } as any,
   }
 })
@@ -73,7 +72,15 @@ axios.interceptors.response.use(
   }
 )
 
-// ── Auth ──
+// ── Token 初始化（懒加载 + 防并发重复请求）──
+
+let token: string | null = null
+let initPromise: Promise<string> | null = null
+
+// 专用于登录认证的干净实例，不带任何拦截器，从根源杜绝递归死锁
+const authInstance = axios.create({
+  baseURL: host,
+})
 
 interface LoginRequest {
   mobile?: string
@@ -85,15 +92,30 @@ interface LoginResponse {
 }
 
 async function signin(data: LoginRequest) {
-  return (await axios.post('/login/signin', data)) as LoginResponse
+  const response = await authInstance.post<LoginResponse>('/login/signin', data)
+  return response.data
 }
 
-export async function setInitToken() {
-  const res = await signin({
-    mobile: 'wk',
-    password: '123123',
-    clientid: '123456',
-  })
-  local.token = res.token
-  console.log('local.token = ', local.token)
+function initToken(): Promise<string> {
+  if (token) return Promise.resolve(token!)
+
+  if (!initPromise) {
+    console.log('=== 正在执行服务端异步初始化 ===')
+    initPromise = signin({
+      mobile: 'wk',
+      password: '123123',
+      clientid: '123456',
+    })
+      .then((res) => {
+        token = res.token
+        console.log('token =', token)
+        return token!
+      })
+      .catch((err) => {
+        initPromise = null
+        throw err
+      })
+  }
+
+  return initPromise!
 }

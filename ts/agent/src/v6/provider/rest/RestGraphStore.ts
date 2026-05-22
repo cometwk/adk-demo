@@ -93,7 +93,7 @@ export class RestGraphStore implements GraphStore {
     return rows.map((row) => this.rowToNodeData(type, row))
   }
 
-  protected rowToNodeData(type: RestEntityType, row: Record<string, unknown>): NodeData {
+  protected rowToNodeData(type: RestEntityType, row: Record<string, unknown>, fields?: string[]): NodeData {
     let rawId = String(row.id ?? '')
     if (this.idGenerator) {
       rawId = this.idGenerator(type, row)
@@ -102,7 +102,11 @@ export class RestGraphStore implements GraphStore {
     return {
       id: toGlobalId(type, rawId),
       type,
-      properties: rest,
+      // 由于目前的rest crud 只能返回全部字段，临时在前端过滤字段，后续需要后端支持
+      properties: fields ? fields.reduce((acc, field) => {
+        acc[field] = row[field]
+        return acc
+      }, {} as Record<string, unknown>) : rest,
     }
   }
 
@@ -159,7 +163,7 @@ export class RestGraphStore implements GraphStore {
     const page = await apiSearchSafe<Record<string, unknown>>(prefix, params)
 
     return {
-      items: page.items.map((row: Record<string, unknown>) => this.rowToNodeData(type, row)),
+      items: page.items.map((row: Record<string, unknown>) => this.rowToNodeData(type, row, opts.fields)),
       page: page.page,
     }
   }
@@ -251,7 +255,7 @@ export class RestGraphStore implements GraphStore {
   ): Promise<Paginated<NeighborData>> {
     const searchPrefix = this.ctx.typeRegistry[binding.searchOn]?.prefix
     const page = await apiSearchSafe<Record<string, unknown>>(searchPrefix, searchParams)
-    const nodes = page.items.map((row) => this.rowToNodeData(binding.toType, row))
+    const nodes = page.items.map((row) => this.rowToNodeData(binding.toType, row, opts.fields))
     return neighborsFromNodes(nodes, binding.relation, binding.direction, opts, page.page)
   }
 }

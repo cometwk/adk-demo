@@ -28,6 +28,7 @@ import { MessageActions } from "./message-actions";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
+import { Separator } from "../ui/separator";
 
 const PurePreviewMessage = ({
   addToolApprovalResponse,
@@ -109,10 +110,16 @@ const PurePreviewMessage = ({
     const key = `message-${message.id}-part-${index}`;
 
     // 新方案：每个 reasoning part 独立显示
-    if (type === "reasoning" && "text" in part && part.text?.trim().length > 0) {
+    if (
+      type === "reasoning" &&
+      "text" in part &&
+      part.text?.trim().length > 0
+    ) {
       return (
         <MessageReasoning
-          isLoading={isLoading || ("state" in part && part.state === "streaming")}
+          isLoading={
+            isLoading || ("state" in part && part.state === "streaming")
+          }
           key={key}
           reasoning={part.text}
         />
@@ -444,9 +451,9 @@ function ToolOutputCollapsible({
         <div className="flex items-center gap-1 min-w-0">
           <span className="font-medium text-foreground">{name}</span>
           <span className="text-muted-foreground"> (</span>
-          <span className="text-muted-foreground text-xs truncate">
+          {/* <span className="text-muted-foreground text-xs truncate">
             {JSON.stringify(input)}
-          </span>
+          </span> */}
           <span className="text-muted-foreground">)</span>
         </div>
         <ChevronDownIcon
@@ -457,6 +464,10 @@ function ToolOutputCollapsible({
         />
       </CollapsibleTrigger>
       <CollapsibleContent>
+        <pre className="mx-3 mb-2 p-2 rounded bg-background/50 overflow-x-auto text-xs font-mono">
+          {JSON.stringify(input, null, 2)}
+        </pre>
+        <Separator className="my-2" />
         <pre className="mx-3 mb-2 p-2 rounded bg-background/50 overflow-x-auto text-xs font-mono">
           {JSON.stringify(output, null, 2)}
         </pre>

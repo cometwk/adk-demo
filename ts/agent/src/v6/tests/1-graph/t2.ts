@@ -1,6 +1,6 @@
 import { createInterface } from 'readline'
 import { ModelMessage } from 'ai'
-import { setInitToken } from '../../provider/rest'
+import { initToken } from '../../provider/rest'
 import { newAgentContext, S0, syncPredictiveAgent } from './use-case'
 
 function readLine(prompt: string): Promise<string> {
@@ -16,8 +16,8 @@ function readLine(prompt: string): Promise<string> {
   })
 }
 
-await setInitToken()
-console.log('jusetInitToken success')
+// await initToken()
+// console.log('jusetInitToken success')
 
 const testS0 = newAgentContext({
   taskId: 'S0',
@@ -26,12 +26,16 @@ const testS0 = newAgentContext({
 })
 
 async function main() {
+
   let messages: ModelMessage[] = []
 
   let chatInput = ''
+  chatInput = '哪些代理商进件的商户, 本月没有发生交易？'
 
   while (true) {
-    chatInput = await readLine('请输入问题: ')
+    if (chatInput.trim() === '') {
+      chatInput = await readLine('请输入问题: ')
+    }
     if (chatInput === 'exit' || chatInput === 'q') {
       break
     }
@@ -40,6 +44,7 @@ async function main() {
     }
 
     await syncPredictiveAgent(testS0, chatInput, messages)
+    chatInput = ''
 
     console.log('over: =================================')
     // console.log(messages)

@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { setInitToken } from '../../provider/rest'
+import { initToken } from '../../provider/rest'
 import { newAgentContext } from './helper'
 
 describe('just test', () => {
   beforeAll(async () => {
-    await setInitToken()
+    await initToken()
     console.log('jusetInitToken success')
   })
 
@@ -26,6 +26,6 @@ describe('just test', () => {
       { toolCallId: 'search_nodes', messages: [] }
     )
     console.log('search_nodes result =================================')
-    console.log(r)
+    console.log(JSON.stringify(r, null, 2))
   })
 })

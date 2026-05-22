@@ -221,22 +221,15 @@ export async function createChatFromUserText({
   const messageId = generateUUID();
 
   // // Create UIMessage from user text
-  const titleMessage: UIMessage = {
-    id: messageId,
-    role: "user",
-    parts: [{ type: "text", text: text.trim() }],
-  };
+  // const titleMessage: UIMessage = {
+  //   id: messageId,
+  //   role: "user",
+  //   parts: [{ type: "text", text: text.trim() }],
+  // };
 
   // Generate title from user message
   // const title = await generateTitleFromUserMessage({ message: titleMessage });
   const title = chatId;
-
-  // const x = JSON.stringify({
-  //   taskId: "S1",
-  //   goal: "评估小红是否能借阅《人类简史》",
-  //   entryEntities: ["xiao_hong", "book_sapiens"],
-  // });
-  // const m = parseAgentInput({ text: x, chatId });
   const m = parseAgentInput({ text: text.trim(), chatId });
   if (true) {
     // console.log("ctx", m);
