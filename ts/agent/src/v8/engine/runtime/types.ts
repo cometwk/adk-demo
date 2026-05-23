@@ -41,6 +41,8 @@ export type ErrorCode =
   | 'INTERNAL_ERROR'
   | 'POLICY_DENIED'
   | 'TRUNCATED'
+  | 'METHOD_NOT_FOUND'
+  | 'PRECONDITION_FAILED'
 
 export type ToolResultSuccess<T = unknown> = {
   ok: true
