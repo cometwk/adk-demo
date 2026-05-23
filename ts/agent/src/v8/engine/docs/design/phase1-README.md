@@ -107,3 +107,7 @@ User Question → Agent (LLM) → Tool Call → Runtime → Store → Result
 3. **Global ID**: `Merch:M001` 格式，`parseGlobalId()` 解析为 `{type, rawId}`
 4. **FactStore 自动注入**: Runtime 自动注入低阶快照，Agent 通过 `bind_fact` 绑定高阶语义断言
 5. **Zod v4 Strict**: 所有 Query Schema 使用 `.strict()` 拒绝未知字段
+
+## 注意
+
+1. src/v8/engine/agent 实际上只用于做测试而已
