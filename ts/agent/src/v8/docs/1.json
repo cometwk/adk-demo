@@ -1,0 +1,653 @@
+{
+  "model": "glm-5.1",
+  "temperature": 0,
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个结构化决策支持 Agent，当前模式：Predictive（前向推断）。\n\nOntology 版本：1.0.0\n\n# Ontology 类型摘要\n  Agent: 代理商；parent_id 为直接上级，层级全貌见 AgentClosure\n    属性: id(分布式雪花ID), created_at(创建时间), updated_at(更新时间), agent_no(代理商编号), name(代理商名称), contact_name(联系人姓名), contact_phone(联系人手机号), disabled(是否禁用：0 否，1 是), rate(备注费率（十万分比）), notify(是否发送进件通知), parent_id(直接父节点 id), sort(同级排序（数值越小越靠前）)\n    方法: 无\n  Merch: 商户主表\n    属性: id(分布式雪花ID), created_at(创建时间), updated_at(更新时间), merch_no(商户编号), name(商户名称), rate(签约费率（十万分比）), apply_date(进件日期), disabled(是否禁用), contact_name(联系人姓名), contact_phone(联系人手机号), address(商户地址), chan_merch_id(当前机构商户 ID), chan_merch_no(机构商户编号), chan_merch_name(机构商户名称), api_key(商户 API 密钥), remark(备注)\n    方法: 无\n  Apply: 商户进件申请；成功后关联 merch\n    属性: id(分布式雪花ID), created_at(创建时间), updated_at(更新时间), agent_no(代理商编号), apply_no(平台进件单号), merch_no(商户编号（成功后）), merch_name(商户名称（申请时录入）), status(申请状态：0-INIT,1-PENDING,2-SUCCESS,3-FAIL), rate(签约费率（十万分比）), branch_id(网点 ID), status_reason(申请状态原因说明), chan_merch_id(机构商户 ID（申请成功后分配）), chan_merch_no(机构商户号), chan_merch_name(机构商户名称), contact_name(联系人姓名), contact_phone(联系人手机号), notify(通知状态：1-PENDING, 2-SUCCESS, 3-FAIL), notify_reason(通知状态原因说明)\n    方法: 无\n  AgentRel: 代理商与商户/通道的绑定关系；rate 参与分润计算\n    属性: id(分布式雪花ID), created_at(创建时间), updated_at(更新时间), agent_no(代理商编号), agent_type(代理类型：MERCH | CHAN), obj_no(对象编号（商户号或通道号）), rate(分润比例（十万分比，参与计算）), apply(进件人标志：1 表示该代理为进件人), obj_name(对象名称（商户名称或通道名称）), mode(分润模式：1-PERCENT(百分比), 2-FIXED(十万分比)), rate_value(用户设置的费率值，不参与计算)\n    方法: 无\n  AgentClosure: 代理商层级闭包表（ancestor → descendant）\n    属性: id(分布式雪花ID), ancestor_id(祖先节点 id), descendant_id(后代节点 id), depth(层级深度)\n    方法: 无\n  OrderDaily: 商户日交易统计（导入）\n    属性: id(分布式雪花ID), created_at(创建时间), updated_at(更新时间), report_date(结算日期), merch_no(商户编号), total_count(总订单数), total_amount(总交易额（分）), chan_no(通道编号), chan_merch_no(通道机构商户号)\n    方法: 无\n  ProfitDaily: 代理商日分润统计\n    属性: id(分布式雪花ID), created_at(创建时间), updated_at(更新时间), stat_date(统计日期), agent_no(代理商编号), net_profit(当日净分润（分）), own_net_profit(自己进件商户的净分润), status(结算状态), agent_type(代理类型：MERCH / CHAN), rate(分润比例（十万分比）), total_trade_amt(当日交易总金额（分）), order_cnt(当日成功订单数), total_profit(当日分润总收入（分）), total_refund_amt(当日退款总金额（分）), refund_cnt(当日退款笔数), total_refund_deduct(当日退款需扣除的分润（分）), own_trade_amt(自己进件商户的交易金额（分）), own_order_cnt(自己进件商户的订单数), own_profit(自己进件商户的分润收入（分）), own_refund_amt(自己进件商户的退款金额（分）), own_refund_cnt(自己进件商户的退款笔数), own_refund_deduct(自己进件商户的退款扣除分润（分）), profit_settle_id(关联的结算记录 ID)\n    方法: 无\n\n# Ontology 关系摘要\n  Agent --parent--> Agent: 上级代理商（本节点的 parent_id 指向该代理商）\n  Agent --children--> Agent: 直接下级代理商（parent_id 指向本节点）\n  Agent --descendant_of--> Agent: 所有下级代理商（经 agent_closure 闭包）\n  Agent --ancestor_of--> Agent: 所有上级代理商（经 agent_closure 闭包）\n  Agent --binds_merch--> Merch: 代理绑定的商户（agent_rel, agent_type=MERCH）\n  Agent --submitted_apply--> Apply: 该代理商发起的进件申请\n  Agent --has_profit_daily--> ProfitDaily: 代理商日分润统计\n  Merch --bound_by--> Agent: 绑定该商户的代理商（agent_rel）\n  Merch --created_from--> Apply: 进件申请记录（apply.merch_no）\n  Merch --has_order_daily--> OrderDaily: 商户日交易统计\n  Apply --submitted_by--> Agent: 发起进件的代理商（agent_no）\n  Apply --creates--> Merch: 申请成功后创建的商户（merch_no）\n  AgentRel --for_agent--> Agent: 关系所属代理商\n  AgentRel --for_merch--> Merch: 绑定的商户（agent_type=MERCH 时）\n  AgentClosure --ancestor--> Agent: 祖先代理商\n  AgentClosure --descendant--> Agent: 后代代理商\n  OrderDaily --for_merch--> Merch: 统计所属商户\n  ProfitDaily --for_agent--> Agent: 分润所属代理商\n\n# 规则集摘要（共 0 条）\n\n\n# 操作规则（严格遵守）\n\n## 事实收集\n1. 每次读取节点属性或调用方法后，立即 bind_fact 将值写入 FactStore。\n2. 在调用 call_method 之前，先 lookup_fact 确认所有参数已绑定，且值来自真实读取。\n3. 数值参数严禁传 0——除非你已通过 lookup_fact 确认该属性的实际值就是 0。\n\n## 候选与证据\n4. 第一步调用 propose_candidates 声明候选答案（如 HIGH / MEDIUM / LOW）。\n5. 收集到支持某候选的证据时，调用 record_evidence 并关联对应候选。\n6. 不确定的信号调用 declare_uncertainty 记录。\n\n## 评分边界\n7. 你不负责计算最终分数，也不需要知道规则权重的数值。\n8. 你的职责是把 FactStore 填满，让 Critic 有完整数据进行 MCDA 评分。\n9. 如需查看规则是否触发，使用 evaluate_rule；不要自行推断分数。\n\n## 因果与假设\n10. 如有反事实想法（\"如果 alice 工作量减少\"），调用 simulate(mode:\"what_if\") 生成 offer，不要自己计算结论。\n\n# 输出格式\n在完成事实收集和证据记录后，用以下 JSON 结构给出你的最终判断：\n\n```json\n{\n  \"modelVerdict\": {\n    \"recommendedCandidateId\": \"<candidate_id>\",\n    \"confidence\": 0.0–1.0,\n    \"rationale\": \"一段精简的推理过程\",\n    \"citedEvidenceIds\": [\"ev_1\", \"ev_2\"],\n    \"citedRuleIds\": [\"rule_id_1\"]\n  }\n}\n```\n\n严禁在此 JSON 之外给出风险评级——等待 Critic 和 Reconciler 完成最终裁定。"
+    },
+    {
+      "role": "user",
+      "content": "哪些代理商进件的商户, 本月没有发生交易？"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "inspect_node",
+        "description": "检查图节点。字段：type, properties, edgeSummary（边数量摘要）, methods。edgeSummary 只返回各关系类型的 count，不返回全部邻居 ID；需要邻居详情请用 query_neighbors。可选 `at` (ISO 8601) 用于时间旅行：如果提供且 FactStore 可用，绑定的事实将覆盖图属性。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "nodeId": {
+              "type": "string",
+              "description": "要检查的节点 ID"
+            },
+            "fields": {
+              "description": "要返回的特定字段。省略则返回所有字段",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["type", "properties", "edgeSummary", "methods"]
+              }
+            },
+            "at": {
+              "description": "ISO 8601 时间戳用于时间旅行（诊断模式）",
+              "type": "string"
+            }
+          },
+          "required": ["nodeId"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query_neighbors",
+        "description": "查询节点的邻居，可选按关系、方向、类型、属性条件过滤；可用 fields 直接带回邻居属性，避免多次 inspect_node。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "nodeId": {
+              "type": "string",
+              "description": "起始节点 ID"
+            },
+            "relation": {
+              "type": "string",
+              "description": "边关系类型（必填，如 borrows、registered_at）"
+            },
+            "direction": {
+              "description": "边方向过滤，默认 both",
+              "type": "string",
+              "enum": ["out", "in", "both"]
+            },
+            "targetType": {
+              "description": "按邻居节点类型名称过滤",
+              "type": "string"
+            },
+            "where": {
+              "description": "邻居节点属性过滤（AND）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "property": {
+                    "type": "string",
+                    "description": "属性名称"
+                  },
+                  "op": {
+                    "type": "string",
+                    "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "contains", "in"],
+                    "description": "比较操作符：eq/ne/gt/gte/lt/lte/contains/in"
+                  },
+                  "value": {
+                    "description": "比较值；\"in\" 操作符时传数组"
+                  }
+                },
+                "required": ["property", "op", "value"],
+                "additionalProperties": false
+              }
+            },
+            "fields": {
+              "description": "要返回的邻居属性；提供时结果含 properties",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "limit": {
+              "description": "每页最大结果数，默认 20",
+              "type": "number"
+            },
+            "offset": {
+              "description": "分页偏移量",
+              "type": "number"
+            }
+          },
+          "required": ["nodeId", "relation"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_nodes",
+        "description": "按类型 + 属性条件搜索节点。type 必填。可用 fields 直接带回属性，避免多次 inspect_node。多跳复杂查询请用 graph_query。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "节点类型（必填，如 Reader、Book）"
+            },
+            "where": {
+              "description": "属性过滤条件（AND）",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "property": {
+                    "type": "string",
+                    "description": "属性名称"
+                  },
+                  "op": {
+                    "type": "string",
+                    "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "contains", "in"],
+                    "description": "比较操作符：eq/ne/gt/gte/lt/lte/contains/in"
+                  },
+                  "value": {
+                    "description": "比较值；\"in\" 操作符时传数组"
+                  }
+                },
+                "required": ["property", "op", "value"],
+                "additionalProperties": false
+              }
+            },
+            "fields": {
+              "description": "要返回的属性；提供时结果含 properties",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "limit": {
+              "description": "每页最大结果数，默认 20",
+              "type": "number"
+            },
+            "offset": {
+              "description": "分页偏移量",
+              "type": "number"
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "graph_query",
+        "description": "声明式图查询。用 JSON 表达多跳遍历 + 属性过滤 + 聚合，一次 tool call 完成复杂查询。适用场景：①需要 2+ 跳关系遍历；②批量属性过滤；③聚合统计。简单的单节点/邻居探索仍建议用 inspect_node / query_neighbors / search_nodes（开销更低）。查询结构：match（起点选择）→ traverse[]（多步边遍历）→ return（输出控制）。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "match": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "起点实体类型名（如 \"Reader\", \"Book\"）"
+                },
+                "where": {
+                  "description": "属性过滤条件（AND 逻辑）",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "property": {
+                        "type": "string",
+                        "description": "属性名称"
+                      },
+                      "op": {
+                        "type": "string",
+                        "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "contains", "in"],
+                        "description": "比较操作符：eq/ne/gt/gte/lt/lte/contains/in"
+                      },
+                      "value": {
+                        "description": "比较值；\"in\" 操作符时传数组"
+                      }
+                    },
+                    "required": ["property", "op", "value"],
+                    "additionalProperties": false
+                  }
+                },
+                "alias": {
+                  "description": "此阶段节点集的别名，默认 \"_start\"",
+                  "type": "string"
+                }
+              },
+              "required": ["type"],
+              "description": "起点选择，定义查询的入口实体集合",
+              "additionalProperties": false
+            },
+            "traverse": {
+              "description": "多步边遍历，每步可加过滤和存在性断言",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "description": "从哪个 alias 出发；省略则沿用前一步",
+                    "type": "string"
+                  },
+                  "relation": {
+                    "type": "string",
+                    "description": "边类型（如 \"borrows\", \"managed_by\"）"
+                  },
+                  "direction": {
+                    "description": "边方向，默认 out",
+                    "type": "string",
+                    "enum": ["out", "in", "both"]
+                  },
+                  "targetType": {
+                    "description": "目标节点类型过滤",
+                    "type": "string"
+                  },
+                  "where": {
+                    "description": "目标节点属性过滤条件（AND 逻辑）",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "property": {
+                          "type": "string",
+                          "description": "属性名称"
+                        },
+                        "op": {
+                          "type": "string",
+                          "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "contains", "in"],
+                          "description": "比较操作符：eq/ne/gt/gte/lt/lte/contains/in"
+                        },
+                        "value": {
+                          "description": "比较值；\"in\" 操作符时传数组"
+                        }
+                      },
+                      "required": ["property", "op", "value"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "alias": {
+                    "description": "此步结果集的别名，供后续步骤引用",
+                    "type": "string"
+                  },
+                  "require": {
+                    "description": "\"exists\": 源节点必须至少有一个满足条件的目标（否则从源集合中剔除）；\"none\": 源节点必须没有满足条件的目标（反向过滤）",
+                    "type": "string",
+                    "enum": ["exists", "none"]
+                  }
+                },
+                "required": ["relation"],
+                "additionalProperties": false
+              }
+            },
+            "return": {
+              "description": "输出控制，含投影、分页、聚合",
+              "type": "object",
+              "properties": {
+                "alias": {
+                  "description": "返回哪个 alias 的节点集；省略则返回最后一步",
+                  "type": "string"
+                },
+                "fields": {
+                  "description": "投影属性列表；省略则返回全部属性",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "limit": {
+                  "description": "分页大小，默认 50，最大 200",
+                  "type": "number"
+                },
+                "offset": {
+                  "description": "分页偏移量",
+                  "type": "number"
+                },
+                "aggregate": {
+                  "description": "聚合模式；提供此字段时 fields 和分页仍可用于 groupBy",
+                  "type": "object",
+                  "properties": {
+                    "groupBy": {
+                      "description": "按此属性分组；省略则全量聚合",
+                      "type": "string"
+                    },
+                    "metrics": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "description": "聚合字段名，\"*\" 表示计数"
+                          },
+                          "fn": {
+                            "type": "string",
+                            "enum": ["count", "sum", "avg", "min", "max"],
+                            "description": "聚合函数"
+                          },
+                          "as": {
+                            "description": "输出字段别名",
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "fn"],
+                        "additionalProperties": false
+                      },
+                      "description": "聚合指标列表"
+                    }
+                  },
+                  "required": ["metrics"],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["match"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "describe_method",
+        "description": "获取方法的完整模式：参数、返回值、描述、所需事实和相关规则。在调用不熟悉的方法之前，务必先调用此方法。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "nodeId": {
+              "type": "string",
+              "description": "拥有该方法的节点"
+            },
+            "method": {
+              "type": "string",
+              "description": "要描述的方法名称"
+            }
+          },
+          "required": ["nodeId", "method"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "call_method",
+        "description": "调用图节点上的已注册方法。以命名键值对形式传递参数。重要：在调用之前，从 FactStore (lookup_fact) 或 inspect_node 获取所有参数值 —— 切勿为尚未获取的数值参数传递 0。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "nodeId": {
+              "type": "string",
+              "description": "要调用方法的节点"
+            },
+            "method": {
+              "type": "string",
+              "description": "方法名称"
+            },
+            "args": {
+              "default": {},
+              "description": "参数为 { paramName: value }",
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["nodeId", "method"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bind_fact",
+        "description": "将实体属性值记录到 FactStore 中。在从 inspect_node 或 call_method 读取属性后立即调用此方法。这是权威记录；不要在没有绑定的情况下假设值。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "entityId": {
+              "type": "string",
+              "description": "属性所属的实体 ID"
+            },
+            "property": {
+              "type": "string",
+              "description": "属性名称（如 'workload', 'seniority'）"
+            },
+            "value": {
+              "description": "属性值"
+            },
+            "sourceKind": {
+              "default": "graph_property",
+              "description": "该值的来源类型",
+              "type": "string",
+              "enum": ["graph_property", "method_result", "aggregation", "user_input", "derived"]
+            },
+            "sourceRef": {
+              "description": "可选引用（evidenceId, nodeId）",
+              "type": "string"
+            },
+            "confidence": {
+              "default": 0.9,
+              "description": "置信度 0..1；直接读取默认为 0.9",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "validFrom": {
+              "description": "ISO 8601: 该值开始生效的时间（默认为当前时间）",
+              "type": "string"
+            },
+            "validUntil": {
+              "description": "ISO 8601: 该值失效的时间",
+              "type": "string"
+            }
+          },
+          "required": ["entityId", "property", "value"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "lookup_fact",
+        "description": "查询实体属性的已绑定事实值。在将值传递给 call_method 之前调用此方法，以避免盲零错误。如果事实尚未绑定，返回 null。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "entityId": {
+              "type": "string",
+              "description": "实体 ID"
+            },
+            "property": {
+              "type": "string",
+              "description": "属性名称"
+            }
+          },
+          "required": ["entityId", "property"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "aggregate_facts",
+        "description": "对多个实体的属性绑定事实进行聚合计算。支持操作：sum, avg, count, min, max。聚合后使用 bind_fact 绑定结果。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "entityIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "要聚合的实体 ID"
+            },
+            "property": {
+              "type": "string",
+              "description": "要聚合的属性"
+            },
+            "operation": {
+              "type": "string",
+              "enum": ["sum", "avg", "count", "min", "max"],
+              "description": "聚合操作"
+            }
+          },
+          "required": ["entityIds", "property", "operation"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "propose_candidates",
+        "description": "为决策提出互斥的候选答案。必须在记录证据之前调用一次（或更新）。示例: [{label:'HIGH',description:'...'}, {label:'MEDIUM',...}, {label:'LOW',...}]",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "candidates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "简短的答案标签（如 HIGH, MEDIUM, LOW）"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "对该候选的一句话解释"
+                  }
+                },
+                "required": ["label", "description"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["candidates"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "record_evidence",
+        "description": "记录一条证据并将其关联到一个或多个候选答案。基础置信度由来源类型决定；你可以应用 {-0.2, 0, +0.2} 范围内的修正值。请引用与该证据相关的规则 ID。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "sourceKind": {
+              "type": "string",
+              "enum": ["property", "method_result", "rule_evaluation", "aggregation", "event", "causal_path"],
+              "description": "证据来源类型"
+            },
+            "entityIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "该证据涉及的实体 ID"
+            },
+            "relatedRuleIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "该证据相关的规则 ID"
+            },
+            "content": {
+              "type": "string",
+              "description": "证据的人类可读描述"
+            },
+            "baseConfidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "基础置信度 0..1"
+            },
+            "confidenceModifier": {
+              "default": 0,
+              "description": "LLM 修正值 ∈ {-0.2, 0, +0.2}",
+              "type": "number",
+              "minimum": -0.2,
+              "maximum": 0.2
+            },
+            "supportsCandidateIds": {
+              "default": [],
+              "description": "该证据支持的候选 ID",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["sourceKind", "entityIds", "relatedRuleIds", "content", "baseConfidence"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_workspace",
+        "description": "列出当前工作区状态：候选、证据和不确定性。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "declare_uncertainty",
+        "description": "记录已知的不确定性 —— 缺失的事实或模糊的信号会影响置信度。系统会在最终响应中展示未解决的不确定性。",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "不确定的内容"
+            },
+            "impact": {
+              "type": "string",
+              "enum": ["low", "medium", "high"],
+              "description": "该不确定性对决策的影响程度"
+            },
+            "missingFacts": {
+              "default": [],
+              "description": "缺失的属性名称",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "nextQuery": {
+              "description": "建议的后续查询以解决此不确定性",
+              "type": "string"
+            }
+          },
+          "required": ["description", "impact"],
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
