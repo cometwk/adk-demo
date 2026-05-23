@@ -8,7 +8,7 @@
 > - BaseNode（节点基类 + 方法执行载体）
 > - Ontology Builder（本体构建）
 > - RelationBinding + Validation（关系类型到物理存储映射与校验）
-> - Ontology Tools（inspect_schema）
+> - Ontology Tools（inspect_schema）与 Method Tools（describe_method, call_method）
 > - System Prompt 集成
 >
 > 不包含：GraphStore 相关内容（已实现于 engine）、Rule 规则相关内容（待后续处理）。
@@ -37,7 +37,7 @@
 | 维度 | V6 | V8 |
 |------|----|----|
 | BaseNode 与 Store 关系 | WeakMap 持有 Store 引用 | 通过 NodeInstanceContainer 接口解耦 |
-| Registry 生命周期 | 全局静态，测试需手动 clear | 保留全局静态，增加 resetAll() 便捷方法 |
+| Registry 生命周期 | 全局静态，测试需手动 clear | 保留全局静态，提供 `AgentRegistry.clear()` 进行便捷清理 |
 | RelationBinding 位置 | `ontology/relation-binding.ts` | 保留在 ontology 模块 |
 | Ontology Tools | `inspect_schema` 仅查询 | 增强为 V8 tool 体系，支持 policy 过滤 |
 | System Prompt | 手动拼接 | 提供 `buildOntologyPrompt()` 统一构建 |
@@ -179,7 +179,7 @@ export class AgentPropertyRegistry {
   static register(className: string, propertyName: string, schema: PropertySchema): void
   static get(className: string, propertyName: string): PropertySchema | undefined
 
-  /** 获取类的属性，包含基类 BaseNode 的 id 属性 */
+  /** 获取类的属性，支持递归查询继承链，并包含基类 BaseNode 的 id 属性 */
   static getPropertiesForClass(className: string): PropertySchema[]
 
   static has(className: string, propertyName: string): boolean
@@ -221,6 +221,7 @@ export class AgentMethodRegistry {
 
   static register(className: string, methodName: string, schema: MethodSchema): void
   static get(className: string, methodName: string): MethodSchema | undefined
+  /** 获取类的方法，支持递归查询继承链 */
   static getMethodsForClass(className: string): MethodSchema[]
   static has(className: string, methodName: string): boolean
   static clear(): void
@@ -248,7 +249,7 @@ export class AgentRelationRegistry {
   static getRelationsForToType(toType: string): RelationRegistryEntry[]
 
   /** 获取所有已注册的 RelationSchema */
-  static getAllRelationSchemas(): RelationSchema[]
+  static getRelationSchemas(): RelationSchema[]
 
   static clear(): void
   static all(): RelationRegistryEntry[][]
@@ -292,10 +293,13 @@ export const AgentRegistry = {
 
 ```typescript
 export type TypeSchemaConfig = {
+  name?: string             // 显式实体类型名（可选，提供此项以防止混淆/压缩后 constructor.name 失效）
   description: string
 }
 
 export function agentType(config: TypeSchemaConfig): ClassDecorator
+
+// 注：装饰器内部逻辑除了注册外，需在 prototype 上写入 agentTypeName 属性（target.prototype.agentTypeName = config.name || target.name），供后续通过 node.agentTypeName 稳定读取实体类型，避免混淆导致 runtime 反射失败。
 ```
 
 ### 4.3 @agentProperty
@@ -436,6 +440,8 @@ buildOntology()
   ├── AgentRegistry.getRegisteredClasses() → 遍历每个类
   │   └── AgentRegistry.getTypeSchema()   → 组装 TypeSchema
   │
+  ├── validateOntology(ontology)          → [新增] 跨引用校验：确保 relations 里的 fromType/toType 属于已注册 types，防止 typo
+  │
   └── 返回 Ontology { version, types, relations }
 ```
 
@@ -515,13 +521,22 @@ export function validateRelationBindings(
   relations: RelationSchema[],
   bindings: RelationBindingMap,
 ): void
+
+/** 校验 Ontology 本身的一致性，防止 Schema 级别的 typo 引发 runtime 崩溃 */
+export function validateOntology(ontology: Ontology): void
 ```
 
 校验规则：
 
+**validateRelationBindings：**
 1. 每个 `RelationSchema.type` 在 `RelationBindingMap` 中必须有对应 binding
-2. `RelationBindingMap` 中不应存在 `RelationSchema` 未声明的孤立 binding
+2. `RelationBindingMap` 中不应存在 `RelationSchema` 未声明 of 孤立 binding
 3. 不满足时抛出 Error，列出缺失/孤立的条目
+
+**validateOntology（[新增] 跨引用校验）：**
+1. 确保所有的 `RelationSchema.fromType` 均在 `ontology.types` 的 `name` 列表中存在注册
+2. 确保所有的 `RelationSchema.toType` 均在 `ontology.types` 的 `name` 列表中存在注册
+3. 若检测到关系指向了未定义的实体类型，立即抛出明确的 Error（列出有问题的 type），防止 typo 或 domain 导入顺序不全导致 runtime 查询故障
 
 ### 7.4 与 V6 的变化
 
@@ -611,7 +626,7 @@ export function createMethodTools(
       const node = await container.getBaseNode(nodeId)
       if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
 
-      const className = node.constructor.name
+      const className = (node as any).agentTypeName || node.constructor.name
       const schema = AgentMethodRegistry.get(className, method)
       if (!schema) {
         const available = AgentMethodRegistry.getMethodsForClass(className).map((m) => m.methodName)
@@ -662,7 +677,7 @@ export function createMethodTools(
       if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
 
       // 查找方法 Schema
-      const className = node.constructor.name
+      const className = (node as any).agentTypeName || node.constructor.name
       const schema = AgentMethodRegistry.get(className, method)
       if (!schema) {
         const available = AgentMethodRegistry.getMethodsForClass(className).map((m) => m.methodName)
@@ -674,7 +689,7 @@ export function createMethodTools(
       // 前置条件校验
       const preconditionError = assertPreconditions(nodeId, method, args, facts)
       if (preconditionError) {
-        return toolErr('PRECONDITION_FAILED', preconditionError, { retryable: false })
+        return toolErr('PRECONDITION_FAILED', preconditionError, { retryable: true })
       }
 
       // 参数 Zod 校验
@@ -716,7 +731,7 @@ function schemaToJsonSchema(schema: z.ZodType<unknown>): Record<string, unknown>
   return {}
 }
 
-/** 前置条件断言：防止 Agent 对未获取的参数传入 0 */
+/** 前置条件断言：防止 Agent 对未获取的参数传入 0，并执行声明的 MethodPrecondition 检查 */
 function assertPreconditions(
   nodeId: string,
   methodName: string,
@@ -726,6 +741,7 @@ function assertPreconditions(
   const node_facts = facts.forEntity(nodeId)
   const factsByProperty = new Map(node_facts.map((f) => [f.property, f.value]))
 
+  // 1. 0 默认值安全防护
   for (const [paramName, paramValue] of Object.entries(args)) {
     if (paramValue === 0) {
       const bound = factsByProperty.get(paramName)
@@ -745,6 +761,9 @@ function assertPreconditions(
       }
     }
   }
+
+  // 2. MethodPrecondition 校验执行（从 Registry 查找该方法已注册的 preconditions 并遍历校验：
+  // 'must_be_positive' | 'must_be_non_empty_string' | 'must_be_in_facts'，不满足则返回对应 Precondition failed 错误提示）
 
   return null
 }
@@ -775,7 +794,7 @@ function assertPreconditions(
 export function buildOntologyPrompt(ontology: Ontology): string {
   const typeLines = ontology.types.map((t) => {
     const props = t.properties
-      .filter((p) => p.agentVisible !== false)
+      .filter((p) => p.agentVisible !== false && p.sensitive !== true)
       .map((p) => `    ${p.name}: ${p.type} — ${p.description}`)
       .join('\n')
     const methods = t.methods
@@ -843,8 +862,9 @@ tools.ts     ──→ schema.ts
               ──→ engine/runtime/types.ts (ToolResult)
 
 method-tools.ts ──→ registry.ts
-                 ──→ base-node.ts (BaseNode)
-                 ──→ engine/runtime/types.ts (ToolResult, NodeInstanceContainer, FactStore)
+                 ──→ base-node.ts (BaseNode, NodeInstanceContainer)
+                 ──→ engine/runtime/types.ts (ToolResult)
+                 ──→ engine/stores/fact-store.ts (FactStore)
                  ──→ policy/context.ts (PolicyContext)
                  ──→ policy/filters.ts (checkEntityAccess)
 
