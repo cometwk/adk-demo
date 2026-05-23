@@ -395,16 +395,18 @@ export abstract class BaseNode {
 
 ### 5.4 NodeInstanceContainer 与 BaseNode 的关系
 
-V8 Engine 已定义 `NodeInstanceContainer` 接口：
+`NodeInstanceContainer` 在 ontology 模块内定义，作为行为层（Layer 3）获取 BaseNode 实例的标准接口：
 
 ```typescript
-// src/v8/engine/stores/graph-store.ts（已实现）
+// src/v8/ontology/base-node.ts
 export interface NodeInstanceContainer {
-  getBaseNode(id: string): BaseNode | undefined
+  getBaseNode(id: string): Promise<BaseNode | undefined>
 }
 ```
 
-BaseNode 实例由 `InMemoryGraphStore`（或未来的 `SqlNodeContainer`）管理，通过 `NodeInstanceContainer` 接口提供给 `call_method` 工具。BaseNode 自身不再感知其容器。
+- 异步化：`getBaseNode` 返回 `Promise<BaseNode | undefined>`，适配未来从 SQL/REST 等远程数据源动态恢复 BaseNode 实例的场景
+- BaseNode 实例由 `InMemoryGraphStore`（或未来的 `SqlNodeContainer`）实现该接口，提供给 `call_method` / `describe_method` 工具
+- BaseNode 自身不再感知其容器（V6 的 WeakMap 模式废弃）
 
 ---
 
@@ -527,13 +529,20 @@ export function validateRelationBindings(
 
 ---
 
-## 8. Ontology Tools
+## 8. Tools
+
+本模块提供两类工具：
+
+- **Ontology Tools** — 本体 Schema 查询（Layer 1）
+- **Method Tools** — 行为层方法执行（Layer 3 桥接）
 
 ### 8.1 工具列表
 
-| 工具 | 职责 |
-|------|------|
-| `inspect_schema` | 查询本体的类型和关系 Schema |
+| 工具 | 职责 | 依赖 |
+|------|------|------|
+| `inspect_schema` | 查询本体的类型和关系 Schema | Ontology |
+| `describe_method` | 获取节点方法的完整 Schema（参数、返回值、前置条件） | NodeInstanceContainer + AgentMethodRegistry |
+| `call_method` | 调用节点上的已注册业务方法 | NodeInstanceContainer + AgentMethodRegistry + FactStore + PolicyContext |
 
 ### 8.2 inspect_schema
 
@@ -575,21 +584,185 @@ export function createOntologyTools(ontology: Ontology) {
 }
 ```
 
-### 8.3 与 V8 Tool 体系的集成
+### 8.3 describe_method
 
-`inspect_schema` 工具不经过 `RuntimeOrchestrator` 路由，直接读取 `Ontology` 对象（纯内存，无 Store 交互）。
-
-但若需 Policy 过滤（如隐藏敏感类型），可在 `execute` 中加入 Policy 检查：
+获取节点方法的完整 Schema：参数 JSON Schema、返回值类型、描述、所需事实、相关规则、前置条件。Agent 在调用不熟悉的方法之前应先调用此工具。
 
 ```typescript
-execute: async ({ typeName }, { policy }) => {
-  // 可选：Policy 过滤
-  if (typeName && !isTypeAllowed(typeName, policy)) {
-    return toolErr('POLICY_DENIED', `类型 '${typeName}' 不在允许范围内`)
-  }
-  // ...
+export function createMethodTools(
+  container: NodeInstanceContainer,
+  facts: FactStore,
+  policy: PolicyContext,
+) {
+  const describe_method = tool({
+    description:
+      '获取方法的完整模式：参数、返回值、描述、所需事实和相关规则。' +
+      '在调用不熟悉的方法之前，务必先调用此方法。',
+    inputSchema: z.object({
+      nodeId: z.string().describe('拥有该方法的节点'),
+      method: z.string().describe('要描述的方法名称'),
+    }),
+    execute: async ({ nodeId, method }): Promise<ToolResult> => {
+      // Policy 检查
+      if (!checkEntityAccess(nodeId, policy)) {
+        return toolErr('POLICY_DENIED', `Access to entity '${nodeId}' is denied`)
+      }
+
+      const node = await container.getBaseNode(nodeId)
+      if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
+
+      const className = node.constructor.name
+      const schema = AgentMethodRegistry.get(className, method)
+      if (!schema) {
+        const available = AgentMethodRegistry.getMethodsForClass(className).map((m) => m.methodName)
+        return toolErr('METHOD_NOT_FOUND', `Method '${method}' not found on ${className}`, {
+          expected: { availableMethods: available },
+        })
+      }
+
+      const paramsJsonSchema = schemaToJsonSchema(schema.params)
+
+      return toolOk({
+        methodName: schema.methodName,
+        description: schema.description,
+        params: (paramsJsonSchema.properties as Record<string, unknown>) ?? {},
+        required: (paramsJsonSchema.required as string[]) ?? [],
+        returns: schema.returns,
+        requiredFacts: schema.requiredFacts ?? [],
+        relatedRuleIds: schema.relatedRuleIds ?? [],
+        preconditions: schema.preconditions ?? [],
+      })
+    },
+  })
+```
+
+### 8.4 call_method
+
+调用图节点上的已注册方法。包含前置条件校验、参数 Zod 校验、Policy 检查。
+
+```typescript
+  const call_method = tool({
+    description:
+      '调用图节点上的已注册方法。以命名键值对形式传递参数。' +
+      '重要：在调用之前，从 FactStore (lookup_fact) 或 inspect_node 获取所有参数值 —— ' +
+      '切勿为尚未获取的数值参数传递 0。',
+    inputSchema: z.object({
+      nodeId: z.string().describe('要调用方法的节点'),
+      method: z.string().describe('方法名称'),
+      args: z.record(z.string(), z.unknown()).default({}).describe('参数为 { paramName: value }'),
+    }),
+    execute: async ({ nodeId, method, args }): Promise<ToolResult> => {
+      // Policy 检查
+      if (!checkEntityAccess(nodeId, policy)) {
+        return toolErr('POLICY_DENIED', `Access to entity '${nodeId}' is denied`)
+      }
+
+      // 获取 BaseNode 实例（通过 NodeInstanceContainer，而非 InMemoryGraphStore）
+      const node = await container.getBaseNode(nodeId)
+      if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
+
+      // 查找方法 Schema
+      const className = node.constructor.name
+      const schema = AgentMethodRegistry.get(className, method)
+      if (!schema) {
+        const available = AgentMethodRegistry.getMethodsForClass(className).map((m) => m.methodName)
+        return toolErr('METHOD_NOT_FOUND', `Method '${method}' not found on ${className}`, {
+          expected: { availableMethods: available },
+        })
+      }
+
+      // 前置条件校验
+      const preconditionError = assertPreconditions(nodeId, method, args, facts)
+      if (preconditionError) {
+        return toolErr('PRECONDITION_FAILED', preconditionError, { retryable: false })
+      }
+
+      // 参数 Zod 校验
+      const parseResult = schema.params.safeParse(args)
+      if (!parseResult.success) {
+        const issues = parseResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+        return toolErr('INVALID_ARGS', `Invalid args for ${method}: ${issues.join('; ')}`, {
+          expected: {
+            params: Object.keys(
+              (schemaToJsonSchema(schema.params).properties as Record<string, unknown>) ?? {},
+            ),
+          },
+        })
+      }
+
+      // 反射调用
+      const fn = (node as unknown as Record<string, unknown>)[method]
+      if (typeof fn !== 'function') {
+        return toolErr('INTERNAL_ERROR', `${method} is not callable`)
+      }
+
+      const result = (fn as (args: unknown) => unknown).call(node, parseResult.data)
+      return toolOk(result)
+    },
+  })
+
+  return { describe_method, call_method }
 }
 ```
+
+### 8.5 辅助函数
+
+```typescript
+/** 将 Zod Schema 转换为 JSON Schema（用于 describe_method 输出） */
+function schemaToJsonSchema(schema: z.ZodType<unknown>): Record<string, unknown> {
+  if ('toJSONSchema' in schema && typeof schema.toJSONSchema === 'function') {
+    return (schema as unknown as { toJSONSchema: () => Record<string, unknown> }).toJSONSchema()
+  }
+  return {}
+}
+
+/** 前置条件断言：防止 Agent 对未获取的参数传入 0 */
+function assertPreconditions(
+  nodeId: string,
+  methodName: string,
+  args: Record<string, unknown>,
+  facts: FactStore,
+): string | null {
+  const node_facts = facts.forEntity(nodeId)
+  const factsByProperty = new Map(node_facts.map((f) => [f.property, f.value]))
+
+  for (const [paramName, paramValue] of Object.entries(args)) {
+    if (paramValue === 0) {
+      const bound = factsByProperty.get(paramName)
+      if (bound !== undefined && bound !== 0) {
+        return (
+          `Precondition failed for ${methodName}(${nodeId}): ` +
+          `arg '${paramName}' is 0 but FactStore has bound value ${JSON.stringify(bound)}. ` +
+          `Use lookup_fact to get the correct value before calling this method.`
+        )
+      }
+      if (bound === undefined) {
+        return (
+          `Precondition failed for ${methodName}(${nodeId}): ` +
+          `arg '${paramName}' is 0 but no fact binding found for ${nodeId}.${paramName}. ` +
+          `Collect the fact with inspect_node / bind_fact first.`
+        )
+      }
+    }
+  }
+
+  return null
+}
+```
+
+### 8.6 与 V6 的关键差异
+
+| 项目 | V6 | V8 | 原因 |
+|------|----|----|------|
+| 方法工具的依赖 | `GraphStore`（持有 `getBaseNode`） | `NodeInstanceContainer`（接口解耦） | V8 三层解耦原则 |
+| `createMethodTools` 签名 | `(graph: GraphStore, facts, policy)` | `(container: NodeInstanceContainer, facts, policy)` | 依赖抽象容器，而非具体 Store |
+| Policy 检查 | V6 已有 | 保留，使用 V8 的 `checkEntityAccess` | 一致性 |
+
+### 8.7 与 V8 Tool 体系的集成
+
+- `inspect_schema` 不经过 `RuntimeOrchestrator` 路由，直接读取 `Ontology` 对象（纯内存，无 Store 交互）
+- `describe_method` / `call_method` 也不经过 `RuntimeOrchestrator`，直接操作 `NodeInstanceContainer` + `AgentMethodRegistry`
+- 若需 Policy 过滤，在 `execute` 中加入 Policy 检查
 
 ---
 
@@ -652,7 +825,8 @@ src/v8/ontology/
 ├── builder.ts                 — buildOntology()
 ├── base-node.ts               — BaseNode 抽象基类
 ├── prompt.ts                  — buildOntologyPrompt()
-└── tools.ts                   — createOntologyTools()
+├── tools.ts                   — createOntologyTools() (inspect_schema)
+└── method-tools.ts            — createMethodTools() (describe_method / call_method)
 ```
 
 ### 10.1 依赖关系
@@ -666,7 +840,13 @@ builder.ts   ──→ registry.ts         │
 base-node.ts ──→ registry.ts
 
 tools.ts     ──→ schema.ts
-              ──→ runtime/types.ts (ToolResult)
+              ──→ engine/runtime/types.ts (ToolResult)
+
+method-tools.ts ──→ registry.ts
+                 ──→ base-node.ts (BaseNode)
+                 ──→ engine/runtime/types.ts (ToolResult, NodeInstanceContainer, FactStore)
+                 ──→ policy/context.ts (PolicyContext)
+                 ──→ policy/filters.ts (checkEntityAccess)
 
 prompt.ts    ──→ schema.ts
 
@@ -700,6 +880,7 @@ engine  ──(BaseNode 类型依赖)──→ ontology
 | P0 | `decorator.ts` | 装饰器，用户 API 入口 |
 | P0 | `base-node.ts` | BaseNode 抽象类，Layer 3 载体 |
 | P0 | `builder.ts` | buildOntology()，本体构建入口 |
+| P0 | `method-tools.ts` | describe_method + call_method，行为层工具 |
 | P1 | `relation-binding.ts` | RelationBinding 类型，为 SqlGraphStore 预备 |
 | P1 | `validate-bindings.ts` | 校验逻辑，配合 RelationBinding 使用 |
 | P1 | `prompt.ts` | buildOntologyPrompt()，Agent Prompt 集成 |
@@ -726,6 +907,7 @@ engine  ──(BaseNode 类型依赖)──→ ontology
 | `v6/runtime/decorator.ts` | `v8/ontology/decorator.ts` | `agentVisible` 默认值 `false` → `true` |
 | `v6/runtime/ontology-builder.ts` | `v8/ontology/builder.ts` | 无逻辑修改，路径调整 |
 | `v6/runtime/graph.ts` | `v8/ontology/base-node.ts` | 移除 `getGraphStore()` / WeakMap 相关代码 |
+| `v6/agent/tools/method.ts` | `v8/ontology/method-tools.ts` | `GraphStore` → `NodeInstanceContainer`；import 路径调整 |
 
 ### 12.3 新增
 
@@ -753,8 +935,8 @@ engine  ──(BaseNode 类型依赖)──→ ontology
 ```typescript
 // 1. Ontology 传给 RuntimeOrchestrator，用于 System Prompt 和类型校验
 const runtime = new SemanticRuntimeOrchestrator({
-  graphStore, computeStore, vectorStore, factStore,
   ontology,   // ← Ontology 实例
+  graphStore, computeStore, vectorStore, factStore,
   config, workspace,
 })
 
@@ -767,13 +949,14 @@ validateRelationBindings(ontology.relations, bindings)
 
 ```typescript
 // 1. InMemoryGraphStore implements NodeInstanceContainer
-//    → 返回 BaseNode 实例（来自 ontology 模块）
+//    → 异步返回 BaseNode 实例（来自 ontology 模块）
 class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
-  getBaseNode(id: string): BaseNode | undefined { ... }
+  async getBaseNode(id: string): Promise<BaseNode | undefined> { ... }
 }
 
-// 2. call_method 工具通过 NodeInstanceContainer 获取 BaseNode
-//    → 反射调用 @agentMethod 标注的方法
+// 2. describe_method / call_method 工具通过 NodeInstanceContainer 获取 BaseNode
+//    → 反射查询/调用 @agentMethod 标注的方法
+//    调用链：Agent → method-tools → await container.getBaseNode() → BaseNode 实例
 ```
 
 ### 13.3 集成验证
@@ -818,13 +1001,16 @@ export { buildOntology }
 
 // base-node.ts
 export { BaseNode }
-export type { NodeId }
+export type { NodeId, NodeInstanceContainer }
 
 // prompt.ts
 export { buildOntologyPrompt }
 
 // tools.ts
 export { createOntologyTools }
+
+// method-tools.ts
+export { createMethodTools }
 ```
 
 ## 附录 B：V6 → V8 Import 路径变更
@@ -839,3 +1025,4 @@ export { createOntologyTools }
 | `@/v6/runtime/ontology-builder` | `@/v8/ontology/builder` |
 | `@/v6/runtime/graph` (BaseNode) | `@/v8/ontology/base-node` |
 | `@/v6/agent/tools/ontology` | `@/v8/ontology/tools` |
+| `@/v6/agent/tools/method` | `@/v8/ontology/method-tools` |
