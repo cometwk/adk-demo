@@ -87,7 +87,7 @@ export function parseAgentInput({
     // },
     {
       role: "user",
-      content: "请采用中文回答后续的问题",
+      content: "请采用中文回答后续的问题，思考时也要求输出中文",
     },
   ];
 

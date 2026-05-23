@@ -9,7 +9,7 @@ export type {
 } from './types'
 
 // Axios config & types
-export { SearchParamsSchema, initToken } from './axios'
+export { SearchParamsSchema } from './axios'
 export type { SearchParams, TableData } from './axios'
 
 // API search functions

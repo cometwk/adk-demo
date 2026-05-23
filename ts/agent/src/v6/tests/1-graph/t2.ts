@@ -1,6 +1,5 @@
 import { createInterface } from 'readline'
 import { ModelMessage } from 'ai'
-import { initToken } from '../../provider/rest'
 import { newAgentContext, S0, syncPredictiveAgent } from './use-case'
 
 function readLine(prompt: string): Promise<string> {
@@ -16,9 +15,6 @@ function readLine(prompt: string): Promise<string> {
   })
 }
 
-// await initToken()
-// console.log('jusetInitToken success')
-
 const testS0 = newAgentContext({
   taskId: 'S0',
   goal: '康传兵有几个下级代理商, 分别是谁？',
@@ -26,7 +22,6 @@ const testS0 = newAgentContext({
 })
 
 async function main() {
-
   let messages: ModelMessage[] = []
 
   let chatInput = ''

@@ -1,13 +1,9 @@
-import { initToken } from '../../../provider/rest'
 import { buildOntology } from '../../../runtime/ontology-builder'
 import { RestCrudGraphStore } from './RestCrudGraph'
 // import { parseGlobalId, toGlobalId } from './search-helpers'
 import './ontology'
 
 async function test() {
-  await initToken()
-  console.log('jusetInitToken success')
-
   const ontology = buildOntology({ version: 'restapi-1.0' })
   console.log(
     'ontology types:',

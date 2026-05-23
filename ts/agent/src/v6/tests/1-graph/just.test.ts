@@ -1,11 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { initToken } from '../../provider/rest'
 import { newAgentContext } from './helper'
 
 describe('just test', () => {
   beforeAll(async () => {
-    await initToken()
-    console.log('jusetInitToken success')
+    console.log('init success')
   })
 
   const testS0 = newAgentContext({

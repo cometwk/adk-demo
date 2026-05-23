@@ -1,8 +1,4 @@
-import { initToken } from '../../provider/rest'
 import { newAgentContext, S0, syncPredictiveAgent } from './use-case'
-
-await initToken()
-console.log('jusetInitToken success')
 
 const testS0 = newAgentContext({
   taskId: 'S0',
