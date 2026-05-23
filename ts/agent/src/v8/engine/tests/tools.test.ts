@@ -58,7 +58,7 @@ describe('V8 Tools', () => {
     it('inspect_node tool routes to runtime', async () => {
       const tools = createGraphTools(runtime)
       // AI SDK v6: tool.execute is the handler
-      const result = await tools.inspect_node.execute!({ nodeId: 'Merch:M001' },  { toolCallId: 'search_nodes', messages: [] })
+      const result = await tools.inspect_node.execute!({ nodeId: 'Merch:M001' },  { toolCallId: 'search_nodes', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -68,7 +68,7 @@ describe('V8 Tools', () => {
 
     it('search_nodes tool routes to runtime', async () => {
       const tools = createGraphTools(runtime)
-      const result = await tools.search_nodes.execute({ type: 'Merch' })
+      const result = await tools.search_nodes.execute!({ type: 'Merch' },  { toolCallId: 'search_nodes', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -78,10 +78,10 @@ describe('V8 Tools', () => {
 
     it('query_neighbors tool routes to runtime', async () => {
       const tools = createGraphTools(runtime)
-      const result = await tools.query_neighbors.execute({
+      const result = await tools.query_neighbors.execute!({
         nodeId: 'Merch:M001',
         relation: 'for_agent',
-      })
+      },  { toolCallId: 'query_neighbors', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -91,10 +91,10 @@ describe('V8 Tools', () => {
 
     it('graph_query tool routes to runtime', async () => {
       const tools = createGraphTools(runtime)
-      const result = await tools.graph_query.execute({
+      const result = await tools.graph_query.execute!({
         match: { type: 'Merch' },
         return: {},
-      })
+      },  { toolCallId: 'graph_query', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -106,10 +106,10 @@ describe('V8 Tools', () => {
   describe('Compute Tools', () => {
     it('compute_query tool routes to runtime', async () => {
       const tools = createComputeTools(runtime)
-      const result = await tools.compute_query.execute({
+      const result = await tools.compute_query.execute!({
         source: 'OrderDaily',
         metrics: [{ field: '*', fn: 'count', as: 'cnt' }],
-      })
+      },  { toolCallId: 'compute_query', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -121,7 +121,7 @@ describe('V8 Tools', () => {
   describe('Vector Tools', () => {
     it('vector_query tool routes to runtime', async () => {
       const tools = createVectorTools(runtime)
-      const result = await tools.vector_query.execute({ query: 'merchant' })
+      const result = await tools.vector_query.execute!({ query: 'merchant', topK: 10, minScore: 0.5 },  { toolCallId: 'vector_query', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -133,12 +133,13 @@ describe('V8 Tools', () => {
   describe('Fact Tools', () => {
     it('bind_fact writes to workspace.bindings', async () => {
       const tools = createFactTools(workspace, OPEN_POLICY)
-      const result = await tools.bind_fact.execute({
+      const result = await tools.bind_fact.execute!({
         entityId: 'Merch:M001',
         property: 'decision',
         value: 'eligible',
+        sourceKind: 'graph_property',
         confidence: 0.9,
-      })
+      },  { toolCallId: 'bind_fact', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -153,18 +154,19 @@ describe('V8 Tools', () => {
     it('lookup_fact reads from workspace', async () => {
       // First bind a fact
       const tools = createFactTools(workspace, OPEN_POLICY)
-      await tools.bind_fact.execute({
+      await tools.bind_fact.execute!({
         entityId: 'Merch:M002',
         property: 'status',
         value: 'inactive',
         confidence: 0.85,
-      })
+        sourceKind: 'graph_property',
+      },  { toolCallId: 'bind_fact', messages: [] }) as any 
 
       // Then lookup
-      const result = await tools.lookup_fact.execute({
+      const result = await tools.lookup_fact.execute!({
         entityId: 'Merch:M002',
         property: 'status',
-      })
+      },  { toolCallId: 'lookup_fact', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -175,10 +177,10 @@ describe('V8 Tools', () => {
 
     it('lookup_fact returns not found for unbound property', async () => {
       const tools = createFactTools(workspace, OPEN_POLICY)
-      const result = await tools.lookup_fact.execute({
+      const result = await tools.lookup_fact.execute!({
         entityId: 'Merch:M001',
         property: 'nonexistent',
-      })
+      },  { toolCallId: 'lookup_fact', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -190,12 +192,12 @@ describe('V8 Tools', () => {
   describe('Candidate Tools', () => {
     it('propose_candidates sets workspace.candidates', async () => {
       const tools = createCandidateTools(workspace, OPEN_POLICY)
-      const result = await tools.propose_candidates.execute({
+      const result = await tools.propose_candidates.execute!({
         candidates: [
           { label: 'Merch:M001', description: 'Merchant 1' },
           { label: 'Merch:M002', description: 'Merchant 2' },
         ],
-      })
+      },  { toolCallId: 'propose_candidates', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -209,7 +211,7 @@ describe('V8 Tools', () => {
 
     it('list_workspace returns workspace state', async () => {
       const tools = createCandidateTools(workspace, OPEN_POLICY)
-      const result = await tools.list_workspace.execute({})
+      const result = await tools.list_workspace.execute!({},  { toolCallId: 'list_workspace', messages: [] }) as any
       expect(result).toBeDefined()
       expect(result.ok).toBe(true)
       if (result.ok) {

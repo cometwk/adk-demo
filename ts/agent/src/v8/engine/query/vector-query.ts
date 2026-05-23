@@ -13,8 +13,8 @@ export type VectorFilter = z.infer<typeof VectorFilterSchema>
 export const VectorQuerySchema = z.object({
   query: z.string().describe('Semantic query text'),
   filters: z.array(VectorFilterSchema).optional(),
-  topK: z.number().optional().default(10),
-  minScore: z.number().optional().default(0.5),
+  topK: z.number().default(10).optional(),
+  minScore: z.number().default(0.5).optional(),
 })
 export type VectorQuery = z.infer<typeof VectorQuerySchema>
 

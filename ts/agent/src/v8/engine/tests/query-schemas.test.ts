@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { GraphTraversalQuerySchema, PropertyFilterSchema } from '../query/graph-query'
+import { GraphTraversalQuerySchema, PropertyFilterSchema, type PropertyFilter } from '../query/graph-query'
 import { ComputeQuerySchema, ComputeFilterSchema, AggregateMetricSchema } from '../query/compute-query'
 import { VectorQuerySchema } from '../query/vector-query'
 import { evalFilter, matchesFilters, projectFields } from '../query/filters'
@@ -163,7 +163,7 @@ describe('V8 Query DSL', () => {
 
     it('returns true when all filters match (AND logic)', () => {
       const props = { status: 'active', count: 10 }
-      const filters = [
+      const filters: PropertyFilter[] = [
         { property: 'status', op: 'eq', value: 'active' },
         { property: 'count', op: 'gt', value: 5 },
       ]
@@ -172,7 +172,7 @@ describe('V8 Query DSL', () => {
 
     it('returns false when any filter fails', () => {
       const props = { status: 'active', count: 10 }
-      const filters = [
+      const filters: PropertyFilter[] = [
         { property: 'status', op: 'eq', value: 'active' },
         { property: 'count', op: 'gt', value: 15 },
       ]

@@ -181,7 +181,7 @@ export class SemanticRuntimeOrchestrator implements RuntimeOrchestrator {
     opts?: GetNeighborsOpts,
   ): Promise<ToolResult<Paginated<NeighborData>>> {
     try {
-      const result = await this.graphStore.getNeighbors(nodeId, opts)
+      const result = await this.graphStore.getNeighbors(nodeId, opts ?? {})
       return toolOk(result)
     } catch (error) {
       return toolErr('INTERNAL_ERROR', error instanceof Error ? error.message : 'Unknown error', {

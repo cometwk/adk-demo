@@ -1,11 +1,11 @@
-import { matchesFilters, projectFields } from '../query/filters'
-import type { EdgeSummary, FindNodesOpts, GetNeighborsOpts, NeighborData } from '../stores/graph-store'
-import type { Edge, NodeId, PageInfo, Paginated, NodeData } from '../runtime/types'
-import type { GraphTraversalQuery, GraphQueryResult, QueryRow } from '../query/graph-query'
 import type { PolicyContext } from '../../policy/context'
 import { OPEN_POLICY } from '../../policy/context'
 import { checkEntityAccess, checkTypeAccess, redactProperties } from '../../policy/filters'
-import { toolErr, toolOk, type ToolResult } from '../runtime/types'
+import { matchesFilters, projectFields } from '../query/filters'
+import type { GraphQueryResult, GraphTraversalQuery, QueryRow } from '../query/graph-query'
+import type { Edge, EdgeSummary, NeighborData, NodeData, PageInfo, Paginated, ToolResult } from '../runtime/types'
+import { toolErr, toolOk } from '../runtime/types'
+import type { FindNodesOpts, GetNeighborsOpts, GraphStore } from '../stores/graph-store'
 
 const DEFAULT_PAGE_LIMIT = 20
 const MAX_LIMIT = 200
@@ -24,8 +24,9 @@ function paginate<T>(all: T[], offset: number, limit: number): Paginated<T> {
 
 // ── InMemoryGraphStore (V8) ──
 // Simplified: uses NodeData directly, no BaseNode decorator pattern
+// Implements GraphStore interface for traversal-only queries
 
-export class InMemoryGraphStore {
+export class InMemoryGraphStore implements GraphStore {
   nodes = new Map<string, NodeData>()
   edges: Edge[] = []
 
@@ -58,15 +59,7 @@ export class InMemoryGraphStore {
   }
 
   async getNeighbors(nodeId: string, opts: GetNeighborsOpts = {}): Promise<Paginated<NeighborData>> {
-    const {
-      relation,
-      direction = 'both',
-      targetType,
-      where,
-      fields,
-      limit = DEFAULT_PAGE_LIMIT,
-      offset = 0,
-    } = opts
+    const { relation, direction = 'both', targetType, where, fields, limit = DEFAULT_PAGE_LIMIT, offset = 0 } = opts
 
     const all: NeighborData[] = []
     const seen = new Set<string>()
@@ -249,9 +242,7 @@ export class InMemoryGraphStore {
 
       const props = redactProperties(node.properties, policy)
       const projected =
-        query.return.fields && query.return.fields.length > 0
-          ? projectFields(props, query.return.fields)
-          : props
+        query.return.fields && query.return.fields.length > 0 ? projectFields(props, query.return.fields) : props
 
       allRows.push({ nodeId, type: node.type, properties: projected })
     }
