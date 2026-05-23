@@ -1,7 +1,7 @@
 ---
 title: "feat: V8 Ontology Module — Schema/Registry/Decorator/BaseNode/Tools"
 type: feat
-status: active
+status: completed
 date: 2026-05-24
 origin: src/v8/docs/ontology/phase1-design.md
 ---
