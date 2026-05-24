@@ -62,10 +62,12 @@ export class AgentMethodRegistry {
     return AgentMethodRegistry.methods.get(`${className}:${methodName}`)
   }
 
-  static getMethodsForClass(className: string): MethodSchema[] {
+  static getMethodsForClass(typeName: string): MethodSchema[] {
     const methods: MethodSchema[] = []
+    const className = AgentTypeRegistry.getClassNameForType(typeName)
+
     Array.from(AgentMethodRegistry.methods.entries()).forEach(([key, schema]) => {
-      if (key.startsWith(`${className}:`)) methods.push(schema)
+      if (key.startsWith(`${typeName}:`) || key.startsWith(`${className}:`)) methods.push(schema)
     })
     return methods
   }
@@ -87,9 +89,20 @@ export class AgentMethodRegistry {
 
 export class AgentTypeRegistry {
   private static types: Map<string, TypeSchemaEntry> = new Map()
+  // Mapping from agentTypeName to className (for lookup by agentTypeName)
+  private static nameMapping: Map<string, string> = new Map()
 
-  static register(className: string, entry: TypeSchemaEntry): void {
-    AgentTypeRegistry.types.set(className, entry)
+  static register(typeName: string, entry: TypeSchemaEntry, className?: string): void {
+    AgentTypeRegistry.types.set(typeName, entry)
+    // Store mapping: typeName → className (for lookup)
+    if (className && className !== typeName) {
+      AgentTypeRegistry.nameMapping.set(typeName, className)
+    }
+  }
+
+  /** Get the className for a given agentTypeName (or agentTypeName itself if no mapping) */
+  static getClassNameForType(typeName: string): string {
+    return AgentTypeRegistry.nameMapping.get(typeName) ?? typeName
   }
 
   static get(className: string): TypeSchemaEntry | undefined {
@@ -102,10 +115,16 @@ export class AgentTypeRegistry {
 
   static clear(): void {
     AgentTypeRegistry.types.clear()
+    AgentTypeRegistry.nameMapping.clear()
   }
 
   static all(): TypeSchemaEntry[] {
     return Array.from(AgentTypeRegistry.types.values())
+  }
+
+  /** Debug: get all mappings */
+  static debugMappings(): Record<string, string> {
+    return Object.fromEntries(AgentTypeRegistry.nameMapping.entries())
   }
 }
 
@@ -134,11 +153,18 @@ export class AgentPropertyRegistry {
     return AgentPropertyRegistry.properties.get(`${className}:${propertyName}`)
   }
 
-  /** Get properties for a class, including BaseNode's id property */
-  static getPropertiesForClass(className: string): PropertySchema[] {
+  /** Get properties for a class, including BaseNode's id property
+   *  Checks both agentTypeName and className (constructor.name) for compatibility
+   */
+  static getPropertiesForClass(typeName: string): PropertySchema[] {
     const props: PropertySchema[] = [...BASE_NODE_PROPERTIES]
+    const className = AgentTypeRegistry.getClassNameForType(typeName)
+
+    // Check both agentTypeName and className keys
     Array.from(AgentPropertyRegistry.properties.entries()).forEach(([key, schema]) => {
-      if (key.startsWith(`${className}:`)) props.push(schema)
+      if (key.startsWith(`${typeName}:`) || key.startsWith(`${className}:`)) {
+        props.push(schema)
+      }
     })
     return props
   }
@@ -174,8 +200,10 @@ export class AgentRelationRegistry {
     AgentRelationRegistry.relations.set(className, list)
   }
 
-  static getRelationsForClass(className: string): RelationRegistryEntry[] {
-    return AgentRelationRegistry.relations.get(className) ?? []
+  static getRelationsForClass(typeName: string): RelationRegistryEntry[] {
+    const className = AgentTypeRegistry.getClassNameForType(typeName)
+    // Check both typeName and className
+    return AgentRelationRegistry.relations.get(typeName) ?? AgentRelationRegistry.relations.get(className) ?? []
   }
 
   /** Reverse lookup: find all relation entries whose toType matches */

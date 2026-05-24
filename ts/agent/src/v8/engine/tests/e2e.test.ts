@@ -11,9 +11,49 @@ import { createGraphTools } from '../tools/graph-tools'
 import { createComputeTools } from '../tools/compute-tools'
 import { createFactTools } from '../tools/fact-tools'
 import { createCandidateTools } from '../tools/candidate-tools'
+import { BaseNode, agentType, agentProperty } from '../../ontology'
 import type { VectorEntity } from '../query/vector-query'
 import type { ComputeQuery } from '../query/compute-query'
 import type { GraphTraversalQuery } from '../query/graph-query'
+
+// ── Test Node classes with decorators ──
+@agentType({ name: 'Merch', description: 'Test merchant node' })
+class MerchNode extends BaseNode {
+  @agentProperty({ type: 'string', description: 'Merchant number' })
+  merch_no: string
+
+  @agentProperty({ type: 'string', description: 'Merchant name' })
+  merch_name: string
+
+  @agentProperty({ type: 'string', description: 'Merchant status' })
+  status: string
+
+  constructor(id: string, merch_no: string, merch_name: string, status: string) {
+    super(id)
+    this.merch_no = merch_no
+    this.merch_name = merch_name
+    this.status = status
+  }
+}
+
+@agentType({ name: 'Agent', description: 'Test agent node' })
+class AgentNode extends BaseNode {
+  @agentProperty({ type: 'string', description: 'Agent number' })
+  agent_no: string
+
+  @agentProperty({ type: 'string', description: 'Agent name' })
+  agent_name: string
+
+  @agentProperty({ type: 'string', description: 'Agent type' })
+  agent_type: string
+
+  constructor(id: string, agent_no: string, agent_name: string, agent_type: string) {
+    super(id)
+    this.agent_no = agent_no
+    this.agent_name = agent_name
+    this.agent_type = agent_type
+  }
+}
 
 // ── E2E Integration Test ──
 // Tests the complete two-phase reasoning flow:
@@ -34,26 +74,10 @@ describe('V8 E2E Integration', () => {
     vectorStore = new InMemoryVectorStore()
 
     // Seed graph store with Merch and Agent nodes
-    graphStore.addNode({
-      id: 'Merch:M001',
-      type: 'Merch',
-      properties: { merch_no: 'M001', merch_name: 'Merchant 1', status: 'active' },
-    })
-    graphStore.addNode({
-      id: 'Merch:M002',
-      type: 'Merch',
-      properties: { merch_no: 'M002', merch_name: 'Merchant 2', status: 'active' },
-    })
-    graphStore.addNode({
-      id: 'Merch:M003',
-      type: 'Merch',
-      properties: { merch_no: 'M003', merch_name: 'Merchant 3', status: 'pending' },
-    })
-    graphStore.addNode({
-      id: 'Agent:A001',
-      type: 'Agent',
-      properties: { agent_no: 'A001', agent_name: 'Agent 1', agent_type: 'MERCH' },
-    })
+    graphStore.addNode(new MerchNode('Merch:M001', 'M001', 'Merchant 1', 'active'))
+    graphStore.addNode(new MerchNode('Merch:M002', 'M002', 'Merchant 2', 'active'))
+    graphStore.addNode(new MerchNode('Merch:M003', 'M003', 'Merchant 3', 'pending'))
+    graphStore.addNode(new AgentNode('Agent:A001', 'A001', 'Agent 1', 'MERCH'))
 
     // Add edges: Merch → Agent via for_agent
     graphStore.addEdge({ from: 'Merch:M001', to: 'Agent:A001', type: 'for_agent' })

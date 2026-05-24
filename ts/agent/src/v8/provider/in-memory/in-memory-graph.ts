@@ -3,9 +3,18 @@ import { OPEN_POLICY } from '../../policy/context'
 import { checkEntityAccess, checkTypeAccess, redactProperties } from '../../policy/filters'
 import { matchesFilters, projectFields } from '../../engine/query/filters'
 import type { GraphQueryResult, GraphTraversalQuery, QueryRow } from '../../engine/query/graph-query'
-import type { Edge, EdgeSummary, NeighborData, NodeData, PageInfo, Paginated, ToolResult } from '../../engine/runtime/types'
+import type {
+  Edge,
+  EdgeSummary,
+  NeighborData,
+  NodeData,
+  PageInfo,
+  Paginated,
+  ToolResult,
+} from '../../engine/runtime/types'
 import { toolErr, toolOk } from '../../engine/runtime/types'
 import type { FindNodesOpts, GetNeighborsOpts, GraphStore } from '../../engine/stores/graph-store'
+import { BaseNode, NodeInstanceContainer, RelationSchema } from '../../ontology'
 
 const DEFAULT_PAGE_LIMIT = 20
 const MAX_LIMIT = 200
@@ -22,26 +31,81 @@ function paginate<T>(all: T[], offset: number, limit: number): Paginated<T> {
   return { items: page, page: pageInfo }
 }
 
+function nodeToData(node: BaseNode, fields?: string[]): NodeData {
+  const props = node.getProperties()
+  return {
+    id: node.id,
+    type: node.getAgentTypeName(),
+    properties: projectFields(props, fields),
+  }
+}
+
 // ── InMemoryGraphStore (V8) ──
 // Simplified: uses NodeData directly, no BaseNode decorator pattern
 // Implements GraphStore interface for traversal-only queries
 
-export class InMemoryGraphStore implements GraphStore {
-  nodes = new Map<string, NodeData>()
+export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
+  nodes = new Map<string, BaseNode>()
   edges: Edge[] = []
 
-  addNode(node: NodeData): void {
+  // 用于限制 edge 的类型，防止添加非法的 edge.type
+  private readonly relationIndex: Map<string, RelationSchema>
+
+  constructor(opts: { relations?: RelationSchema[] } = {}) {
+    // 注：edge.type 必须是已注册的 relation.type，否则抛出错误
+    this.relationIndex = new Map((opts.relations ?? []).map((r) => [r.type, r]))
+  }
+
+
+  /** Get BaseNode instance by ID (async for remote recovery) */
+  async getBaseNode(id: string): Promise<BaseNode | undefined> {
+    return Promise.resolve(this.nodes.get(id)) 
+  }
+
+
+  addNode(node: BaseNode): void {
     this.nodes.set(node.id, node)
   }
 
   addEdge(edge: Edge): void {
+    // 检查限制
+    if (this.relationIndex.size > 0) {
+      const schema = this.relationIndex.get(edge.type)
+      if (!schema) {
+        throw new Error(
+          `addEdge: unknown edge type "${edge.type}". ` +
+            `Declared types: [${[...this.relationIndex.keys()].join(', ')}]`
+        )
+      }
+      const fromNode = this.nodes.get(edge.from)
+      const toNode = this.nodes.get(edge.to)
+      if (fromNode) {
+        const actual = fromNode.constructor.name
+        if (actual !== schema.fromType) {
+          throw new Error(
+            `addEdge "${edge.type}": node "${edge.from}" has type "${actual}", schema expects fromType "${schema.fromType}"`
+          )
+        }
+      }
+      if (toNode) {
+        const actual = toNode.constructor.name
+        if (actual !== schema.toType) {
+          throw new Error(
+            `addEdge "${edge.type}": node "${edge.to}" has type "${actual}", schema expects toType "${schema.toType}"`
+          )
+        }
+      }
+    }
+
     this.edges.push(edge)
   }
 
   // ── GraphStore Interface Methods ──
 
   async getNode(id: string): Promise<NodeData | undefined> {
-    return this.nodes.get(id)
+    const node = this.nodes.get(id)
+    if (!node) return undefined
+    return nodeToData(node)
   }
 
   async findNodes(opts: FindNodesOpts): Promise<Paginated<NodeData>> {
@@ -49,10 +113,11 @@ export class InMemoryGraphStore implements GraphStore {
     const all: NodeData[] = []
 
     for (const [, node] of this.nodes) {
-      if (type && node.type !== type) continue
-      if (where && where.length > 0 && !matchesFilters(node.properties, where)) continue
-      const projected = fields && fields.length > 0 ? projectFields(node.properties, fields) : node.properties
-      all.push({ id: node.id, type: node.type, properties: projected })
+      if (type && node.getAgentTypeName() !== type) continue
+      const nodeData = nodeToData(node)
+      if (where && where.length > 0 && !matchesFilters(nodeData.properties, where)) continue
+      const projected = fields && fields.length > 0 ? projectFields(nodeData.properties, fields) : nodeData.properties
+      all.push({ id: node.id, type: node.getAgentTypeName(), properties: projected })
     }
 
     return paginate(all, offset, limit)
@@ -72,7 +137,7 @@ export class InMemoryGraphStore implements GraphStore {
       const target = this.nodes.get(targetId)
       if (!target) return
 
-      if (where && where.length > 0 && !matchesFilters(target.properties, where)) return
+      if (where && where.length > 0 && !matchesFilters(target.getProperties(), where)) return
 
       seen.add(key)
       const entry: NeighborData = {
@@ -82,7 +147,7 @@ export class InMemoryGraphStore implements GraphStore {
         direction: dir,
       }
       if (fields && fields.length > 0) {
-        entry.properties = projectFields(target.properties, fields)
+        entry.properties = projectFields(target.getProperties(), fields)
       }
       all.push(entry)
     }
@@ -91,7 +156,7 @@ export class InMemoryGraphStore implements GraphStore {
       for (const e of this.edges) {
         if (e.from === nodeId && (relation === undefined || e.type === relation)) {
           const target = this.nodes.get(e.to)
-          pushNeighbor(e.to, target?.type ?? 'Unknown', e.type, 'out')
+          pushNeighbor(e.to, target?.getAgentTypeName() ?? 'Unknown', e.type, 'out')
         }
       }
     }
@@ -100,7 +165,7 @@ export class InMemoryGraphStore implements GraphStore {
       for (const e of this.edges) {
         if (e.to === nodeId && (relation === undefined || e.type === relation)) {
           const source = this.nodes.get(e.from)
-          pushNeighbor(e.from, source?.type ?? 'Unknown', e.type, 'in')
+          pushNeighbor(e.from, source?.getAgentTypeName() ?? 'Unknown', e.type, 'in')
         }
       }
     }
@@ -123,11 +188,11 @@ export class InMemoryGraphStore implements GraphStore {
 
     for (const e of this.edges) {
       if (e.from === nodeId) {
-        const targetType = this.nodes.get(e.to)?.type ?? 'Unknown'
+        const targetType = this.nodes.get(e.to)?.getAgentTypeName() ?? 'Unknown'
         bump(e.type, 'out', targetType)
       }
       if (e.to === nodeId) {
-        const sourceType = this.nodes.get(e.from)?.type ?? 'Unknown'
+        const sourceType = this.nodes.get(e.from)?.getAgentTypeName() ?? 'Unknown'
         bump(e.type, 'in', sourceType)
       }
     }
@@ -240,11 +305,11 @@ export class InMemoryGraphStore implements GraphStore {
       const node = this.nodes.get(nodeId)
       if (!node) continue
 
-      const props = redactProperties(node.properties, policy)
+      const props = redactProperties(node.getProperties(), policy)
       const projected =
         query.return.fields && query.return.fields.length > 0 ? projectFields(props, query.return.fields) : props
 
-      allRows.push({ nodeId, type: node.type, properties: projected })
+      allRows.push({ nodeId, type: node.getAgentTypeName(), properties: projected })
     }
 
     const paged = allRows.slice(offset, offset + limit)

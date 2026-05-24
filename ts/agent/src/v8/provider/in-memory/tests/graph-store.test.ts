@@ -1,25 +1,54 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { InMemoryGraphStore } from '../in-memory-graph'
 import { OPEN_POLICY } from '../../../policy/context'
-import type { NodeData, Edge } from '../../../engine/runtime/types'
+import { BaseNode, agentType, agentProperty, buildOntology, agentRelations } from '../../../ontology'
+import type { Edge } from '../../../engine/runtime/types'
 import type { GraphTraversalQuery } from '../../../engine/query/graph-query'
+
+// ── Test Node classes with decorators ──
+@agentType({ name: 'Agent', description: 'Test agent node' })
+@agentRelations([])
+class AgentNode extends BaseNode {
+  @agentProperty({ type: 'string', description: 'Agent name' })
+  name: string
+
+  @agentProperty({ type: 'string', description: 'Agent status' })
+  status: string
+
+  constructor(id: string, name: string, status: string) {
+    super(id)
+    this.name = name
+    this.status = status
+  }
+}
+
+@agentType({ name: 'Merch', description: 'Test merchant node' })
+class MerchNode extends BaseNode {
+  @agentProperty({ type: 'string', description: 'Merchant name' })
+  name: string
+
+  @agentProperty({ type: 'string', description: 'Merchant status' })
+  status: string
+
+  constructor(id: string, name: string, status: string) {
+    super(id)
+    this.name = name
+    this.status = status
+  }
+}
 
 describe('V8 InMemoryGraphStore', () => {
   let store: InMemoryGraphStore
 
   beforeAll(() => {
     store = new InMemoryGraphStore()
+    const ontology = buildOntology({ version: 'test-1.0.0' })
 
     // Add nodes
-    const agent1: NodeData = { id: 'Agent:A001', type: 'Agent', properties: { name: 'Agent 1', status: 'active' } }
-    const merch1: NodeData = { id: 'Merch:M001', type: 'Merch', properties: { name: 'Merchant 1', status: 'active' } }
-    const merch2: NodeData = { id: 'Merch:M002', type: 'Merch', properties: { name: 'Merchant 2', status: 'inactive' } }
-    const merch3: NodeData = { id: 'Merch:M003', type: 'Merch', properties: { name: 'Merchant 3', status: 'active' } }
-
-    store.addNode(agent1)
-    store.addNode(merch1)
-    store.addNode(merch2)
-    store.addNode(merch3)
+    store.addNode(new AgentNode('Agent:A001', 'Agent 1', 'active'))
+    store.addNode(new MerchNode('Merch:M001', 'Merchant 1', 'active'))
+    store.addNode(new MerchNode('Merch:M002', 'Merchant 2', 'inactive'))
+    store.addNode(new MerchNode('Merch:M003', 'Merchant 3', 'active'))
 
     // Add edges
     const edge1: Edge = { from: 'Agent:A001', to: 'Merch:M001', type: 'manages' }
@@ -31,6 +60,9 @@ describe('V8 InMemoryGraphStore', () => {
   describe('Node operations', () => {
     it('getNode returns node by id', async () => {
       const node = await store.getNode('Agent:A001')
+      // const baseNode = await store.getBaseNode('Agent:A001')
+      // console.log('node', node)
+      // console.log('baseNode', baseNode, baseNode?.getAgentTypeName())
       expect(node).toBeDefined()
       expect(node?.type).toBe('Agent')
       expect(node?.properties.name).toBe('Agent 1')

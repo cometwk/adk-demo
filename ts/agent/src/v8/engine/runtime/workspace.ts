@@ -35,6 +35,16 @@ export class Workspace {
     return [...this.bindings]
   }
 
+  /** Clear all bindings (for testing) */
+  clearBindings(): void {
+    this.bindings.length = 0
+  }
+
+  /** Clear all bindings - alias for clearBindings (for testing compatibility) */
+  clearFacts(): void {
+    this.clearBindings()
+  }
+
   /** Debug log */
   debugLog(): string {
     return JSON.stringify({
