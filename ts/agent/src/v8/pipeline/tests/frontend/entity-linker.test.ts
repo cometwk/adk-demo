@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { extractMentionsByRules, linkEntities } from '../../core/frontend/entity-linker'
-import type { Ontology } from '../../ontology/schema'
+import type { Ontology } from '../../../ontology/schema'
 
 // Mock GraphStore
 const createMockGraphStore = (nodes: Array<{ id: string; type: string; properties?: Record<string, unknown> }>) => ({

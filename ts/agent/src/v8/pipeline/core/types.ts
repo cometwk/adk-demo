@@ -5,7 +5,7 @@ import type { Tool, LanguageModel } from 'ai'
 import type { Ontology, RelationSchema, TypeSchema } from '../../ontology/schema'
 import type { Workspace } from '../../engine/runtime/workspace'
 import type { PolicyContext } from '../../policy/context'
-import type { RuntimeOrchestrator } from '../../engine/runtime/orchestrator'
+import type { RuntimeOrchestrator, SemanticRuntimeOrchestrator } from '../../engine/runtime/orchestrator'
 import type { RuleRegistry } from '../../rule/registry/registry'
 import type { RuleMetadata } from '../../rule/types/rule'
 import type { FactBinding } from '../../engine/runtime/types'
@@ -86,7 +86,7 @@ export type PromptParams = {
 }
 
 export type ToolParams = {
-  runtime: RuntimeOrchestrator
+  runtime: SemanticRuntimeOrchestrator
   workspace: Workspace
   policy: PolicyContext
 }

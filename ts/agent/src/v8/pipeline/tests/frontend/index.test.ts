@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { DefaultFrontend, createFrontend } from '../../core/frontend/index'
-import type { Ontology } from '../../ontology/schema'
+import type { Ontology } from '../../../ontology/schema'
 
 // Mock GraphStore
 const createMockGraphStore = (nodes: Array<{ id: string; type: string; properties?: Record<string, unknown> }>) => ({
@@ -33,8 +33,10 @@ describe('Frontend', () => {
       const frontend = new DefaultFrontend(mockStore as any, mockOntology)
       const result = await frontend.process('分析 Merch:M001 的经营状况')
       expect(result.status).toBe('ready')
-      expect(result.task.type).toBe('reasoning')
-      expect(result.task.entryEntities).toContain('Merch:M001')
+      if (result.status === 'ready') {
+        expect(result.task.type).toBe('reasoning')
+        expect(result.task.entryEntities).toContain('Merch:M001')
+      }
     })
 
     it.skip('should return clarify status for ambiguous query', async () => {
@@ -54,7 +56,9 @@ describe('Frontend', () => {
       const frontend = new DefaultFrontend(mockStore as any, mockOntology)
       const result = await frontend.process('预测商户风险')
       expect(result.status).toBe('ready')
-      expect(result.task.type).toBe('predictive')
+      if (result.status === 'ready') {
+        expect(result.task.type).toBe('predictive')
+      }
     })
 
     it('should classify diagnostic intent correctly', async () => {
@@ -62,7 +66,9 @@ describe('Frontend', () => {
       const frontend = new DefaultFrontend(mockStore as any, mockOntology)
       const result = await frontend.process('为什么交易量下降')
       expect(result.status).toBe('ready')
-      expect(result.task.type).toBe('diagnostic')
+      if (result.status === 'ready') {
+        expect(result.task.type).toBe('diagnostic')
+      }
     })
   })
 

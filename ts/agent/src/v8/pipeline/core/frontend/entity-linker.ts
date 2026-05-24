@@ -174,7 +174,8 @@ async function resolveMention(
 
   // Match by substring similarity
   const candidates = searchResult.items.filter((n) => {
-    const nodeText = n.id.toLowerCase() + ' ' + (n.properties?.name ?? '').toLowerCase()
+    const nodeName = (n.properties?.name as string | undefined) ?? ''
+    const nodeText = n.id.toLowerCase() + ' ' + nodeName.toLowerCase()
     return nodeText.includes(text.toLowerCase()) || text.toLowerCase().includes(n.id.toLowerCase())
   })
 

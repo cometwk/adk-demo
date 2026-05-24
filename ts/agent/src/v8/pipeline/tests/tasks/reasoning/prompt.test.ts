@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildReasoningPrompt } from '../../../tasks/reasoning/prompt'
 import type { PromptParams, PipelineTask } from '../../../core/types'
-import type { Ontology } from '../../../ontology/schema'
+import type { Ontology } from '../../../../ontology/schema'
 
 const mockOntology: Ontology = {
   version: '1.0.0',

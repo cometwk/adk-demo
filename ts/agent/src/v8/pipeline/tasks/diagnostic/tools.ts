@@ -1,7 +1,7 @@
 // ── Diagnostic Tools (V8 Pipeline) ──
 // Composes engine tools + causal tracing for diagnostic task
 
-import type { RuntimeOrchestrator } from '../../../engine/runtime/orchestrator'
+import type { SemanticRuntimeOrchestrator } from '../../../engine/runtime/orchestrator'
 import type { Workspace } from '../../../engine/runtime/workspace'
 import type { PolicyContext } from '../../../policy/context'
 import type { Tool } from 'ai'
@@ -111,7 +111,7 @@ function createCausalTools(policy: PolicyContext): Record<string, Tool> {
  * Composition: engine tools + causal tracing
  */
 export function createDiagnosticTools(
-  runtime: RuntimeOrchestrator,
+  runtime: SemanticRuntimeOrchestrator,
   workspace: Workspace,
   policy: PolicyContext,
 ): Record<string, Tool> {

@@ -2,7 +2,7 @@
 // 前向推断任务的类型定义
 // 基于 v6/ontology/decision.ts 迁移，适配 TaskPlugin 接口
 
-import type { FactBinding } from '../../engine/runtime/types'
+import type { FactBinding } from '../../../engine/runtime/types'
 
 // ── Evidence ──
 

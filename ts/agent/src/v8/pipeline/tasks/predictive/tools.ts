@@ -1,7 +1,7 @@
 // ── Predictive Tools (V8 Pipeline) ──
 // Composes engine tools + counterfactual simulation for predictive task
 
-import type { RuntimeOrchestrator } from '../../../engine/runtime/orchestrator'
+import type { SemanticRuntimeOrchestrator } from '../../../engine/runtime/orchestrator'
 import type { Workspace } from '../../../engine/runtime/workspace'
 import type { PolicyContext } from '../../../policy/context'
 import type { Tool } from 'ai'
@@ -91,7 +91,7 @@ function createCounterfactualTools(policy: PolicyContext): Record<string, Tool> 
  * Composition: engine tools + counterfactual simulation
  */
 export function createPredictiveTools(
-  runtime: RuntimeOrchestrator,
+  runtime: SemanticRuntimeOrchestrator,
   workspace: Workspace,
   policy: PolicyContext,
 ): Record<string, Tool> {

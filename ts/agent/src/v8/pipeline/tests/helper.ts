@@ -1,8 +1,8 @@
 // ── Pipeline Test Helper ──
 // Creates test context and use-case scenarios for pipeline testing
 
-import { newPipelineContext } from '../core/context'
-import type { PipelineContext, PipelineTask, TaskPlugin } from '../core/types'
+import { newPipelineContext, PipelineContext } from '../core/context'
+import type { PipelineTask, TaskPlugin } from '../core/types'
 import { reasoningPlugin } from '../tasks/reasoning/index'
 
 // ── InMemory Stores ──

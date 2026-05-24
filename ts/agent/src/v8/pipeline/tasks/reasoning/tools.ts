@@ -1,7 +1,7 @@
 // ── Reasoning Tools (V8 Pipeline) ──
 // Composes existing engine tools for reasoning task
 
-import type { RuntimeOrchestrator } from '../../../engine/runtime/orchestrator'
+import type { SemanticRuntimeOrchestrator } from '../../../engine/runtime/orchestrator'
 import type { Workspace } from '../../../engine/runtime/workspace'
 import type { PolicyContext } from '../../../policy/context'
 import type { Tool } from 'ai'
@@ -19,7 +19,7 @@ import { createCandidateTools } from '../../../engine/tools/candidate-tools'
  * Composes all engine tools for comprehensive graph/data analysis.
  */
 export function createReasoningTools(
-  runtime: RuntimeOrchestrator,
+  runtime: SemanticRuntimeOrchestrator,
   workspace: Workspace,
   policy: PolicyContext,
 ): Record<string, Tool> {

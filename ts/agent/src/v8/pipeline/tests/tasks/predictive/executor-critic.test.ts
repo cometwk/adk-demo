@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { executePredictive, executePredictiveWithWorkspace } from '../../../tasks/predictive/executor'
 import { critiquePredictive } from '../../../tasks/predictive/critic'
 import type { ExecuteParams, CritiqueParams } from '../../../core/types'
-import type { ModelVerdict_Predictive } from '../../../tasks/predictive/types'
+import type { ModelVerdict_Predictive, SystemVerdict_Predictive } from '../../../tasks/predictive/types'
 
 const mockModel = vi.fn()
 
@@ -96,9 +96,10 @@ describe('Predictive Critic', () => {
     }
 
     const result = await critiquePredictive(params)
-    expect(result.systemVerdict.ranking.length).toBeGreaterThan(0)
-    expect(result.systemVerdict.ranking[0]).toHaveProperty('candidateId')
-    expect(result.systemVerdict.ranking[0]).toHaveProperty('normalizedScore')
+    const systemVerdict = result.systemVerdict as SystemVerdict_Predictive
+    expect(systemVerdict.ranking.length).toBeGreaterThan(0)
+    expect(systemVerdict.ranking[0]).toHaveProperty('candidateId')
+    expect(systemVerdict.ranking[0]).toHaveProperty('normalizedScore')
   })
 
   it('should handle agreement when picks match', async () => {
@@ -122,8 +123,8 @@ describe('Predictive Critic', () => {
     const result = await critiquePredictive(params)
 
     // Note: agreement depends on scoring logic
-    expect(result.reconciliation.agreed).toBeDefined()
-    expect(result.reconciliation.modelRecommendation).toBe('cand_high')
+    expect(result.reconciliation?.agreed).toBeDefined()
+    expect(result.reconciliation?.modelRecommendation).toBe('cand_high')
   })
 
   it('should include notes in system verdict', async () => {
@@ -137,8 +138,9 @@ describe('Predictive Critic', () => {
     }
 
     const result = await critiquePredictive(params)
-    expect(result.systemVerdict.notes).toBeDefined()
-    expect(Array.isArray(result.systemVerdict.notes)).toBe(true)
+    const systemVerdict = result.systemVerdict as SystemVerdict_Predictive
+    expect(systemVerdict.notes).toBeDefined()
+    expect(Array.isArray(systemVerdict.notes)).toBe(true)
   })
 
   it('should handle empty rule registry', async () => {
@@ -158,7 +160,8 @@ describe('Predictive Critic', () => {
     }
 
     const result = await critiquePredictive(params)
-    expect(result.systemVerdict.ranking.length).toBeGreaterThan(0)
-    expect(result.systemVerdict.triggeredRuleIds).toBeUndefined() // or empty
+    const systemVerdict = result.systemVerdict as SystemVerdict_Predictive
+    expect(systemVerdict.ranking.length).toBeGreaterThan(0)
+    // triggeredRuleIds is not a property of SystemVerdict_Predictive
   })
 })
