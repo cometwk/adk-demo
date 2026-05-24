@@ -11,16 +11,23 @@ import { createGraphTools } from '../tools/graph-tools'
 import { createComputeTools } from '../tools/compute-tools'
 import { createFactTools } from '../tools/fact-tools'
 import { createCandidateTools } from '../tools/candidate-tools'
-import { BaseNode } from '../../ontology'
+import { BaseNode, agentType, agentProperty } from '../../ontology'
 import type { VectorEntity } from '../query/vector-query'
 import type { ComputeQuery } from '../query/compute-query'
 import type { GraphTraversalQuery } from '../query/graph-query'
 
-// ── Test Node classes ──
+// ── Test Node classes with decorators ──
+@agentType({ name: 'Merch', description: 'Test merchant node' })
 class MerchNode extends BaseNode {
+  @agentProperty({ type: 'string', description: 'Merchant number' })
   merch_no: string
+
+  @agentProperty({ type: 'string', description: 'Merchant name' })
   merch_name: string
+
+  @agentProperty({ type: 'string', description: 'Merchant status' })
   status: string
+
   constructor(id: string, merch_no: string, merch_name: string, status: string) {
     super(id)
     this.merch_no = merch_no
@@ -29,10 +36,17 @@ class MerchNode extends BaseNode {
   }
 }
 
+@agentType({ name: 'Agent', description: 'Test agent node' })
 class AgentNode extends BaseNode {
+  @agentProperty({ type: 'string', description: 'Agent number' })
   agent_no: string
+
+  @agentProperty({ type: 'string', description: 'Agent name' })
   agent_name: string
+
+  @agentProperty({ type: 'string', description: 'Agent type' })
   agent_type: string
+
   constructor(id: string, agent_no: string, agent_name: string, agent_type: string) {
     super(id)
     this.agent_no = agent_no
@@ -97,8 +111,8 @@ describe('V8 E2E Integration', () => {
       // Step 1: Find merchants for Agent A001
       // MATCH Agent → TRAVERSE in via for_agent → RETURN Merch nodes
       const query: GraphTraversalQuery = {
-        match: { type: 'AgentNode', where: [{ property: 'agent_no', op: 'eq', value: 'A001' }] },
-        traverse: [{ relation: 'for_agent', direction: 'in', targetType: 'MerchNode', alias: 'merchants' }],
+        match: { type: 'Agent', where: [{ property: 'agent_no', op: 'eq', value: 'A001' }] },
+        traverse: [{ relation: 'for_agent', direction: 'in', targetType: 'Merch', alias: 'merchants' }],
         return: { alias: 'merchants' }, // Return the traversed Merch nodes
       }
 
@@ -197,7 +211,7 @@ describe('V8 E2E Integration', () => {
       const graphTools = createGraphTools(runtime)
 
       // Test search_nodes
-      const searchResult = await graphTools.search_nodes.execute!({ type: 'MerchNode' },  { toolCallId: 'search_nodes', messages: [] }) as any
+      const searchResult = await graphTools.search_nodes.execute!({ type: 'Merch' },  { toolCallId: 'search_nodes', messages: [] }) as any
       expect(searchResult.ok).toBe(true)
       if (searchResult.ok) {
         expect(searchResult.data.items.length).toBe(3)

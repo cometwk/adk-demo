@@ -35,7 +35,7 @@ function nodeToData(node: BaseNode, fields?: string[]): NodeData {
   const props = node.getProperties()
   return {
     id: node.id,
-    type: node.constructor.name,
+    type: node.getAgentTypeName(),
     properties: projectFields(props, fields),
   }
 }

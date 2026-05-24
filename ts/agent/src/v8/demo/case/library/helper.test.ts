@@ -105,24 +105,24 @@ describe('InMemoryVectorStore', () => {
 describe('buildTestOntology', () => {
   it('should return library domain ontology', () => {
     const ontology = buildTestOntology()
-    expect(ontology.version).toBe('test-1.0.0')
+    expect(ontology.version).toBe('library-1.0.0')
     expect(ontology.types).toHaveLength(6)
-    expect(ontology.relations).toHaveLength(6)
+    expect(ontology.relations).toHaveLength(10)
   })
 
   it('should include Reader type', () => {
     const ontology = buildTestOntology()
     const readerType = ontology.types.find((t: TypeSchema) => t.name === 'Reader')
     expect(readerType).toBeDefined()
-    expect(readerType?.description).toBe('Library reader')
-    expect(readerType?.properties).toHaveLength(1)
+    expect(readerType?.description).toBe('图书馆读者，持有会员证，注册在某分馆，可借阅和预约书籍')
+    expect(readerType?.properties).toHaveLength(5)
   })
 
   it('should include Book type', () => {
     const ontology = buildTestOntology()
     const bookType = ontology.types.find((t: TypeSchema) => t.name === 'Book')
     expect(bookType).toBeDefined()
-    expect(bookType?.description).toBe('Library book')
+    expect(bookType?.description).toBe('图书馆馆藏书籍，可能属于某类目和系列，在多个分馆有库存')
   })
 
   it('should include borrows relation', () => {
