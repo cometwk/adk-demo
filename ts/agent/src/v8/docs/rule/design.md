@@ -187,7 +187,7 @@ interface RuleRuntime {
 ## 2.4 核心实现骨架
 
 ```typescript
-class SemanticRuleRuntime implements RuleRuntime {
+class InMemoryRuleRuntime implements RuleRuntime {
   constructor(
     private registry: RuleRegistry,
     private scorer: MCDAScorer,
@@ -369,7 +369,6 @@ RuleRegistry 是 V8 的规则注册中心，遵循 V8 Ontology 模块的 `AgentR
 规则注册
 规则查找
 规则过滤
-规则版本管理
 规则元数据暴露
 ```
 
@@ -550,23 +549,26 @@ type RequiredFact = {
 
 ```typescript
 type VetoConfig = {
-  candidatesByLabel: string[]  // 如 ["LOW", "ALLOWED"] — 触发时直接否决
+  candidatesByLabel?: string[]  // 如 ["LOW", "ALLOWED"] — 触发时直接否决具有该标签的所有候选人
+  candidatesById?: string[]     // 可选：通过精确的 CandidateId 直接否决具体候选人，防范标签层面的 Collateral 误杀与标签漂移
 }
 ```
 
-仅 `hard_constraint` 可配置。
+仅 `hard_constraint` 可配置。在评估时，Veto 引擎会同时遍历这两项集合并剔除匹配的候选对象。
 
 ---
 
 # 5. Rule Evaluator
 
-## 5.1 定位
+## 5.1 定位与降级说明
 
-Rule Evaluator 负责：
+根据一致性（Coherence）与范围守护者（Scope Guardian）建议，**Rule Evaluator 并非独立的子系统、物理类或独立的执行模块**，它代表的仅仅是 `Rule` 接口上定义的 `rule.evaluator` 异步回调函数。
+
+在 InMemoryRuleRuntime 评估过程中，运行时会直接调用该回调闭包来完成以下逻辑：
 
 ```text
 读取 FactStore
-执行规则 evaluator
+执行规则 evaluator 回调
 收集 missing facts
 生成 RuleResult
 ```
@@ -1216,6 +1218,8 @@ const inspect_rules = tool({
 
   execute: async (input): Promise<ToolResult> => {
     maybeLogToolCall('inspect_rules', input, policy)
+    // 校验该 policy 是否允许访问规则列表（如类型或意图层面的校验）
+    // ... 权限校验分支 ...
     return runtime.inspectRules(input)
   },
 })
@@ -1240,11 +1244,16 @@ const evaluate_rule = tool({
   execute: async ({ ruleId, entityId }): Promise<ToolResult> => {
     maybeLogToolCall('evaluate_rule', { ruleId, entityId }, policy)
 
+    // 可行性安全校验：若指定了 entityId，必须校验 PolicyContext 访问权
+    if (entityId && policy && !policy.isEntityAllowed(entityId)) {
+      return toolErr('PERMISSION_DENIED', `Access to entity '${entityId}' denied by policy`)
+    }
+
     const ctx: RuleContext = {
       facts: workspace.getFacts(),
       graph: graphStore,
       entityId,
-      now: new Date(),
+      now: workspace.getSessionClock?.() || new Date(),
     }
 
     return runtime.evaluateRule(ruleId, ctx)
@@ -1461,10 +1470,10 @@ Rule 模块的实现分为接口层和 Provider 层。
 
 | Provider | 位置 | 说明 |
 |---|---|---|
-| InMemoryRuleRegistry | `rule/provider/in-memory/` | 内存注册表，Phase 1 默认 |
-| InMemoryRuleRuntime | `rule/provider/in-memory/` | 内存运行时，Phase 1 默认 |
+| InMemoryRuleRegistry | `rule/registry/` | 内存注册表，Phase 1 默认 |
+| InMemoryRuleRuntime | `rule/runtime/` | 内存运行时，Phase 1 默认 |
 
-Phase 1 不需要外部 Provider（如数据库持久化规则），但接口预留。
+基于 Scope Guardian 的精简建议，第一阶段直接采用直接实现的内存方式，不建立复杂的 `rule/provider/in-memory` 子层级，待未来引入第二个数据库 Provider 时才启动该分包结构，保持目录极简。
 
 ---
 
@@ -1493,9 +1502,8 @@ Phase 1 不需要外部 Provider（如数据库持久化规则），但接口预
 ```text
 src/v8/rule/
 ├── runtime/
-│   ├── rule-runtime.ts          — RuleRuntime 门面 + 接口
+│   ├── rule-runtime.ts          — InMemoryRuleRuntime 实现 + 接口
 │   ├── scoring.ts               — MCDA 评分器 + Direction Mapping
-│   ├── veto.ts                  — Veto Engine
 │   ├── reconciler.ts            — Reconciler
 │   └── config.ts                — RuleRuntimeConfig
 │
@@ -1515,11 +1523,6 @@ src/v8/rule/
 │   ├── evaluate-rule.ts         — evaluate_rule tool
 │   ├── inspect-verdict.ts       — inspect_verdict tool
 │   └── reconcile-verdict.ts     — reconcile_verdict tool
-│
-├── provider/
-│   └── in-memory/
-│       ├── in-memory-registry.ts    — InMemoryRuleRegistry
-│       └── in-memory-runtime.ts     — InMemoryRuleRuntime
 │
 ├── demo/
 │   └── library/
@@ -1552,7 +1555,8 @@ type RequiredFact = {
 }
 
 type VetoConfig = {
-  candidatesByLabel: string[]
+  candidatesByLabel?: string[]
+  candidatesById?: string[]
 }
 
 type Rule = {
