@@ -64,10 +64,10 @@ export { createVectorTools } from './tools/vector-tools'
 export { createFactTools } from './tools/fact-tools'
 export { createCandidateTools } from './tools/candidate-tools'
 
-// Agent
-export { runSemanticReasoningAgent, type ReasoningTask, type AgentResult, type SemanticVerdict } from './agent/executor'
-export { buildSemanticReasoningPrompt, type AgentContext } from './agent/prompt'
-export { parseVerdict, createFallbackVerdict } from './agent/verdict'
+// // Agent 注意：本模块的 agent 只用于内部测试而已
+// export { runSemanticReasoningAgent, type ReasoningTask, type AgentResult, type SemanticVerdict } from './agent/executor'
+// export { buildSemanticReasoningPrompt, type AgentContext } from './agent/prompt'
+// export { parseVerdict, createFallbackVerdict } from './agent/verdict'
 
 // Policy
 export { OPEN_POLICY, type PolicyContext, type Principal, type ScopePolicy, type RedactionPolicy, type AuditPolicy } from '../policy/context'

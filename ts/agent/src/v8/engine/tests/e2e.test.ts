@@ -135,12 +135,13 @@ describe('V8 E2E Integration', () => {
       const tools = createFactTools(workspace, OPEN_POLICY)
 
       // Agent binds semantic assertion: M003 has no transactions
-      const result = await tools.bind_fact.execute({
+      const result = await tools.bind_fact.execute!({
         entityId: 'Merch:M003',
         property: 'no_transaction',
         value: true,
         confidence: 0.95,
-      })
+        sourceKind: 'graph_property',
+      },  { toolCallId: 'bind_fact', messages: [] }) as any
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -186,17 +187,17 @@ describe('V8 E2E Integration', () => {
       const graphTools = createGraphTools(runtime)
 
       // Test search_nodes
-      const searchResult = await graphTools.search_nodes.execute({ type: 'Merch' })
+      const searchResult = await graphTools.search_nodes.execute!({ type: 'Merch' },  { toolCallId: 'search_nodes', messages: [] }) as any
       expect(searchResult.ok).toBe(true)
       if (searchResult.ok) {
         expect(searchResult.data.items.length).toBe(3)
       }
 
       // Test query_neighbors
-      const neighborResult = await graphTools.query_neighbors.execute({
+      const neighborResult = await graphTools.query_neighbors.execute!({
         nodeId: 'Merch:M001',
         relation: 'for_agent',
-      })
+      },  { toolCallId: 'query_neighbors', messages: [] }) as any
       expect(neighborResult.ok).toBe(true)
       if (neighborResult.ok) {
         expect(neighborResult.data.items.length).toBe(1)
@@ -207,11 +208,11 @@ describe('V8 E2E Integration', () => {
     it('compute_tools route correctly', async () => {
       const computeTools = createComputeTools(runtime)
 
-      const result = await computeTools.compute_query.execute({
+      const result = await computeTools.compute_query.execute!({
         source: 'ProfitDaily',
         filters: [{ field: 'agent_no', op: 'eq', value: 'A001' }],
         metrics: [{ field: 'net_profit', fn: 'sum', as: 'total_profit' }],
-      })
+      },  { toolCallId: 'compute_query', messages: [] }) as any
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -226,13 +227,13 @@ describe('V8 E2E Integration', () => {
       // Clear existing candidates
       workspace.setCandidates([])
 
-      const result = await candidateTools.propose_candidates.execute({
+      const result = await candidateTools.propose_candidates.execute!({
         candidates: [
           { label: 'Merch:M001' },
           { label: 'Merch:M002' },
           { label: 'Merch:M003' },
         ],
-      })
+      },  { toolCallId: 'propose_candidates', messages: [] }) as any
 
       expect(result.ok).toBe(true)
       expect(workspace.candidates).toEqual(['Merch:M001', 'Merch:M002', 'Merch:M003'])
