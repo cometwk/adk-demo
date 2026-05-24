@@ -104,6 +104,8 @@ RestQueryProvider 是 V8 的远程 REST API 图存储实现：
 
 ### 2.2 接口定义
 
+RestQueryProvider 完整实现 V8 的 `GraphStore` 接口：
+
 ```typescript
 interface RestQueryProvider extends GraphStore {
   // ── 继承 GraphStore 接口 ──
@@ -113,10 +115,14 @@ interface RestQueryProvider extends GraphStore {
   getNeighbors(nodeId: string, opts: GetNeighborsOpts): Promise<Paginated<NeighborData>>
   getEdgeSummary(nodeId: string): Promise<EdgeSummary[]>
 
-  // ── RestQueryProvider 特有 ──
-  parseGlobalId(id: string): { type: RestEntityType; rawId: string }
+  // ── GraphTraversalQuery 执行 ──
+  query(query: GraphTraversalQuery, policy?: PolicyContext): Promise<ToolResult<GraphQueryResult>>
+
+  // ── ID 编解码复用 engine 模块，详见 2.4 节 ──
 }
 ```
+
+**注**：`getBaseNode` 方法不在 V8 标准 `GraphStore` 接口中，但 RestQueryProvider 保留该方法以支持 V6 兼容的 BaseNode 装饰器模式。
 
 ### 2.3 核心实现骨架
 
@@ -125,6 +131,10 @@ class RestQueryProvider implements GraphStore {
   protected readonly bindings: RestAccessBindingMap
   protected readonly ctx: AccessContext
   protected readonly nodeCache: Map<string, BaseNode> = new Map()
+
+  // Phase 1: nodeCache 用于 BaseNode 实例缓存
+  // Phase 2: 移除 nodeCache，BaseNode 创建逻辑移至 Runtime Orchestrator
+  // 详见第 8 节缓存演进协议
 
   constructor(
     bindings: RestAccessBindingMap,
@@ -147,14 +157,25 @@ class RestQueryProvider implements GraphStore {
     const cached = this.nodeCache.get(id)
     if (cached) return cached
 
+    // 解析 ID 获取 type
+    const parsed = parseGlobalId(id)
+    if (!parsed) return undefined
+
+    const { type } = parsed
+
+    // 获取 NodeClass，校验是否存在
+    const NodeClass = this.ctx.typeRegistry[type]?.class
+    if (!NodeClass) return undefined
+
     // 异步获取数据并创建 BaseNode 实例
     const data = await this.getNode(id)
     if (!data) return undefined
 
-    const NodeClass = this.ctx.typeRegistry[type]?.class
     const node = new NodeClass(id)
     setNodeGraphStore(node, this)
-    Object.assign(node, data.properties)
+    if (data.properties) {
+      Object.assign(node, data.properties)
+    }
 
     this.nodeCache.set(id, node)
     return node
@@ -197,6 +218,86 @@ class RestQueryProvider implements GraphStore {
   }
 }
 ```
+
+### 2.4 ID 编解码复用
+
+**重要**：RestQueryProvider 复用 engine 模块的 ID 编解码函数，不重新定义：
+
+```typescript
+// 从 engine 模块导入
+import { parseGlobalId, toGlobalId } from '../../engine'
+
+// 使用示例
+async getNode(id: string): Promise<NodeData | undefined> {
+  const parsed = parseGlobalId(id)
+  if (!parsed) return undefined
+  
+  const { type, rawId } = parsed
+  return this.ctx.fetchOne(type, rawId)
+}
+```
+
+**engine 模块导出**（`src/v8/engine/index.ts`）：
+```typescript
+export type GlobalId = {
+  type: string
+  rawId: string
+}
+
+export function parseGlobalId(id: string): GlobalId | null
+export function toGlobalId(type: string, rawId: string): string
+```
+
+### 2.5 query 方法实现策略
+
+RestQueryProvider 的 `query` 方法实现逻辑参考 V8 的 `InMemoryGraphStore`（`src/v8/engine/impl/in-memory-graph.ts`），采用三阶段执行：
+
+```text
+MATCH → TRAVERSE → RETURN
+```
+
+**实现要点**：
+
+1. **MATCH 阶段**：调用 `findNodes` 获取起始节点集合
+2. **TRAVERSE 阶段**：对每个节点调用 `getNeighbors`，按 relation/direction 遍历
+3. **RETURN 阶段**：对结果集进行字段投影、分页、Policy 校验
+
+**核心骨架**：
+
+```typescript
+async query(query: GraphTraversalQuery, policy: PolicyContext = OPEN_POLICY): Promise<ToolResult<GraphQueryResult>> {
+  const workingSets = new Map<string, Set<string>>()
+  const startAlias = query.match.alias ?? '_start'
+
+  // MATCH: 使用 findNodes 获取起始节点
+  const matchPage = await this.findNodes({
+    type: query.match.type,
+    where: query.match.where,
+    limit: MAX_WORKING_SET,
+  })
+  // ... Policy 校验，构建 matchSet
+
+  // TRAVERSE: 对每个节点使用 getNeighbors 遍历
+  for (const step of query.traverse ?? []) {
+    for (const fromId of fromSet) {
+      const neighbors = await this.getNeighbors(fromId, {
+        relation: step.relation,
+        direction: step.direction ?? 'out',
+        targetType: step.targetType,
+        where: step.where,
+      })
+      // ... 处理 neighbors，更新 workingSets
+    }
+  }
+
+  // RETURN: 构建结果，字段投影 + 分页
+  // ... 返回 ToolResult<GraphQueryResult>
+}
+```
+
+**与 InMemoryGraphStore 的差异**：
+- InMemoryGraphStore：内存中直接访问 nodes/edges Map
+- RestQueryProvider：通过 REST API 获取数据（findNodes/getNeighbors）
 
 ---
 
@@ -363,9 +464,13 @@ function filtersToSearchParams(
   offset?: number,
   limit?: number
 ): SearchParams {
+  // 防御性默认值，防止 NaN 计算
+  const _limit = limit ?? DEFAULT_PAGE_LIMIT
+  const _offset = offset ?? 0
+
   const params: SearchParams = {
-    page: limit > 0 ? Math.floor(offset / limit) : 0,
-    pagesize: limit,
+    page: _limit > 0 ? Math.floor(_offset / _limit) : 0,
+    pagesize: _limit,
   }
 
   if (fields?.length) {
@@ -482,13 +587,101 @@ src/v8/provider/rest-query/
 ├── context.ts               — AccessContext 类型定义
 ├── api-search.ts            — API 搜索层封装
 ├── http-client.ts           — HTTP 客户层（axios + token）
-├── helpers.ts               — 辅助函数（ID 编解码、过滤转换）
+├── helpers.ts               — 辅助函数（过滤转换、邻居构建）
+│                               注：parseGlobalId/toGlobalId 复用 engine 模块
 └── index.ts                 — 公共导出
 ```
 
 ---
 
-## 8. Phase 1 实现优先级
+## 8. 缓存演进协议
+
+### 8.1 问题背景
+
+Phase 1 和 Phase 2 的缓存职责不同，若未定义清晰的演进协议，会导致：
+
+- **数据不一致**：Orchestrator 的 CacheStore 失效策略无法向下渗透，RestQueryProvider 的 nodeCache 返回未失效对象
+- **内存泄漏**：无淘汰机制的 Map 在长时间运行的 Agent 系统中累积
+
+### 8.2 Phase 1 缓存策略
+
+Phase 1 的 `nodeCache` 仅用于 **BaseNode 实例缓存**（V6 兼容），不缓存原始数据：
+
+```typescript
+// Phase 1: nodeCache 仅缓存 BaseNode 实例
+// 约束：每次 getNode/findNodes/getNeighbors 直接调用 REST API，不缓存原始数据
+protected readonly nodeCache: Map<string, BaseNode> = new Map()
+
+// BaseNode 实例创建后缓存，避免重复装饰器初始化
+async getBaseNode(id: string): Promise<BaseNode | undefined> {
+  const cached = this.nodeCache.get(id)
+  if (cached) return cached
+  // ... 创建并缓存
+}
+```
+
+**约束规则**：
+1. `nodeCache` 仅缓存 **BaseNode 实例**，不缓存 `NodeData`
+2. `getNode`/`findNodes`/`getNeighbors` **每次调用 REST API**，不做数据缓存
+3. 缓存生命周期绑定到 **单次 Agent 运行周期**，Agent 结束后清空
+
+### 8.3 Phase 2 缓存迁移
+
+Phase 2 移除 RestQueryProvider 的私有缓存，完全依赖 Runtime Orchestrator：
+
+```typescript
+// Phase 2: 移除 nodeCache
+class RestQueryProvider implements GraphStore {
+  // 不再有 nodeCache
+  // BaseNode 创建逻辑移至 Runtime Orchestrator 或移除（V8 简化设计）
+}
+```
+
+**Runtime Orchestrator 负责**：
+- **CacheStore**：统一管理查询结果缓存（GraphQueryResult、ComputeQueryResult）
+- **缓存策略**：TTL、LRU、失效触发
+- **向下穿透**：缓存失效时直接调用 RestQueryProvider 获取最新数据
+
+### 8.4 缓存协议接口
+
+```typescript
+// Runtime Orchestrator 与 RestQueryProvider 的缓存协议
+interface CacheProtocol {
+  // RestQueryProvider 必须：每次调用返回最新数据，不做本地缓存
+  // Runtime Orchestrator 负责：缓存管理、失效、穿透
+}
+
+// Phase 2: RestQueryProvider 实现
+class RestQueryProvider implements GraphStore {
+  // 所有方法直接调用 REST API，不做本地缓存
+  async getNode(id: string): Promise<NodeData | undefined> {
+    // 直接 REST API 调用，无缓存逻辑
+  }
+
+  async findNodes(opts: FindNodesOpts): Promise<Paginated<NodeData>> {
+    // 直接 REST API 调用，无缓存逻辑
+  }
+
+  async getNeighbors(nodeId: string, opts: GetNeighborsOpts): Promise<Paginated<NeighborData>> {
+    // 直接 REST API 调用，无缓存逻辑
+  }
+}
+```
+
+### 8.5 迁移检查清单
+
+| Phase | 检查项 | 状态 |
+|-------|--------|------|
+| Phase 1 | nodeCache 仅缓存 BaseNode 实例 | 必须 |
+| Phase 1 | getNode/findNodes/getNeighbors 不缓存数据 | 必须 |
+| Phase 1 | Agent 运行周期结束后清空 nodeCache | 必须 |
+| Phase 2 | 移除 nodeCache | 必须 |
+| Phase 2 | 所有方法直接调用 REST API | 必须 |
+| Phase 2 | Runtime Orchestrator 管理 CacheStore | 必须 |
+
+---
+
+## 9. Phase 1 实现优先级
 
 | 优先级 | 模块                   | 说明                         |
 | ------ | ---------------------- | ---------------------------- |
@@ -502,7 +695,7 @@ src/v8/provider/rest-query/
 
 ---
 
-## 9. Phase 2：Runtime Orchestrator 集成
+## 10. Phase 2：Runtime Orchestrator 集成
 
 ### 9.1 调用链变化
 
@@ -549,7 +742,7 @@ class SemanticRuntimeOrchestrator {
 
 ---
 
-## 10. 关键设计决策
+## 11. 关键设计决策
 
 | 决策                              | 选择             | 原因                           |
 | --------------------------------- | ---------------- | ------------------------------ |
@@ -557,6 +750,7 @@ class SemanticRuntimeOrchestrator {
 | Ontology 集成                     | 独立并行         | RestAccessBinding 保持稳定，Ontology 仅用于 Prompt |
 | HTTP 客户端                       | 保持不变         | 降低迁移复杂度，token 管理稳定 |
 | 命名空间                          | RestQueryProvider | 与 V8 其他命名风格一致         |
+| 缓存策略                          | Phase 2 移除 nodeCache | 避免 CacheStore 与 nodeCache 协议冲突，防止脏读和内存泄漏 |
 
 ---
 
@@ -628,7 +822,7 @@ interface SearchParams {
 | `src/v6/provider/rest/types.ts` | `src/v8/provider/rest-query/bindings.ts` + `context.ts` | 拆分为两个文件         |
 | `src/v6/provider/rest/api-search.ts` | `src/v8/provider/rest-query/api-search.ts` | 无变化                 |
 | `src/v6/provider/rest/axios.ts` | `src/v8/provider/rest-query/http-client.ts` | 文件重命名             |
-| `src/v6/provider/rest/helpers.ts` | `src/v8/provider/rest-query/helpers.ts` | 无变化                 |
+| `src/v6/provider/rest/helpers.ts` | `src/v8/provider/rest-query/helpers.ts` | 移除 parseGlobalId/toGlobalId，复用 engine 模块 |
 
 ---
 
