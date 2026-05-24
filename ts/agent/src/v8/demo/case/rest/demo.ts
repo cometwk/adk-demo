@@ -1,7 +1,7 @@
-import { buildOntology } from "../../../../ontology";
-import { RestQueryProvider } from "../../../../provider/rest-query";
-import { paymentAccessBindings } from "../bindings";
-import { typeRegistry } from "../context";
+import { buildOntology } from "../../../ontology";
+import { RestQueryProvider } from "../../../provider/rest-query";
+import { paymentAccessBindings } from "./bindings";
+import { typeRegistry } from "./context";
 import "../ontology";
 
 async function test() {
