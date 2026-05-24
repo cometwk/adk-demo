@@ -6,9 +6,35 @@ import { InMemoryVectorStore } from '../../provider/in-memory/in-memory-vector'
 import { seedComputeStore } from '../../provider/in-memory/tests/fixtures/seed-ddl'
 import { Workspace } from '../runtime/workspace'
 import { DEFAULT_RUNTIME_CONFIG } from '../runtime/config'
+import { BaseNode } from '../../ontology'
 import type { GraphTraversalQuery } from '../query/graph-query'
 import type { ComputeQuery } from '../query/compute-query'
 import type { VectorEntity } from '../query/vector-query'
+
+// ── Test Node classes ──
+class MerchNode extends BaseNode {
+  merch_no: string
+  merch_name: string
+  status: string
+  constructor(id: string, merch_no: string, merch_name: string, status: string) {
+    super(id)
+    this.merch_no = merch_no
+    this.merch_name = merch_name
+    this.status = status
+  }
+}
+
+class AgentNode extends BaseNode {
+  agent_no: string
+  agent_name: string
+  agent_type: string
+  constructor(id: string, agent_no: string, agent_name: string, agent_type: string) {
+    super(id)
+    this.agent_no = agent_no
+    this.agent_name = agent_name
+    this.agent_type = agent_type
+  }
+}
 
 describe('V8 SemanticRuntimeOrchestrator', () => {
   let orchestrator: SemanticRuntimeOrchestrator
@@ -25,10 +51,10 @@ describe('V8 SemanticRuntimeOrchestrator', () => {
     vectorStore = new InMemoryVectorStore()
 
     // Seed graph store with nodes and edges
-    graphStore.addNode({ id: 'Merch:M001', type: 'Merch', properties: { merch_no: 'M001', merch_name: 'Merchant 1', status: 'active' } })
-    graphStore.addNode({ id: 'Merch:M002', type: 'Merch', properties: { merch_no: 'M002', merch_name: 'Merchant 2', status: 'inactive' } })
-    graphStore.addNode({ id: 'Merch:M003', type: 'Merch', properties: { merch_no: 'M003', merch_name: 'Merchant 3', status: 'pending' } })
-    graphStore.addNode({ id: 'Agent:A001', type: 'Agent', properties: { agent_no: 'A001', agent_name: 'Agent 1', agent_type: 'MERCH' } })
+    graphStore.addNode(new MerchNode('Merch:M001', 'M001', 'Merchant 1', 'active'))
+    graphStore.addNode(new MerchNode('Merch:M002', 'M002', 'Merchant 2', 'inactive'))
+    graphStore.addNode(new MerchNode('Merch:M003', 'M003', 'Merchant 3', 'pending'))
+    graphStore.addNode(new AgentNode('Agent:A001', 'A001', 'Agent 1', 'MERCH'))
     graphStore.addEdge({ from: 'Merch:M001', to: 'Agent:A001', type: 'for_agent' })
     graphStore.addEdge({ from: 'Merch:M002', to: 'Agent:A001', type: 'for_agent' })
     graphStore.addEdge({ from: 'Merch:M003', to: 'Agent:A001', type: 'for_agent' })

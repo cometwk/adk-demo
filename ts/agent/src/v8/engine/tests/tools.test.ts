@@ -12,7 +12,27 @@ import { createComputeTools } from '../tools/compute-tools'
 import { createVectorTools } from '../tools/vector-tools'
 import { createFactTools } from '../tools/fact-tools'
 import { createCandidateTools } from '../tools/candidate-tools'
+import { BaseNode } from '../../ontology'
 import type { VectorEntity } from '../query/vector-query'
+
+// ── Test Node classes ──
+class MerchNode extends BaseNode {
+  merch_no: string
+  merch_name: string
+  constructor(id: string, merch_no: string, merch_name: string) {
+    super(id)
+    this.merch_no = merch_no
+    this.merch_name = merch_name
+  }
+}
+
+class AgentNode extends BaseNode {
+  agent_no: string
+  constructor(id: string, agent_no: string) {
+    super(id)
+    this.agent_no = agent_no
+  }
+}
 
 describe('V8 Tools', () => {
   let runtime: SemanticRuntimeOrchestrator
@@ -29,9 +49,9 @@ describe('V8 Tools', () => {
     vectorStore = new InMemoryVectorStore()
 
     // Seed graph store
-    graphStore.addNode({ id: 'Merch:M001', type: 'Merch', properties: { merch_no: 'M001', merch_name: 'Merchant 1' } })
-    graphStore.addNode({ id: 'Merch:M002', type: 'Merch', properties: { merch_no: 'M002', merch_name: 'Merchant 2' } })
-    graphStore.addNode({ id: 'Agent:A001', type: 'Agent', properties: { agent_no: 'A001' } })
+    graphStore.addNode(new MerchNode('Merch:M001', 'M001', 'Merchant 1'))
+    graphStore.addNode(new MerchNode('Merch:M002', 'M002', 'Merchant 2'))
+    graphStore.addNode(new AgentNode('Agent:A001', 'A001'))
     graphStore.addEdge({ from: 'Merch:M001', to: 'Agent:A001', type: 'for_agent' })
 
     // Index vector entities

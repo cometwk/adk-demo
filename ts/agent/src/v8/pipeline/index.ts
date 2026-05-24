@@ -28,11 +28,7 @@ export type {
   RuleMetadata,
 } from './core/types'
 
-export {
-  TaskTypeNotFoundError,
-  PromptBuildError,
-  ExecuteError,
-} from './core/types'
+export { TaskTypeNotFoundError, PromptBuildError, ExecuteError } from './core/types'
 
 // ── Registry ──
 
@@ -58,11 +54,7 @@ export {
   executeReasoning,
   executeReasoningWithWorkspace,
 } from './tasks/reasoning/index'
-export {
-  type ReasoningTask,
-  type SemanticVerdict,
-  parseVerdict,
-} from './tasks/reasoning/types'
+export { type ReasoningTask, type SemanticVerdict, parseVerdict } from './tasks/reasoning/types'
 
 // Predictive
 export {
@@ -105,21 +97,6 @@ export {
   type DiagnosticTaskContext,
   parseDiagnosticVerdict,
 } from './tasks/diagnostic/types'
-
-// ── Test Helpers ──
-
-export {
-  InMemoryGraphStore,
-  InMemoryComputeStore,
-  InMemoryVectorStore,
-  buildTestOntology,
-  buildTestRules,
-  newPipelineTestContext,
-  seedLibraryData,
-  getScenario,
-  useCaseScenarios,
-  type UseCaseScenario,
-} from './tests/helper'
 
 // ── Convenience Re-exports ──
 

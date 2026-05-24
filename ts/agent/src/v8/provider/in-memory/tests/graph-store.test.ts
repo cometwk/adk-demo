@@ -1,8 +1,30 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { InMemoryGraphStore } from '../in-memory-graph'
 import { OPEN_POLICY } from '../../../policy/context'
-import type { NodeData, Edge } from '../../../engine/runtime/types'
+import { BaseNode } from '../../../ontology'
+import type { Edge } from '../../../engine/runtime/types'
 import type { GraphTraversalQuery } from '../../../engine/query/graph-query'
+
+// ── Test Node classes ──
+class AgentNode extends BaseNode {
+  name: string
+  status: string
+  constructor(id: string, name: string, status: string) {
+    super(id)
+    this.name = name
+    this.status = status
+  }
+}
+
+class MerchNode extends BaseNode {
+  name: string
+  status: string
+  constructor(id: string, name: string, status: string) {
+    super(id)
+    this.name = name
+    this.status = status
+  }
+}
 
 describe('V8 InMemoryGraphStore', () => {
   let store: InMemoryGraphStore
@@ -11,15 +33,10 @@ describe('V8 InMemoryGraphStore', () => {
     store = new InMemoryGraphStore()
 
     // Add nodes
-    const agent1: NodeData = { id: 'Agent:A001', type: 'Agent', properties: { name: 'Agent 1', status: 'active' } }
-    const merch1: NodeData = { id: 'Merch:M001', type: 'Merch', properties: { name: 'Merchant 1', status: 'active' } }
-    const merch2: NodeData = { id: 'Merch:M002', type: 'Merch', properties: { name: 'Merchant 2', status: 'inactive' } }
-    const merch3: NodeData = { id: 'Merch:M003', type: 'Merch', properties: { name: 'Merchant 3', status: 'active' } }
-
-    store.addNode(agent1)
-    store.addNode(merch1)
-    store.addNode(merch2)
-    store.addNode(merch3)
+    store.addNode(new AgentNode('Agent:A001', 'Agent 1', 'active'))
+    store.addNode(new MerchNode('Merch:M001', 'Merchant 1', 'active'))
+    store.addNode(new MerchNode('Merch:M002', 'Merchant 2', 'inactive'))
+    store.addNode(new MerchNode('Merch:M003', 'Merchant 3', 'active'))
 
     // Add edges
     const edge1: Edge = { from: 'Agent:A001', to: 'Merch:M001', type: 'manages' }
@@ -32,7 +49,7 @@ describe('V8 InMemoryGraphStore', () => {
     it('getNode returns node by id', async () => {
       const node = await store.getNode('Agent:A001')
       expect(node).toBeDefined()
-      expect(node?.type).toBe('Agent')
+      expect(node?.type).toBe('AgentNode')
       expect(node?.properties.name).toBe('Agent 1')
     })
 
@@ -42,21 +59,21 @@ describe('V8 InMemoryGraphStore', () => {
     })
 
     it('findNodes returns nodes by type', async () => {
-      const result = await store.findNodes({ type: 'Merch' })
+      const result = await store.findNodes({ type: 'MerchNode' })
       expect(result.items.length).toBe(3)
       expect(result.page.hasMore).toBe(false)
     })
 
     it('findNodes with where filter', async () => {
       const result = await store.findNodes({
-        type: 'Merch',
+        type: 'MerchNode',
         where: [{ property: 'status', op: 'eq', value: 'active' }],
       })
       expect(result.items.length).toBe(2)
     })
 
     it('findNodes with pagination', async () => {
-      const result = await store.findNodes({ type: 'Merch', limit: 2, offset: 0 })
+      const result = await store.findNodes({ type: 'MerchNode', limit: 2, offset: 0 })
       expect(result.items.length).toBe(2)
       expect(result.page.hasMore).toBe(true)
     })
@@ -80,7 +97,7 @@ describe('V8 InMemoryGraphStore', () => {
       const result = await store.getNeighbors('Agent:A001', {
         relation: 'manages',
         direction: 'out',
-        targetType: 'Merch',
+        targetType: 'MerchNode',
       })
       expect(result.items.length).toBe(2)
     })
@@ -97,7 +114,7 @@ describe('V8 InMemoryGraphStore', () => {
   describe('GraphTraversalQuery', () => {
     it('MATCH single type', async () => {
       const query: GraphTraversalQuery = {
-        match: { type: 'Merch' },
+        match: { type: 'MerchNode' },
         return: { limit: 10 },
       }
       const result = await store.query(query, OPEN_POLICY)
@@ -110,7 +127,7 @@ describe('V8 InMemoryGraphStore', () => {
 
     it('MATCH + TRAVERSE out', async () => {
       const query: GraphTraversalQuery = {
-        match: { type: 'Agent' },
+        match: { type: 'AgentNode' },
         traverse: [{ relation: 'manages', direction: 'out' }],
         return: { alias: '_start' },
       }
@@ -125,7 +142,7 @@ describe('V8 InMemoryGraphStore', () => {
 
     it('MATCH + TRAVERSE with alias', async () => {
       const query: GraphTraversalQuery = {
-        match: { type: 'Agent', alias: 'a' },
+        match: { type: 'AgentNode', alias: 'a' },
         traverse: [{ from: 'a', relation: 'manages', direction: 'out', alias: 'm' }],
         return: { alias: 'm' },
       }
@@ -140,7 +157,7 @@ describe('V8 InMemoryGraphStore', () => {
     it('MATCH + where filter', async () => {
       const query: GraphTraversalQuery = {
         match: {
-          type: 'Merch',
+          type: 'MerchNode',
           where: [{ property: 'status', op: 'eq', value: 'active' }],
         },
         return: {},
@@ -154,7 +171,7 @@ describe('V8 InMemoryGraphStore', () => {
 
     it('TRAVERSE require="exists"', async () => {
       const query: GraphTraversalQuery = {
-        match: { type: 'Agent' },
+        match: { type: 'AgentNode' },
         traverse: [{ relation: 'manages', direction: 'out', require: 'exists' }],
         return: {},
       }
@@ -167,7 +184,7 @@ describe('V8 InMemoryGraphStore', () => {
 
     it('RETURN with fields projection', async () => {
       const query: GraphTraversalQuery = {
-        match: { type: 'Merch' },
+        match: { type: 'MerchNode' },
         return: { fields: ['name'], limit: 2 },
       }
       const result = await store.query(query, OPEN_POLICY)
@@ -180,7 +197,7 @@ describe('V8 InMemoryGraphStore', () => {
 
     it('Pagination limit/offset', async () => {
       const query: GraphTraversalQuery = {
-        match: { type: 'Merch' },
+        match: { type: 'MerchNode' },
         return: { limit: 1, offset: 1 },
       }
       const result = await store.query(query, OPEN_POLICY)
@@ -193,7 +210,7 @@ describe('V8 InMemoryGraphStore', () => {
 
     it('Error on unknown alias', async () => {
       const query: GraphTraversalQuery = {
-        match: { type: 'Agent' },
+        match: { type: 'AgentNode' },
         traverse: [{ from: 'unknown_alias', relation: 'manages', direction: 'out' }],
         return: {},
       }
@@ -207,10 +224,10 @@ describe('V8 InMemoryGraphStore', () => {
     it('Policy denies type', async () => {
       const denyPolicy = {
         ...OPEN_POLICY,
-        scope: { deniedTypes: ['Merch'] },
+        scope: { deniedTypes: ['MerchNode'] },
       }
       const query: GraphTraversalQuery = {
-        match: { type: 'Merch' },
+        match: { type: 'MerchNode' },
         return: {},
       }
       const result = await store.query(query, denyPolicy)
@@ -226,7 +243,7 @@ describe('V8 InMemoryGraphStore', () => {
         scope: { deniedEntityIds: ['Merch:M001'] },
       }
       const query: GraphTraversalQuery = {
-        match: { type: 'Merch' },
+        match: { type: 'MerchNode' },
         return: {},
       }
       const result = await store.query(query, denyPolicy)
