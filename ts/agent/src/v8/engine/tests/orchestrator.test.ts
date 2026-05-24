@@ -219,7 +219,7 @@ describe('V8 SemanticRuntimeOrchestrator', () => {
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data.items.length).toBeGreaterThan(0)
-        expect(result.data.page.limit).toBe(10)
+        expect(result.data.page.limit).toBe(20)
       }
     })
 
@@ -231,14 +231,14 @@ describe('V8 SemanticRuntimeOrchestrator', () => {
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data.items.length).toBe(1)
-        expect(result.data.items[0].nodeId).toBe('Merch:M001')
+        expect(result.data.items[0].id).toBe('Merch:M001')
       }
     })
   })
 
   describe('searchVectors', () => {
     it('returns matching entities', async () => {
-      const result = await orchestrator.searchVectors({ query: 'active' })
+      const result = await orchestrator.executeVectorQuery({ query: 'active' })
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data.hits.length).toBeGreaterThan(0)

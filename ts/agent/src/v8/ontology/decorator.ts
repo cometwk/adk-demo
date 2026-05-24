@@ -14,9 +14,11 @@ export type TypeSchemaConfig = {
 export function agentType(config: TypeSchemaConfig) {
   return (target: { name: string; prototype: object }): void => {
     const typeName = config.name ?? target.name
+    const className = target.name
     // Write agentTypeName to prototype for stable runtime reflection
     ;(target.prototype as { agentTypeName?: string }).agentTypeName = typeName
-    AgentTypeRegistry.register(typeName, { description: config.description })
+    // Register with both typeName and className for mapping
+    AgentTypeRegistry.register(typeName, { description: config.description }, className)
   }
 }
 
@@ -24,7 +26,9 @@ export function agentType(config: TypeSchemaConfig) {
 
 export function agentMethod(config: MethodSchemaConfig) {
   return (target: object, propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor => {
-    const className = (target as { constructor: { name: string } }).constructor.name
+    // Use agentTypeName if set by @agentType, otherwise use constructor.name
+    const prototype = (target as { constructor: { prototype: object } }).constructor.prototype
+    const className = (prototype as { agentTypeName?: string }).agentTypeName ?? (target as { constructor: { name: string } }).constructor.name
     const schema: MethodSchema = {
       methodName: propertyKey,
       params: config.params ?? z.object({}),
@@ -43,6 +47,8 @@ export function agentMethod(config: MethodSchemaConfig) {
 
 export function agentProperty(config: PropertySchemaConfig) {
   return (target: object, propertyKey: string): void => {
+    // Always register with constructor.name (class name)
+    // Lookup will check both className and agentTypeName
     const className = (target as { constructor: { name: string } }).constructor.name
     const schema: PropertySchema = {
       propertyName: propertyKey,
@@ -65,8 +71,9 @@ export type RelationSchemaConfig = {
 
 /** Class-level relation Schema declaration (DDL) */
 export function agentRelations(relations: RelationSchemaConfig[]) {
-  return (target: { name: string }): void => {
-    const className = target.name
+  return (target: { name: string; prototype: object }): void => {
+    // Use agentTypeName if set by @agentType, otherwise use class name
+    const className = (target.prototype as { agentTypeName?: string }).agentTypeName ?? target.name
     for (const config of relations) {
       const entry: RelationRegistryEntry = {
         type: config.type,

@@ -43,7 +43,6 @@ describe('V8 InMemoryGraphStore', () => {
   beforeAll(() => {
     store = new InMemoryGraphStore()
     const ontology = buildOntology({ version: 'test-1.0.0' })
-    console.log('ontology', JSON.stringify(ontology, null, 2))
 
     // Add nodes
     store.addNode(new AgentNode('Agent:A001', 'Agent 1', 'active'))
@@ -61,7 +60,9 @@ describe('V8 InMemoryGraphStore', () => {
   describe('Node operations', () => {
     it('getNode returns node by id', async () => {
       const node = await store.getNode('Agent:A001')
-      console.log('node', node)
+      // const baseNode = await store.getBaseNode('Agent:A001')
+      // console.log('node', node)
+      // console.log('baseNode', baseNode, baseNode?.getAgentTypeName())
       expect(node).toBeDefined()
       expect(node?.type).toBe('Agent')
       expect(node?.properties.name).toBe('Agent 1')

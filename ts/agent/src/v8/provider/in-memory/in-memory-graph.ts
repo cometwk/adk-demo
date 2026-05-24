@@ -14,7 +14,7 @@ import type {
 } from '../../engine/runtime/types'
 import { toolErr, toolOk } from '../../engine/runtime/types'
 import type { FindNodesOpts, GetNeighborsOpts, GraphStore } from '../../engine/stores/graph-store'
-import { BaseNode, RelationSchema } from '../../ontology'
+import { BaseNode, NodeInstanceContainer, RelationSchema } from '../../ontology'
 
 const DEFAULT_PAGE_LIMIT = 20
 const MAX_LIMIT = 200
@@ -44,7 +44,7 @@ function nodeToData(node: BaseNode, fields?: string[]): NodeData {
 // Simplified: uses NodeData directly, no BaseNode decorator pattern
 // Implements GraphStore interface for traversal-only queries
 
-export class InMemoryGraphStore implements GraphStore {
+export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
   nodes = new Map<string, BaseNode>()
   edges: Edge[] = []
 
@@ -55,6 +55,13 @@ export class InMemoryGraphStore implements GraphStore {
     // 注：edge.type 必须是已注册的 relation.type，否则抛出错误
     this.relationIndex = new Map((opts.relations ?? []).map((r) => [r.type, r]))
   }
+
+
+  /** Get BaseNode instance by ID (async for remote recovery) */
+  async getBaseNode(id: string): Promise<BaseNode | undefined> {
+    return Promise.resolve(this.nodes.get(id)) 
+  }
+
 
   addNode(node: BaseNode): void {
     this.nodes.set(node.id, node)

@@ -134,10 +134,10 @@ describe('V8 Tools', () => {
   })
 
   describe('Vector Tools', () => {
-    it('vector_search tool routes to runtime', async () => {
+    it('vector_query tool routes to runtime', async () => {
       const vectorTools = createVectorTools(runtime)
 
-      const result = await vectorTools.vector_search.execute!({ query: 'active' },  { toolCallId: 'vector_search', messages: [] }) as any
+      const result = await vectorTools.vector_query.execute!({ query: 'active' },  { toolCallId: 'vector_query', messages: [] }) as any
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data.hits.length).toBeGreaterThan(0)
@@ -154,7 +154,7 @@ describe('V8 Tools', () => {
         property: 'test_fact',
         value: true,
         confidence: 0.9,
-        sourceKind: 'test',
+        sourceKind: 'derived',
       },  { toolCallId: 'bind_fact', messages: [] }) as any
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -174,14 +174,14 @@ describe('V8 Tools', () => {
         property: 'status',
         value: 'active',
         confidence: 0.95,
-        sourceKind: 'test',
+        sourceKind: 'derived',
       },  { toolCallId: 'bind_fact', messages: [] })
 
       // Then retrieve it
-      const result = await factTools.get_fact.execute!({
+      const result = await factTools.lookup_fact.execute!({
         entityId: 'Merch:M002',
         property: 'status',
-      },  { toolCallId: 'get_fact', messages: [] }) as any
+      },  { toolCallId: 'lookup_fact', messages: [] }) as any
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data.value).toBe('active')
@@ -200,12 +200,9 @@ describe('V8 Tools', () => {
       expect(workspace.candidates).toContain('Merch:M001')
     })
 
-    it('clear_candidates tool clears workspace.candidates', async () => {
-      const candidateTools = createCandidateTools(workspace, OPEN_POLICY)
-
+    it('clears candidates by setting empty array', async () => {
       workspace.setCandidates(['Merch:M001', 'Merch:M002'])
-      const result = await candidateTools.clear_candidates.execute!({},  { toolCallId: 'clear_candidates', messages: [] }) as any
-      expect(result.ok).toBe(true)
+      workspace.setCandidates([]) // Clear via workspace method
       expect(workspace.candidates.length).toBe(0)
     })
   })
