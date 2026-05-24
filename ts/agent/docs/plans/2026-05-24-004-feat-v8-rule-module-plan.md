@@ -1,7 +1,7 @@
 ---
 title: feat: V8 Rule 模块实现
 type: feat
-status: active
+status: completed
 date: 2026-05-24
 origin: src/v8/docs/rule/design.md
 ---
