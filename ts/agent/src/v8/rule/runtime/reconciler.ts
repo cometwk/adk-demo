@@ -18,7 +18,7 @@ export class DefaultReconciler implements Reconciler {
     const modelAnswer = modelVerdict.answer?.trim().toUpperCase() ?? ''
 
     // ── Find system recommended candidate ──
-    const systemRecommended = systemVerdict.ranking.find(
+    const systemRecommended = systemVerdict.candidates.find(
       (c) => c.candidateId === systemVerdict.recommendedCandidateId,
     )
 
@@ -43,7 +43,7 @@ export class DefaultReconciler implements Reconciler {
     }
 
     // ── Edge case: Model answer does not match any candidate label ──
-    const allLabels = systemVerdict.ranking.map((c) => c.label.toUpperCase())
+    const allLabels = systemVerdict.candidates.map((c) => c.label.toUpperCase())
     if (!allLabels.includes(modelAnswer)) {
       return {
         agreed: false,

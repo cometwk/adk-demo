@@ -183,7 +183,7 @@ describe('InMemoryRuleRuntime', () => {
       })
 
       expect(verdict.recommendedCandidateId).toBeDefined()
-      expect(verdict.ranking.length).toBe(2)
+      expect(verdict.candidates.length).toBe(2)
       expect(verdict.generatedAt).toBeDefined()
     })
   })
@@ -208,7 +208,7 @@ describe('InMemoryRuleRuntime', () => {
       const mockFacts = { get: () => null } as any
       const context: RuleContext = { facts: mockFacts }
 
-      const result = await runtime.evaluateRule('non-existent', context)
+      const result = await runtime.evaluateRule('non-existent', context) as any
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -233,7 +233,7 @@ describe('InMemoryRuleRuntime', () => {
       const mockFacts = { get: () => null } as any
       const context: RuleContext = { facts: mockFacts }
 
-      const result = await runtime.evaluateRule('error-rule', context)
+      const result = await runtime.evaluateRule('error-rule', context) as any
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -273,12 +273,13 @@ describe('InMemoryRuleRuntime', () => {
 
   describe('reconcile', () => {
     it('delegates to Reconciler.compare', () => {
-      const modelVerdict = { answer: 'HIGH', rationale: 'test' } as any
+      const modelVerdict = { answer: 'HIGH', rationale: 'test', entities: [], confidence: 0.8 } as any
       const systemVerdict = {
         recommendedCandidateId: 'c1',
-        ranking: [
+        candidates: [
           { candidateId: 'c1', label: 'HIGH', rawScore: 0.8, normalizedScore: 1, confidence: 0.8, triggeredRuleIds: [], blockingRuleIds: [], rationale: '' },
         ],
+        vetoedLabels: [],
         vetoedIds: [],
         generatedAt: Date.now(),
       }

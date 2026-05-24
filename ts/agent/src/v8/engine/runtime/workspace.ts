@@ -42,4 +42,9 @@ export class Workspace {
       candidates: this.candidates,
     }, null, 2)
   }
+
+  /** Get session clock (current timestamp for rule evaluation) */
+  getSessionClock(): Date {
+    return new Date()
+  }
 }

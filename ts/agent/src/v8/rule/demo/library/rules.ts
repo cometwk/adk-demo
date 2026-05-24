@@ -1,4 +1,5 @@
-import type { Rule, RuleContext, RuleResult } from '../../types/rule'
+import type { Rule } from '../../types/rule'
+import type { RuleContext, RuleResult } from '../../types/context'
 
 // ── Library Domain Demo Rules ──
 // 图书馆领域示例规则：展示 hard_constraint veto + soft_criterion scoring

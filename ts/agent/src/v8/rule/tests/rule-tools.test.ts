@@ -79,7 +79,7 @@ describe('createRuleTools', () => {
       registry.register(createTestRule('rule-001'))
       registry.register(createTestRule('rule-002'))
 
-      const result = await tools.inspect_rules.execute({})
+      const result = await tools.inspect_rules.execute!({}, { toolCallId: 'test-1', messages: [] }) as any
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -100,7 +100,7 @@ describe('createRuleTools', () => {
       }
       registry.register(hardRule)
 
-      const result = await tools.inspect_rules.execute({ kind: 'hard_constraint' })
+      const result = await tools.inspect_rules.execute!({ kind: 'hard_constraint' }, { toolCallId: 'test-1b', messages: [] }) as any
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -114,7 +114,7 @@ describe('createRuleTools', () => {
     it('returns result for existing rule', async () => {
       registry.register(createTestRule('test-rule'))
 
-      const result = await tools.evaluate_rule.execute({ ruleId: 'test-rule' })
+      const result = await tools.evaluate_rule.execute!({ ruleId: 'test-rule' }, { toolCallId: 'test-2', messages: [] }) as any
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -124,7 +124,7 @@ describe('createRuleTools', () => {
     })
 
     it('returns NOT_FOUND for non-existent rule', async () => {
-      const result = await tools.evaluate_rule.execute({ ruleId: 'non-existent' })
+      const result = await tools.evaluate_rule.execute!({ ruleId: 'non-existent' }, { toolCallId: 'test-3', messages: [] }) as any
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -141,8 +141,8 @@ describe('createRuleTools', () => {
           allowedEntityIds: ['Merch:M001'],
           deniedEntityIds: ['Merch:M002'],
         },
-        redaction: { sensitiveProperties: [], mode: 'none' },
-        audit: { logToolCalls: false },
+        redaction: { sensitiveProperties: [], mode: 'drop' },
+        audit: { logToolCalls: false, logFactReads: false },
       }
 
       const toolsWithDeniedPolicy = createRuleTools(
@@ -154,10 +154,10 @@ describe('createRuleTools', () => {
         (v) => { currentVerdict = v },
       )
 
-      const result = await toolsWithDeniedPolicy.evaluate_rule.execute({
+      const result = await toolsWithDeniedPolicy.evaluate_rule.execute!({
         ruleId: 'test-rule',
         entityId: 'Merch:M002',
-      })
+      }, { toolCallId: 'test-4', messages: [] }) as any
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -170,14 +170,15 @@ describe('createRuleTools', () => {
     it('returns verdict when exists', async () => {
       currentVerdict = {
         recommendedCandidateId: 'c1',
-        ranking: [
+        candidates: [
           { candidateId: 'c1', label: 'HIGH', rawScore: 0.8, normalizedScore: 1, confidence: 0.8, triggeredRuleIds: [], blockingRuleIds: [], rationale: '' },
         ],
         vetoedIds: [],
+        vetoedLabels: [],
         generatedAt: Date.now(),
       }
 
-      const result = await tools.inspect_verdict.execute({})
+      const result = await tools.inspect_verdict.execute!({}, { toolCallId: 'test-5', messages: [] }) as any
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -186,7 +187,7 @@ describe('createRuleTools', () => {
     })
 
     it('returns PRECONDITION_FAILED when no verdict', async () => {
-      const result = await tools.inspect_verdict.execute({})
+      const result = await tools.inspect_verdict.execute!({}, { toolCallId: 'test-5b', messages: [] }) as any
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -199,17 +200,18 @@ describe('createRuleTools', () => {
     it('returns agreed=true when model matches system', async () => {
       currentVerdict = {
         recommendedCandidateId: 'c1',
-        ranking: [
+        candidates: [
           { candidateId: 'c1', label: 'HIGH', rawScore: 0.8, normalizedScore: 1, confidence: 0.8, triggeredRuleIds: [], blockingRuleIds: [], rationale: '' },
         ],
         vetoedIds: [],
+        vetoedLabels: [],
         generatedAt: Date.now(),
       }
 
-      const result = await tools.reconcile_verdict.execute({
+      const result = await tools.reconcile_verdict.execute!({
         modelAnswer: 'HIGH',
         modelRationale: 'Model reasoning',
-      })
+      }, { toolCallId: 'test-6', messages: [] }) as any
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -218,9 +220,9 @@ describe('createRuleTools', () => {
     })
 
     it('returns PRECONDITION_FAILED when no system verdict', async () => {
-      const result = await tools.reconcile_verdict.execute({
+      const result = await tools.reconcile_verdict.execute!({
         modelAnswer: 'HIGH',
-      })
+      }, { toolCallId: 'test-7', messages: [] }) as any
 
       expect(result.ok).toBe(false)
       if (!result.ok) {

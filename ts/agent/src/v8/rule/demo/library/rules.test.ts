@@ -205,7 +205,7 @@ describe('Library Demo Rules', () => {
       })
 
       // ALLOWED should be vetoed by blacklist rule
-      const allowedResult = verdict.ranking.find(r => r.label === 'ALLOWED')
+      const allowedResult = verdict.candidates.find(r => r.label === 'ALLOWED')
       expect(allowedResult?.rawScore).toBe(-Infinity)
 
       // DENIED should be recommended
@@ -236,8 +236,8 @@ describe('Library Demo Rules', () => {
       })
 
       // ALLOWED should score higher due to risk_down rules
-      const allowedResult = verdict.ranking.find(r => r.label === 'ALLOWED')
-      const deniedResult = verdict.ranking.find(r => r.label === 'DENIED')
+      const allowedResult = verdict.candidates.find(r => r.label === 'ALLOWED')
+      const deniedResult = verdict.candidates.find(r => r.label === 'DENIED')
 
       expect(allowedResult?.rawScore).toBeGreaterThan(deniedResult?.rawScore ?? 0)
       expect(verdict.recommendedCandidateId).toBe('c1')

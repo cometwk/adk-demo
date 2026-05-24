@@ -39,8 +39,8 @@ export class DefaultMCDAScorer implements MCDAScorer {
           confidence: 0,
           triggeredRuleIds: [],
           blockingRuleIds: isVetoedByLabel
-            ? [...vetoedLabels]
-            : [...vetoedIds],
+            ? Array.from(vetoedLabels)
+            : Array.from(vetoedIds),
           rationale: `候选 ${candidate.label} 被硬约束否决${isVetoedById ? ' (精准 ID)' : ' (标签)'}`,
         })
         continue

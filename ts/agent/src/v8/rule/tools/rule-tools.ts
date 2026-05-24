@@ -120,6 +120,8 @@ export function createRuleTools(
       const modelVerdict: SemanticVerdict = {
         answer: modelAnswer,
         rationale: modelRationale ?? 'Agent reasoning',
+        entities: [],
+        confidence: 0.5,
       }
 
       const result = runtime.reconcile({

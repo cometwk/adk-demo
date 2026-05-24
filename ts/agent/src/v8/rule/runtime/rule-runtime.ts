@@ -22,7 +22,7 @@ import type { GraphStore } from '../../engine/stores/graph-store'
 
 export interface RuleRuntime {
   evaluateRules(input: RuleEvaluationInput): Promise<RuleEvaluationOutput>
-  scoreCandidates(input: CandidateScoringInput): Promise<SystemVerdict['ranking']>
+  scoreCandidates(input: CandidateScoringInput): Promise<SystemVerdict['candidates']>
   generateVerdict(input: VerdictInput): Promise<SystemVerdict>
   evaluateRule(ruleId: string, ctx: RuleContext): Promise<ToolResult<RuleResult>>
   inspectRules(filter?: RuleFilter): ToolResult<RuleMetadata[]>
@@ -90,14 +90,14 @@ export class InMemoryRuleRuntime implements RuleRuntime {
 
   // ── Score Candidates ──
 
-  async scoreCandidates(input: CandidateScoringInput): Promise<SystemVerdict['ranking']> {
+  async scoreCandidates(input: CandidateScoringInput): Promise<SystemVerdict['candidates']> {
     return this.scorer.score(input)
   }
 
   // ── Generate Verdict ──
 
   async generateVerdict(input: VerdictInput): Promise<SystemVerdict> {
-    const { context, entityIds, candidates, ruleIds } = input
+    const { context, entityIds, ruleIds } = input
 
     const evaluation = await this.evaluateRules({
       context,
@@ -105,17 +105,18 @@ export class InMemoryRuleRuntime implements RuleRuntime {
       ruleIds,
     })
 
-    const ranking = await this.scoreCandidates({
-      candidates,
+    const scoredCandidates = await this.scoreCandidates({
+      candidates: input.candidates,
       evaluatedRules: evaluation.evaluatedRules,
       vetoedLabels: evaluation.vetoedLabels,
       vetoedIds: evaluation.vetoedIds,
     })
 
     return {
-      recommendedCandidateId: ranking[0]?.candidateId,
-      ranking,
-      vetoedIds: [...evaluation.vetoedIds],
+      recommendedCandidateId: scoredCandidates[0]?.candidateId,
+      candidates: scoredCandidates,
+      vetoedLabels: Array.from(evaluation.vetoedLabels),
+      vetoedIds: Array.from(evaluation.vetoedIds),
       generatedAt: Date.now(),
     }
   }

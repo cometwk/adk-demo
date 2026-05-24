@@ -22,17 +22,21 @@ const createScoredCandidate = (
 
 const createSystemVerdict = (
   recommendedId: string | undefined,
-  ranking: ScoredCandidate[],
+  candidates: ScoredCandidate[],
   vetoedIds: string[] = [],
 ): SystemVerdict => ({
   recommendedCandidateId: recommendedId,
-  ranking,
+  candidates,
+  vetoedLabels: [],
   vetoedIds,
+  generatedAt: Date.now(),
 })
 
 const createSemanticVerdict = (answer: string): SemanticVerdict => ({
   answer,
   rationale: '模型推理',
+  entities: [],
+  confidence: 0.8,
 })
 
 describe('DefaultReconciler', () => {
@@ -41,11 +45,11 @@ describe('DefaultReconciler', () => {
   describe('Agreement scenarios', () => {
     it('model HIGH matches system HIGH → agreed=true', () => {
       const modelVerdict = createSemanticVerdict('HIGH')
-      const ranking = [
+      const candidates = [
         createScoredCandidate('c1', 'HIGH', 0.8),
         createScoredCandidate('c2', 'LOW', 0.3),
       ]
-      const systemVerdict = createSystemVerdict('c1', ranking)
+      const systemVerdict = createSystemVerdict('c1', candidates)
 
       const result = reconciler.compare({ modelVerdict, systemVerdict })
 
@@ -118,11 +122,11 @@ describe('DefaultReconciler', () => {
   describe('Edge cases', () => {
     it('no system recommendation (all vetoed) → agreed=false with reason', () => {
       const modelVerdict = createSemanticVerdict('HIGH')
-      const ranking = [
+      const candidates = [
         createScoredCandidate('c1', 'HIGH', -Infinity),
         createScoredCandidate('c2', 'LOW', -Infinity),
       ]
-      const systemVerdict = createSystemVerdict(undefined, ranking, ['c1', 'c2'])
+      const systemVerdict = createSystemVerdict(undefined, candidates, ['c1', 'c2'])
 
       const result = reconciler.compare({ modelVerdict, systemVerdict })
 
@@ -141,11 +145,11 @@ describe('DefaultReconciler', () => {
 
     it('model answer does not match any candidate label → agreed=false', () => {
       const modelVerdict = createSemanticVerdict('UNKNOWN')
-      const ranking = [
+      const candidates = [
         createScoredCandidate('c1', 'HIGH', 0.8),
         createScoredCandidate('c2', 'LOW', 0.3),
       ]
-      const systemVerdict = createSystemVerdict('c1', ranking)
+      const systemVerdict = createSystemVerdict('c1', candidates)
 
       const result = reconciler.compare({ modelVerdict, systemVerdict })
 
@@ -157,8 +161,8 @@ describe('DefaultReconciler', () => {
 
     it('model answer is empty → agreed=false', () => {
       const modelVerdict = createSemanticVerdict('')
-      const ranking = [createScoredCandidate('c1', 'HIGH', 0.8)]
-      const systemVerdict = createSystemVerdict('c1', ranking)
+      const candidates = [createScoredCandidate('c1', 'HIGH', 0.8)]
+      const systemVerdict = createSystemVerdict('c1', candidates)
 
       const result = reconciler.compare({ modelVerdict, systemVerdict })
 
