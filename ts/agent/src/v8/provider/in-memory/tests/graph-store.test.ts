@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { InMemoryGraphStore } from '../impl/in-memory-graph'
-import { OPEN_POLICY } from '../../policy/context'
-import type { NodeData, Edge } from '../runtime/types'
-import type { GraphTraversalQuery } from '../query/graph-query'
+import { InMemoryGraphStore } from '../in-memory-graph'
+import { OPEN_POLICY } from '../../../policy/context'
+import type { NodeData, Edge } from '../../../engine/runtime/types'
+import type { GraphTraversalQuery } from '../../../engine/query/graph-query'
 
 describe('V8 InMemoryGraphStore', () => {
   let store: InMemoryGraphStore

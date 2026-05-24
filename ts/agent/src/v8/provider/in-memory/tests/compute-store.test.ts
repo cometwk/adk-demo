@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { InMemoryComputeStore } from '../impl/in-memory-compute'
+import { InMemoryComputeStore } from '../in-memory-compute'
 import { seedComputeStore } from './fixtures/seed-ddl'
-import type { ComputeQuery } from '../query/compute-query'
+import type { ComputeQuery } from '../../../engine/query/compute-query'
 
 describe('V8 InMemoryComputeStore', () => {
   let store: InMemoryComputeStore

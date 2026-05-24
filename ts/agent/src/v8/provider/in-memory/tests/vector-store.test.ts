@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { InMemoryVectorStore } from '../impl/in-memory-vector'
-import type { VectorEntity } from '../query/vector-query'
+import { InMemoryVectorStore } from '../in-memory-vector'
+import type { VectorEntity } from '../../../engine/query/vector-query'
 
 describe('V8 InMemoryVectorStore', () => {
   let store: InMemoryVectorStore

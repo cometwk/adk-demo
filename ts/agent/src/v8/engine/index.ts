@@ -25,9 +25,9 @@ export { type ComputeStore, type ComputeSource, type SourceSchema, type FieldSch
 export { type VectorStore } from './stores/vector-store'
 
 // Store implementations
-export { InMemoryGraphStore } from './impl/in-memory-graph'
-export { InMemoryComputeStore } from './impl/in-memory-compute'
-export { InMemoryVectorStore } from './impl/in-memory-vector'
+export { InMemoryGraphStore } from '../provider/in-memory/in-memory-graph'
+export { InMemoryComputeStore } from '../provider/in-memory/in-memory-compute'
+export { InMemoryVectorStore } from '../provider/in-memory/in-memory-vector'
 
 // Query DSLs
 export {

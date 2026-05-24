@@ -1,4 +1,4 @@
-import type { FieldSchema } from '../../stores/compute-store'
+import type { FieldSchema } from '../../../../engine/stores/compute-store'
 
 // ── OrderDaily Schema ──
 // Based on DDL: order_daily.sql
@@ -54,7 +54,7 @@ export const ProfitDailySeed: Record<string, unknown>[] = [
 
 // ── Seed function ──
 
-import { InMemoryComputeStore } from '../../impl/in-memory-compute'
+import { InMemoryComputeStore } from '../../in-memory-compute'
 
 export function seedComputeStore(store: InMemoryComputeStore): void {
   store.seedSource('OrderDaily', OrderDailySeed, OrderDailySchema)
