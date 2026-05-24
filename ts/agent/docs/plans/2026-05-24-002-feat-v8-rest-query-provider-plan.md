@@ -1,7 +1,7 @@
 ---
 title: feat: V8 RestQueryProvider Migration
 type: feat
-status: active
+status: completed
 date: 2026-05-24
 origin: src/v8/docs/rest-query/design.md
 ---
@@ -127,7 +127,7 @@ V6 的 `RestGraphStore` 提供远程 REST API 图查询能力，需要迁移到 
 
 ## Implementation Units
 
-- [ ] **Unit 1: Create bindings.ts and context.ts**
+- [x] **Unit 1: Create bindings.ts and context.ts**
 
 **Goal:** 定义 RestAccessBinding 和 AccessContext 类型，从 V6 types.ts 拆分
 
@@ -155,7 +155,7 @@ V6 的 `RestGraphStore` 提供远程 REST API 图查询能力，需要迁移到 
 
 ---
 
-- [ ] **Unit 2: Create helpers.ts**
+- [x] **Unit 2: Create helpers.ts**
 
 **Goal:** 辅助函数迁移，移除 ID 编解码函数（复用 engine）
 
@@ -185,7 +185,7 @@ V6 的 `RestGraphStore` 提供远程 REST API 图查询能力，需要迁移到 
 
 ---
 
-- [ ] **Unit 3: Create api-search.ts**
+- [x] **Unit 3: Create api-search.ts**
 
 **Goal:** API 搜索层迁移，保持 404 错误处理逻辑
 
@@ -213,7 +213,7 @@ V6 的 `RestGraphStore` 提供远程 REST API 图查询能力，需要迁移到 
 
 ---
 
-- [ ] **Unit 4: Create http-client.ts**
+- [x] **Unit 4: Create http-client.ts**
 
 **Goal:** HTTP 客户端迁移，保持全局 axios 配置
 
@@ -241,7 +241,7 @@ V6 的 `RestGraphStore` 提供远程 REST API 图查询能力，需要迁移到 
 
 ---
 
-- [ ] **Unit 5: Create RestQueryProvider.ts**
+- [x] **Unit 5: Create RestQueryProvider.ts**
 
 **Goal:** 核心类实现，完整实现 GraphStore 接口
 
@@ -281,7 +281,7 @@ V6 的 `RestGraphStore` 提供远程 REST API 图查询能力，需要迁移到 
 
 ---
 
-- [ ] **Unit 6: Create index.ts and finalize exports**
+- [x] **Unit 6: Create index.ts and finalize exports**
 
 **Goal:** 公共导出，完成模块结构
 
@@ -310,7 +310,7 @@ V6 的 `RestGraphStore` 提供远程 REST API 图查询能力，需要迁移到 
 
 ---
 
-- [ ] **Unit 7: Unit tests**
+- [x] **Unit 7: Unit tests**
 
 **Goal:** 复用 V6 测试模式，验证核心功能
 
