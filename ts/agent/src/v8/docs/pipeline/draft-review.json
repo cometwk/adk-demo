@@ -1,0 +1,82 @@
+{
+  "reviewer": "Technical Editor",
+  "findings": [
+    {
+      "title": "Duplicate PipelineEvent type definitions",
+      "severity": "P2",
+      "section": "3.3 PipelineEvent, Appendix C",
+      "why_it_matters": "Duplicate type definitions create confusion and inconsistency in the documentation",
+      "autofix_class": "auto",
+      "finding_type": "error",
+      "suggested_fix": "Remove the duplicate PipelineEvent definition in Appendix C and keep the comprehensive one in section 3.3",
+      "confidence": 0.95,
+      "evidence": [
+        "type PipelineEvent =\n  | { type: 'frontend'; intent: string; entities: string[] }\n  | { type: 'executor_step'; toolCall: string; result: unknown }\n  | { type: 'fact_bound'; fact: FactBinding }\n  | { type: 'model_verdict'; verdict: unknown }\n  | { type: 'critique_complete'; result: CritiqueResult }\n  | { type: 'done'; result: PipelineResult }",
+        "type PipelineEvent =\n  | { type: 'frontend'; intent: string; entities: string[] }\n  | { type: 'clarify'; questions: ClarificationQuestion[] }\n  | { type: 'executor_start'; taskType: TaskType }\n  | { type: 'tool_call'; name: string; args: unknown }\n  | { type: 'tool_result'; name: string; result: unknown }\n  | { type: 'fact_bound'; fact: FactBinding }\n  | { type: 'model_verdict'; verdict: unknown }\n  | { type: 'critique_start' }\n  | { type: 'rule_evaluated'; rule: RuleMetadata; result: RuleResult }\n  | { type: 'critique_complete'; result: CritiqueResult }\n  | { type: 'done'; result: PipelineResult }\n  | { type: 'error'; error: Error }"
+      ]
+    },
+    {
+      "title": "Missing implementation of ClarificationQuestion type",
+      "severity": "P3",
+      "section": "4.2 Frontend接口定义",
+      "why_it_matters": "The FrontendResult type references ClarificationQuestion but no definition is provided",
+      "autofix_class": "auto",
+      "finding_type": "omission",
+      "suggested_fix": "Add a type definition for ClarificationQuestion in the core types section",
+      "confidence": 0.85,
+      "evidence": [
+        "| { status: 'clarify'; questions: ClarificationQuestion[] }"
+      ]
+    },
+    {
+      "title": "Mismatched TaskPlugin interface and directory structure",
+      "severity": "P2",
+      "section": "2.2 TaskPlugin接口, 5.1目录结构",
+      "why_it_matters": "The TaskPlugin interface defines a 'critique' method but the reasoning task directory doesn't include a critic.ts file",
+      "autofix_class": "present",
+      "finding_type": "error",
+      "suggested_fix": "Either add critic.ts to the reasoning task directory or update the TaskPlugin interface documentation to note optional critique implementation",
+      "confidence": 0.80,
+      "evidence": [
+        "interface TaskPlugin {\n  type: TaskType\n  buildPrompt(params: PromptParams): string\n  buildTools(params: ToolParams): Record<string, CoreTool>\n  execute(params: ExecuteParams): Promise<TaskExecuteResult>\n  critique?(params: CritiqueParams): Promise<CritiqueResult>\n}",
+        "└── reasoning/\n       ├── index.ts\n       ├── executor.ts\n       ├── prompt.ts\n       ├── tools.ts\n       ├── verdict.ts\n       └── types.ts"
+      ]
+    },
+    {
+      "title": "Ambiguous reference to 'engine/agent/executor.ts'",
+      "severity": "P3",
+      "section": "概述, 9.1迁移计划",
+      "why_it_matters": "The document references moving Reasoning task from 'engine/agent/executor.ts' but no such file is mentioned in the directory structure",
+      "autofix_class": "present",
+      "finding_type": "omission",
+      "suggested_fix": "Clarify the exact path or reference for the source of the Reasoning task being migrated",
+      "confidence": 0.75,
+      "evidence": [
+        "Reasoning（通用推理，从 engine/agent/executor.ts 迁入）"
+      ]
+    },
+    {
+      "title": "Inconsistent event type naming",
+      "severity": "P2",
+      "section": "3.3 PipelineEvent, Appendix C",
+      "why_it_matters": "Different event type names for similar concepts (executor_step vs executor_start, tool_call/tool_result vs no equivalent in section 3.3)",
+      "autofix_class": "auto",
+      "finding_type": "error",
+      "suggested_fix": "Align event type names between the two PipelineEvent definitions and ensure all event types are consistently documented",
+      "confidence": 0.85,
+      "evidence": [
+        "| { type: 'executor_step'; toolCall: string; result: unknown }",
+        "| { type: 'executor_start'; taskType: TaskType }\n  | { type: 'tool_call'; name: string; args: unknown }\n  | { type: 'tool_result'; name: string; result: unknown }"
+      ]
+    }
+  ],
+  "residual_risks": [
+    "The duplicate PipelineEvent definitions could lead to inconsistent implementation of streaming events",
+    "Missing ClarificationQuestion type could cause confusion during Frontend implementation"
+  ],
+  "deferred_questions": [
+    "What is the exact path of the source file for the Reasoning task being migrated from engine/agent?",
+    "Should the reasoning task include a critic.ts file given the optional critique? method in TaskPlugin interface?",
+    "Are there any other event types that should be included in the comprehensive PipelineEvent definition?"
+  ]
+}

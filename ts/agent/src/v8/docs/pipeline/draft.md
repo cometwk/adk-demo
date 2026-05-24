@@ -93,6 +93,14 @@ Rule for judgment           → 提供"业务约束和评分标准"
 
 type TaskType = string  // 'diagnostic' | 'predictive' | 'reasoning' | 自定义
 
+// ── Clarification Question ──
+
+type ClarificationQuestion = {
+  id: string
+  question: string
+  options?: string[]  // 可选的预设回答选项
+}
+
 // ── Pipeline Task (通用输入) ──
 
 type PipelineTask = {
@@ -204,18 +212,25 @@ PipelineContext 是用户与 Pipeline 交互的唯一入口：
 
 ```typescript
 class PipelineContext {
-  private registry: TaskRegistry
+  readonly registry: TaskRegistry
   private frontend: Frontend
   private runtime: RuntimeOrchestrator
   private ontology: Ontology
   private ruleRegistry: RuleRegistry
+  private model: LanguageModel
 
   constructor(deps: PipelineDeps) {
-    this.registry = deps.registry
-    this.frontend = deps.frontend
-    this.runtime = deps.runtime
+    this.registry = new TaskRegistry(deps.plugins)
+    this.frontend = deps.frontend ?? new DefaultFrontend(deps.graphStore, deps.ontology)
+    this.runtime = new SemanticRuntimeOrchestrator(
+      deps.graphStore, deps.computeStore, deps.vectorStore,
+      /* workspace per-call, see 7.1 */
+      deps.config ?? DEFAULT_RUNTIME_CONFIG,
+      OPEN_POLICY,
+    )
     this.ontology = deps.ontology
     this.ruleRegistry = deps.ruleRegistry
+    this.model = deps.model ?? defaultModel
   }
 
   /** 同步执行：指定任务类型 */
@@ -225,10 +240,16 @@ class PipelineContext {
   async *streamTask(type: TaskType, task: Omit<PipelineTask, 'type'>): AsyncGenerator<PipelineEvent>
 
   /** 自动路由：Frontend 识别意图后自动分发 */
-  async run(query: string): Promise<PipelineResult>
+  async run(query: string): Promise<PipelineResult | ClarificationRequest>
 
   /** 自动路由（流式） */
   async *stream(query: string): AsyncGenerator<PipelineEvent>
+
+  /** 单独澄清（当 run() 返回 ClarificationRequest 后续调） */
+  async runAfterClarify(
+    query: string,
+    answers: Record<string, string>,
+  ): Promise<PipelineResult>
 }
 ```
 
@@ -248,21 +269,31 @@ type PipelineDeps = {
   // Rule 层
   ruleRegistry: RuleRegistry
 
+  // LLM 模型（可选，默认使用 lib/model）
+  model?: LanguageModel
+
+  // Frontend（可选，默认使用 DefaultFrontend）
+  frontend?: Frontend
+
   // 任务插件（可选，不传则使用注册的默认任务）
   plugins?: TaskPlugin[]
 }
 ```
 
+> **构造说明**：`newPipelineContext(deps)` 内部自动构造 `TaskRegistry`（从 plugins 初始化）、`DefaultFrontend`（接收 graphStore + ontology）、`SemanticRuntimeOrchestrator`（接收 stores）。Workspace 在每次 `runTask`/`streamTask` 调用时新建，见 Section 7.1。
+
 ### 3.3 PipelineEvent（流式事件）
+
+> 完整定义见附录 C。此处仅列出核心事件。
 
 ```typescript
 type PipelineEvent =
   | { type: 'frontend'; intent: string; entities: string[] }
-  | { type: 'executor_step'; toolCall: string; result: unknown }
   | { type: 'fact_bound'; fact: FactBinding }
   | { type: 'model_verdict'; verdict: unknown }
   | { type: 'critique_complete'; result: CritiqueResult }
   | { type: 'done'; result: PipelineResult }
+  | { type: 'error'; error: Error }
 ```
 
 ### 3.4 TaskRegistry
@@ -300,6 +331,21 @@ interface Frontend {
 type FrontendResult =
   | { status: 'ready'; task: PipelineTask }
   | { status: 'clarify'; questions: ClarificationQuestion[] }
+
+type ClarificationRequest = {
+  questions: ClarificationQuestion[]
+  originalQuery: string
+}
+
+/** 默认实现：通过构造器注入 GraphStore 和 Ontology */
+class DefaultFrontend implements Frontend {
+  constructor(
+    private graphStore: GraphStore,   // 实体链接需要
+    private ontology: Ontology,        // 类型名匹配需要
+  ) {}
+
+  async process(query: string): Promise<FrontendResult> { ... }
+}
 ```
 
 ### 4.3 意图分类策略
@@ -311,13 +357,32 @@ type FrontendResult =
 2. LLM 回退（模糊路径） — 低置信度时调用 LLM 分类
 ```
 
-V8 扩展：意图分类结果映射到 TaskType，而非 V6 的 DecisionMode：
+V8 扩展：意图分类结果映射到 TaskType（三种），而非 V6 的 DecisionMode（两种）：
 
 ```text
 "哪些商户本月没交易？"     → TaskType = 'predictive'
 "为什么 M003 上个月交易量骤降？" → TaskType = 'diagnostic'
 "分析 Merch:M001 的经营状况"   → TaskType = 'reasoning'
 ```
+
+**V8 关键词规则扩展**：
+
+```typescript
+// 在 V6 INTENT_RULES 基础上新增 reasoning 分类
+const V8_INTENT_RULES = [
+  // ... 保留 V6 的 predictive / diagnostic 规则 ...
+  {
+    type: 'reasoning',
+    keywords: ['分析', '经营状况', '情况', '了解', '查看', '报告', '概况', '总结'],
+    confidence: 0.7,
+  },
+]
+
+// LLM 回退 schema 扩展为三选一
+const TaskTypeSchema = z.enum(['predictive', 'diagnostic', 'reasoning'])
+```
+
+> **边界说明**：predictive 与 reasoning 的边界可能模糊。规则：若问题包含"预测/风险/评估/推荐"关键词，归 predictive；若仅为"了解/分析/查看"，归 reasoning。低置信度时由 LLM 判定。
 
 ### 4.4 实体链接
 
@@ -605,6 +670,12 @@ const result = await ctx.runTask('custom-analysis', { goal: '...' })
 ```text
 PipelineContext.runTask('predictive', { goal, entryEntities })
   │
+  ├─ 0. 创建执行上下文（per-call）
+  │     workspace = new Workspace()
+  │     policy = task.context?.policy ?? OPEN_POLICY
+  │     // 注意：RuntimeOrchestrator 需要在 execute 时传入 workspace，
+  │     // 或使用 per-call orchestrator 实例
+  │
   ├─ 1. 从 TaskRegistry 获取 plugin
   │
   ├─ 2. 构建 Prompt
@@ -623,10 +694,13 @@ PipelineContext.runTask('predictive', { goal, entryEntities })
   ├─ 5. 执行 Critic（如有）
   │     plugin.critique?({ task, facts, modelVerdict, runtime, ruleRegistry, ontology })
   │     → 确定性评价 + 一致性检查
+  │     → 调用 verdict adapter 转换为 SemanticVerdict（见 8.4）
   │
   └─ 6. 组装 PipelineResult
         { taskType, facts, modelVerdict, systemVerdict, reconciliation, rawText }
 ```
+
+> **并发隔离**：每次 runTask 调用创建独立的 Workspace，确保并发调用间事实不泄漏。
 
 ### 7.2 run 流程（自动路由）
 
@@ -636,21 +710,35 @@ PipelineContext.run("为什么 M003 上个月交易量骤降？")
   ├─ 1. Frontend.process(query)
   │     ├─ 意图分类 → 'diagnostic'
   │     ├─ 实体链接 → ['Merch:M003']
-  │     └─ 无需澄清
-  │     → PipelineTask { type: 'diagnostic', goal: '...', entryEntities: ['Merch:M003'] }
+  │     ├─ 澄清判定 → 无需澄清（置信度 > 0.6，歧义 < 0.5）
+  │     └─ return { status: 'ready', task: PipelineTask }
   │
   └─ 2. runTask('diagnostic', task)
-        （同上）
+        （同 7.1）
+
+---
+
+PipelineContext.run("分析这个商户的情况")
+  │
+  ├─ 1. Frontend.process(query)
+  │     ├─ 意图分类 → 'reasoning'
+  │     ├─ 实体链接 → 无匹配（歧义 > 0.5）
+  │     └─ return { status: 'clarify', questions: [...] }
+  │
+  └─ return ClarificationRequest  // 调用者需调用 runAfterClarify()
 ```
 
 ### 7.3 streamTask 流程
+
+> **实现说明**：流式执行需要将 `generateText`（单次 await）替换为 `streamText`（Vercel AI SDK），从 `StepResult` 流中提取每步 tool_call/tool_result 事件。P0 阶段可先实现 `runTask` 同步模式，P2 再添加流式支持。
 
 ```text
 PipelineContext.streamTask('predictive', { goal, entryEntities })
   │
   ├─ yield { type: 'frontend', intent, entities }
   │
-  ├─ yield { type: 'executor_step', toolCall, result }  (每步)
+  ├─ yield { type: 'tool_call', name, args }    (每步)
+  ├─ yield { type: 'tool_result', name, result } (每步)
   │
   ├─ yield { type: 'fact_bound', fact }  (每条事实)
   │
@@ -705,6 +793,24 @@ Pipeline 消费 Rule 的方式：
   3. Tools：提供 inspect_rules / evaluate_rule 工具给 Agent
 
 Rule 模块保持不变，Pipeline 的 Critic 是其消费者。
+```
+
+### 8.4 Verdict 类型适配
+
+```text
+Rule 模块的 ReconcileInput 期望 modelVerdict: SemanticVerdict，
+但不同任务产生不同的 verdict 类型：
+
+- Predictive → ModelVerdict_Predictive
+- Diagnostic → DiagnosticVerdict
+- Reasoning → SemanticVerdict
+
+每个 TaskPlugin 的 critique() 实现必须包含 verdict 适配逻辑，
+将任务特定的 verdict 转换为 Rule 模块期望的 SemanticVerdict 格式。
+
+建议模式：
+  TaskPlugin.critique() 内部调用 toSemanticVerdict(modelVerdict) 适配，
+  或在 CritiqueParams 中提供通用 adapter 函数。
 ```
 
 ---
@@ -785,17 +891,25 @@ for await (const event of stream) {
 
 ### 10.2 自定义任务
 
+> 通过 `PipelineDeps.plugins` 在构造时传入自定义插件。registry 为 `public readonly`，允许运行时查询但不推荐动态注册（避免并发竞态）。
+
 ```typescript
 import { newPipelineContext } from './pipeline'
 import { customAnalysisPlugin } from './pipeline/tasks/custom-analysis'
 
-const ctx = newPipelineContext(deps)
-ctx.registry.register(customAnalysisPlugin)
+// 在构造时传入自定义插件
+const ctx = newPipelineContext({
+  ...deps,
+  plugins: [customAnalysisPlugin],
+})
+
+// 也可以在构造后查询已注册的任务类型
+const registeredTypes = ctx.registry.list()
 
 const result = await ctx.runTask('custom-analysis', {
   goal: '生成月度经营分析报告',
   entryEntities: ['Agent:A001'],
-  customContext: '请重点关注商户流失率和交易量趋势',
+  context: { focus: '商户流失率和交易量趋势' },  // 通过 context 传递任务特定参数
 })
 ```
 
