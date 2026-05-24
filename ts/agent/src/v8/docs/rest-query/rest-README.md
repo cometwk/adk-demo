@@ -7,3 +7,5 @@
   - RestGraphStore.ts → RestQueryProvider.ts（类重命名）
   - types.ts → bindings.ts + context.ts（拆分）
   - axios.ts → http-client.ts（文件重命名）
+
+- 关键问题：全局 axios 污染、硬编码凭证、永久 404 黑名单
