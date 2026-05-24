@@ -1,0 +1,3 @@
+- case 场景
+    - library: 内存测试
+    - rest: rest-query 场景测试

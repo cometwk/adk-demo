@@ -35,6 +35,9 @@ export type RestAccessBinding =
 
 export type RestAccessBindingMap = Record<string, RestAccessBinding>
 
+// Re-export RestNodeClassRegistry for external use
+export type { RestNodeClassRegistry } from './bindings'
+
 // ── AccessContext ──
 
 export type AccessContext = {
