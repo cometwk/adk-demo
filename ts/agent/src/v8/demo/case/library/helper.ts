@@ -2,7 +2,7 @@
 // Creates test context and use-case scenarios for pipeline testing
 
 import { newPipelineContext, PipelineContext, type PipelineTask } from '../../../pipeline'
-import { buildOntology, type Ontology  } from '../../../ontology'
+import { buildOntology, type Ontology } from '../../../ontology'
 
 // ── Import InMemory Stores from Provider ──
 import { InMemoryComputeStore, InMemoryGraphStore, InMemoryVectorStore } from '../../../provider/in-memory/index'
@@ -17,25 +17,6 @@ export { InMemoryComputeStore, InMemoryGraphStore, InMemoryVectorStore, seedGrap
 // ── Build Test Ontology (Library Domain) ──
 
 export function buildTestOntology(): Ontology {
-  // return {
-  //   version: 'test-1.0.0',
-  //   types: [
-  //     { name: 'Reader', description: 'Library reader', properties: [{ name: 'name', type: 'string', description: 'Reader name' }], methods: [] },
-  //     { name: 'Book', description: 'Library book', properties: [{ name: 'title', type: 'string', description: 'Book title' }], methods: [] },
-  //     { name: 'Branch', description: 'Library branch', properties: [{ name: 'name', type: 'string', description: 'Branch name' }], methods: [] },
-  //     { name: 'Author', description: 'Book author', properties: [{ name: 'name', type: 'string', description: 'Author name' }], methods: [] },
-  //     { name: 'Category', description: 'Book category', properties: [{ name: 'name', type: 'string', description: 'Category name' }], methods: [] },
-  //     { name: 'Series', description: 'Book series', properties: [{ name: 'name', type: 'string', description: 'Series name' }], methods: [] },
-  //   ],
-  //   relations: [
-  //     { type: 'borrows', fromType: 'Reader', toType: 'Book', description: 'Reader borrows book' },
-  //     { type: 'overdue', fromType: 'Reader', toType: 'Book', description: 'Reader has overdue book' },
-  //     { type: 'registered_at', fromType: 'Reader', toType: 'Branch', description: 'Reader registered at branch' },
-  //     { type: 'written_by', fromType: 'Book', toType: 'Author', description: 'Book written by author' },
-  //     { type: 'belongs_to', fromType: 'Book', toType: 'Category', description: 'Book belongs to category' },
-  //     { type: 'available_at', fromType: 'Book', toType: 'Branch', description: 'Book available at branch' },
-  //   ],
-  // }
   return buildOntology({ version: 'library-1.0.0' })
 }
 
