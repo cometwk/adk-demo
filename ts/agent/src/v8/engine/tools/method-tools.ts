@@ -1,11 +1,10 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import type { NodeInstanceContainer, BaseNode } from './base-node'
-import type { FactStore } from '../engine/stores/fact-store'
-import { AgentMethodRegistry } from './registry'
-import { type ToolResult, toolErr, toolOk } from '../engine/runtime/types'
-import type { PolicyContext } from '../policy/context'
-import { checkEntityAccess, maybeLogToolCall } from '../policy/filters'
+import type { SemanticRuntimeOrchestrator } from '../runtime/orchestrator'
+import type { FactStore } from '../stores/fact-store'
+import { AgentMethodRegistry, type MethodSchema } from '../../ontology/registry'
+import { type ToolResult, type FactBinding, toolErr, toolOk } from '../runtime/types'
+import { checkEntityAccess, maybeLogToolCall } from '../../policy/filters'
 
 // ── Zod v4 compatible schemaToJsonSchema ──
 
@@ -27,7 +26,7 @@ function assertPreconditions(
   facts: FactStore,
 ): string | null {
   const node_facts = facts.forEntity(nodeId)
-  const factsByProperty = new Map(node_facts.map((f) => [f.property, f.value]))
+  const factsByProperty = new Map(node_facts.map((f: FactBinding) => [f.property, f.value]))
 
   // 0-default-value safety guard
   for (const [paramName, paramValue] of Object.entries(args)) {
@@ -54,12 +53,9 @@ function assertPreconditions(
 }
 
 // ── Method Tools Factory ──
+// Policy and FactStore are read from runtime (same pattern as graph-tools)
 
-export function createMethodTools(
-  container: NodeInstanceContainer,
-  facts: FactStore,
-  policy: PolicyContext,
-) {
+export function createMethodTools(runtime: SemanticRuntimeOrchestrator) {
   const describe_method = tool({
     description:
       'Get method schema: parameters, return type, description, required facts, related rules, and preconditions. ' +
@@ -69,22 +65,22 @@ export function createMethodTools(
       method: z.string().describe('Method name to describe'),
     }),
     execute: async ({ nodeId, method }): Promise<ToolResult> => {
-      maybeLogToolCall('describe_method', { nodeId, method }, policy)
+      maybeLogToolCall('describe_method', { nodeId, method }, runtime.policy)
 
       // Policy check
-      if (!checkEntityAccess(nodeId, policy)) {
+      if (!checkEntityAccess(nodeId, runtime.policy)) {
         return toolErr('POLICY_DENIED', `Access to entity '${nodeId}' is denied`)
       }
 
       // Get BaseNode instance
-      const node = await container.getBaseNode(nodeId)
+      const node = await runtime.graphStore.getBaseNode(nodeId)
       if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
 
       // Get class name (use agentTypeName for minification safety)
       const className = (node as unknown as { agentTypeName?: string }).agentTypeName ?? node.constructor.name
       const schema = AgentMethodRegistry.get(className, method)
       if (!schema) {
-        const available = AgentMethodRegistry.getMethodsForClass(className).map((m) => m.methodName)
+        const available = AgentMethodRegistry.getMethodsForClass(className).map((m: MethodSchema) => m.methodName)
         return toolErr('METHOD_NOT_FOUND', `Method '${method}' not found on ${className}`, {
           expected: { availableMethods: available },
         })
@@ -116,29 +112,29 @@ export function createMethodTools(
       args: z.record(z.string(), z.unknown()).default({}).describe('Arguments as { paramName: value }'),
     }),
     execute: async ({ nodeId, method, args }): Promise<ToolResult> => {
-      maybeLogToolCall('call_method', { nodeId, method, args }, policy)
+      maybeLogToolCall('call_method', { nodeId, method, args }, runtime.policy)
 
       // Policy check
-      if (!checkEntityAccess(nodeId, policy)) {
+      if (!checkEntityAccess(nodeId, runtime.policy)) {
         return toolErr('POLICY_DENIED', `Access to entity '${nodeId}' is denied`)
       }
 
       // Get BaseNode instance
-      const node = await container.getBaseNode(nodeId)
+      const node = await runtime.graphStore.getBaseNode(nodeId)
       if (!node) return toolErr('NOT_FOUND', `Node '${nodeId}' not found`)
 
       // Get class name (use agentTypeName for minification safety)
       const className = (node as unknown as { agentTypeName?: string }).agentTypeName ?? node.constructor.name
       const schema = AgentMethodRegistry.get(className, method)
       if (!schema) {
-        const available = AgentMethodRegistry.getMethodsForClass(className).map((m) => m.methodName)
+        const available = AgentMethodRegistry.getMethodsForClass(className).map((m: MethodSchema) => m.methodName)
         return toolErr('METHOD_NOT_FOUND', `Method '${method}' not found on ${className}`, {
           expected: { availableMethods: available },
         })
       }
 
       // Preconditions validation
-      const preconditionError = assertPreconditions(nodeId, method, args, facts)
+      const preconditionError = assertPreconditions(nodeId, method, args, runtime.facts)
       if (preconditionError) {
         return toolErr('PRECONDITION_FAILED', preconditionError, { retryable: false })
       }
@@ -146,7 +142,7 @@ export function createMethodTools(
       // Zod validation
       const parseResult = schema.params.safeParse(args)
       if (!parseResult.success) {
-        const issues = parseResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+        const issues = parseResult.error.issues.map((i: z.ZodIssue) => `${i.path.join('.')}: ${i.message}`)
         return toolErr('INVALID_ARGS', `Invalid args for ${method}: ${issues.join('; ')}`, {
           expected: {
             params: Object.keys((schemaToJsonSchema(schema.params).properties as Record<string, unknown>) ?? {}),

@@ -1,4 +1,4 @@
-import { InMemoryGraphStore } from '../../../engine'
+import { InMemoryGraphStore, toGlobalId } from '../../../engine'
 import { Author, Book, Branch, Category, Reader, Series } from './ontology'
 
 /*
@@ -193,30 +193,48 @@ export const data = {
   ],
 }
 
+function fixDataId(id: string): string {
+  const type = id.split('_')[0]
+  if (type === 'branch') {
+    return toGlobalId('Branch', id)
+  } else if (type === 'category' || type === 'cat') {
+    return toGlobalId('Category', id)
+  } else if (type === 'author') {
+    return toGlobalId('Author', id)
+  } else if (type === 'series') {
+    return toGlobalId('Series', id)
+  } else if (type === 'book') {
+    return toGlobalId('Book', id)
+  } else {
+    // default to Reader
+    return toGlobalId('Reader', id)
+  }
+}
+
 export function seedGraph(): InMemoryGraphStore {
   const g = new InMemoryGraphStore()
 
   for (const b of data.branches) {
-    g.addNode(new Branch(b))
+    g.addNode(new Branch({ ...b, id: fixDataId(b.id) }))
   }
   for (const c of data.categories) {
-    g.addNode(new Category(c))
+    g.addNode(new Category({ ...c, id: fixDataId(c.id) }))
   }
   for (const a of data.authors) {
-    g.addNode(new Author(a))
+    g.addNode(new Author({ ...a, id: fixDataId(a.id) }))
   }
   for (const s of data.series) {
-    g.addNode(new Series(s))
+    g.addNode(new Series({ ...s, id: fixDataId(s.id) }))
   }
   for (const book of data.books) {
-    g.addNode(new Book(book))
+    g.addNode(new Book({ ...book, id: fixDataId(book.id) }))
   }
   for (const reader of data.readers) {
-    g.addNode(new Reader(reader))
+    g.addNode(new Reader({ ...reader, id: fixDataId(reader.id) }))
   }
 
   for (const rel of data.relations) {
-    g.addEdge(rel)
+    g.addEdge({ ...rel, from: fixDataId(rel.from), to: fixDataId(rel.to) })
   }
 
   return g

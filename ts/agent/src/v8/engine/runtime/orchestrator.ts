@@ -40,12 +40,16 @@ export interface RuntimeOrchestrator {
 }
 
 export class SemanticRuntimeOrchestrator implements RuntimeOrchestrator {
-  private graphStore: GraphStore
+  readonly graphStore: GraphStore
   private computeStore: ComputeStore
   private vectorStore: VectorStore
   private workspace: Workspace
   private config: RuntimeConfig
-  private policy: PolicyContext
+  readonly policy: PolicyContext
+
+  get facts(): FactStore {
+    return this.workspace.getFacts()
+  }
 
   constructor(
     graphStore: GraphStore,
