@@ -35,7 +35,8 @@ export function buildTestRules(): RuleRegistry {
 // ── Create Test Context ──
 
 export function newPipelineTestContext(): PipelineContext {
-  const graphStore = new InMemoryGraphStore()
+  // const graphStore = new InMemoryGraphStore()
+  const graphStore = seedGraph()
   const computeStore = new InMemoryComputeStore()
   const vectorStore = new InMemoryVectorStore()
   const ontology = buildTestOntology()

@@ -32,7 +32,8 @@ export { TaskTypeNotFoundError, PromptBuildError, ExecuteError } from './core/ty
 
 // ── Registry ──
 
-export { TaskRegistry, InMemoryTaskRegistry, createTaskRegistry } from './core/registry'
+export type { TaskRegistry } from './core/registry'
+export { InMemoryTaskRegistry, createTaskRegistry } from './core/registry'
 
 // ── Context ──
 

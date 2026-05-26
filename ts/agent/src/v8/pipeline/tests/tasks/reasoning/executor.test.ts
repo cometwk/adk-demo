@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { executeReasoning } from '../../../tasks/reasoning/executor'
 import type { ExecuteParams, PipelineTask } from '../../../core/types'
+import { model } from '../../../../../lib/model'
 
 // Note: Tests that call actual LLM are skipped/integration tests
 // These tests verify the structure and non-LLL paths
@@ -14,7 +15,7 @@ describe('Reasoning Executor', () => {
         task: { type: 'reasoning', goal: 'test' },
         systemPrompt: 'test prompt',
         tools: {},
-        model: {} as any,
+        model: model,
       }
       const result = await executeReasoning(params)
       expect(result).toHaveProperty('facts')
