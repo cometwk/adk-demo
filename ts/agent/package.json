@@ -10,8 +10,8 @@
     "./runtime/*": "./src/v6/runtime/*.ts"
   },
   "scripts": {
-    "dev": "tsx --env-file=.env ./src/v6/tests/1-graph/t2.ts",
-    "llm": "tsx src/demo/agent/llm.ts",
+    "dev": "tsx --env-file=.env ./src/v8/demo/t1.ts",
+    "thinking": "tsx src/lib/check_thinking.ts",
     "hello": "tsx src/lib/hello.ts",
     "build": "tsc",
     "start": "node dist/index.js",

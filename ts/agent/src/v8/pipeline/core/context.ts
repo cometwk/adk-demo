@@ -29,6 +29,7 @@ import { TaskTypeNotFoundError, PromptBuildError, ExecuteError } from './types'
 import { TaskRegistry, InMemoryTaskRegistry } from './registry'
 import { DefaultFrontend } from './frontend/index'
 import { reasoningPlugin } from '../tasks/reasoning/index'
+import { PipelineSession, type SessionDeps } from './session'
 
 // ── PipelineContext ──
 
@@ -163,6 +164,33 @@ export class PipelineContext {
       reconciliation,
       rawText: executeResult.rawText,
     }
+  }
+
+  /**
+   * 创建多轮对话 Session
+   */
+  createSession(
+    task: import('./types').PipelineTask,
+    policy: import('../../policy/context').PolicyContext = OPEN_POLICY,
+  ): PipelineSession {
+    const plugin = this.registry.get(task.type)
+    if (!plugin) {
+      throw new TaskTypeNotFoundError(task.type)
+    }
+
+    const deps: SessionDeps = {
+      graphStore: this.graphStore,
+      computeStore: this.computeStore,
+      vectorStore: this.vectorStore,
+      ontology: this.ontology,
+      ruleRegistry: this.ruleRegistry,
+      model: this.model,
+      config: this.config,
+    }
+
+    const session = new PipelineSession(task, deps, policy)
+    session._setPlugin(plugin)
+    return session
   }
 
   /**

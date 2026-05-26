@@ -32,11 +32,16 @@ export { TaskTypeNotFoundError, PromptBuildError, ExecuteError } from './core/ty
 
 // ── Registry ──
 
-export { TaskRegistry, InMemoryTaskRegistry, createTaskRegistry } from './core/registry'
+export type { TaskRegistry } from './core/registry'
+export { InMemoryTaskRegistry, createTaskRegistry } from './core/registry'
 
 // ── Context ──
 
 export { PipelineContext, newPipelineContext } from './core/context'
+
+// ── Session ──
+
+export { PipelineSession, type SessionDeps } from './core/session'
 
 // ── Frontend ──
 
