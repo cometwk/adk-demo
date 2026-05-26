@@ -12,7 +12,7 @@ import type {
   Paginated,
   ToolResult,
 } from '../../engine/runtime/types'
-import { toolErr, toolOk } from '../../engine/runtime/types'
+import { toGlobalId, toolErr, toolOk } from '../../engine/runtime/types'
 import type { FindNodesOpts, GetNeighborsOpts, GraphStore } from '../../engine/stores/graph-store'
 import { BaseNode, NodeInstanceContainer, RelationSchema } from '../../ontology'
 
@@ -64,7 +64,7 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
 
 
   addNode(node: BaseNode): void {
-    this.nodes.set(node.id, node)
+    this.nodes.set(toGlobalId(node.getAgentTypeName(), node.id), node)
   }
 
   addEdge(edge: Edge): void {

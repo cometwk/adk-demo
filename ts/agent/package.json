@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "tsx --env-file=.env ./src/v8/demo/t1.ts",
-    "llm": "tsx src/demo/agent/llm.ts",
+    "thinking": "tsx src/lib/check_thinking.ts",
     "hello": "tsx src/lib/hello.ts",
     "build": "tsc",
     "start": "node dist/index.js",

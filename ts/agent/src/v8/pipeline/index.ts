@@ -39,6 +39,10 @@ export { InMemoryTaskRegistry, createTaskRegistry } from './core/registry'
 
 export { PipelineContext, newPipelineContext } from './core/context'
 
+// ── Session ──
+
+export { PipelineSession, type SessionDeps } from './core/session'
+
 // ── Frontend ──
 
 export { DefaultFrontend } from './core/frontend/index'
