@@ -17,6 +17,7 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "s1": "FORCE_COLOR=1 vitest run -t 'S1' src/ex/t1.test.ts",
+    "just": "FORCE_COLOR=1 vitest run -t 'just' src/v8/demo/case/rest/tests/graph-store.test.ts",
     "test:watch": "vitest",
     "v6": "tsx --env-file=.env src/v6/demo/ex4/main.ts",
     "typecheck": "tsc --noEmit",

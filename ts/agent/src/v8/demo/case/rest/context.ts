@@ -111,19 +111,19 @@ export const typeRegistry: RestNodeClassRegistry = {
 	ProfitDaily: { class: ProfitDaily, prefix: "/profit_daily" },
 };
 
-// 完整的 PaymentAccessContext 实现（用于 RestQueryProvider）
+// 完整的 PaymentAccessContext 实现（用于 RestQueryGraphStore）
 export function createPaymentAccessContext(): PaymentAccessContext {
 	return {
 		typeRegistry,
 		rawId: rawIdOf,
 		toGlobalId,
 		apiSearchSafe,
-		// fetchOne 和 fetchMany 由 RestQueryProvider.buildAccessContext 提供
+		// fetchOne 和 fetchMany 由 RestQueryGraphStore.buildAccessContext 提供
 		fetchOne: async (_type: string, _rawId: string) => {
-			throw new Error("fetchOne should be provided by RestQueryProvider");
+			throw new Error("fetchOne should be provided by RestQueryGraphStore");
 		},
 		fetchMany: async (_type: string, _rawIds: string[]) => {
-			throw new Error("fetchMany should be provided by RestQueryProvider");
+			throw new Error("fetchMany should be provided by RestQueryGraphStore");
 		},
 		neighborsFromNodes: (nodes, relation, direction, opts, pageInfo) => {
 			const limit = opts.limit ?? 20;

@@ -7,7 +7,7 @@ import type {
 	RestNodeClassRegistry,
 } from "../context";
 import type { SearchParams } from "../http-client";
-import { RestQueryProvider } from "../RestQueryProvider";
+import { RestQueryGraphStore } from "../react-query-store";
 
 // Mock BaseNode class - minimal implementation for testing
 class MockMerchNode extends BaseNode {
@@ -16,8 +16,8 @@ class MockMerchNode extends BaseNode {
 	}
 }
 
-describe("RestQueryProvider", () => {
-	let provider: RestQueryProvider;
+describe("RestQueryGraphStore", () => {
+	let provider: RestQueryGraphStore;
 	let mockCtx: Partial<AccessContext>;
 	let mockBindings: RestAccessBindingMap;
 	let mockTypeRegistry: RestNodeClassRegistry;
@@ -87,7 +87,7 @@ describe("RestQueryProvider", () => {
 
 	describe("getNode", () => {
 		it("should return NodeData for valid ID", async () => {
-			provider = new RestQueryProvider(mockBindings, mockCtx);
+			provider = new RestQueryGraphStore(mockBindings, mockCtx);
 			const result = await provider.getNode("Merch:M001");
 			expect(result).toBeDefined();
 			expect(result?.type).toBe("Merch");
@@ -95,7 +95,7 @@ describe("RestQueryProvider", () => {
 		});
 
 		it("should return undefined for invalid ID format", async () => {
-			provider = new RestQueryProvider(mockBindings, mockCtx);
+			provider = new RestQueryGraphStore(mockBindings, mockCtx);
 			const result = await provider.getNode("invalid");
 			expect(result).toBeUndefined();
 		});
@@ -103,7 +103,7 @@ describe("RestQueryProvider", () => {
 
 	describe("getBaseNode", () => {
 		it("should return cached BaseNode instance", async () => {
-			provider = new RestQueryProvider(mockBindings, mockCtx);
+			provider = new RestQueryGraphStore(mockBindings, mockCtx);
 			const result1 = await provider.getBaseNode("Merch:M001");
 			expect(result1).toBeDefined();
 			expect(result1?.id).toBe("Merch:M001");
@@ -114,7 +114,7 @@ describe("RestQueryProvider", () => {
 		});
 
 		it("should return undefined for unknown type", async () => {
-			provider = new RestQueryProvider(mockBindings, mockCtx);
+			provider = new RestQueryGraphStore(mockBindings, mockCtx);
 			const result = await provider.getBaseNode("Unknown:001");
 			expect(result).toBeUndefined();
 		});
@@ -122,14 +122,14 @@ describe("RestQueryProvider", () => {
 
 	describe("parseGlobalId", () => {
 		it("should parse valid global ID", () => {
-			provider = new RestQueryProvider(mockBindings, mockCtx);
+			provider = new RestQueryGraphStore(mockBindings, mockCtx);
 			const result = provider.parseGlobalId("Merch:M001");
 			expect(result.type).toBe("Merch");
 			expect(result.rawId).toBe("M001");
 		});
 
 		it("should throw for invalid ID format", () => {
-			provider = new RestQueryProvider(mockBindings, mockCtx);
+			provider = new RestQueryGraphStore(mockBindings, mockCtx);
 			expect(() => provider.parseGlobalId("invalid")).toThrow();
 		});
 	});

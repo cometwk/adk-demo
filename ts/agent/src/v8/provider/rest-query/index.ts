@@ -28,4 +28,4 @@ export {
 } from './helpers'
 
 // Core class
-export { RestQueryProvider } from './RestQueryProvider'
+export { RestQueryGraphStore } from './react-query-store'
