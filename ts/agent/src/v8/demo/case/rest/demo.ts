@@ -16,8 +16,8 @@ async function test() {
 	);
 
 	const provider = new RestQueryGraphStore(
-		paymentAccessBindings as any,
-		{ typeRegistry } as any,
+		paymentAccessBindings,
+		{ typeRegistry },
 	);
 
 	const agents = await provider.findNodes({ type: "Agent", limit: 3 });

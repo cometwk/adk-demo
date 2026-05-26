@@ -5,7 +5,7 @@ import type { AccessContext, RestAccessBindingMap, RestNodeClassRegistry, Search
 import { RestQueryGraphStore } from '../../../../provider/rest-query'
 import { paymentAccessBindings } from '../bindings'
 import { Agent } from '../ontology'
-import { createPaymentAccessContext } from '../context'
+import { createAccessContext } from '../context'
 import { trace } from '../../../../../lib/trace'
 
 // Mock BaseNode class - minimal implementation for testing
@@ -17,7 +17,7 @@ describe('RestQueryGraphStore', () => {
   let mockTypeRegistry: RestNodeClassRegistry
 
   beforeEach(() => {
-    createPaymentAccessContext()
+    createAccessContext()
     mockTypeRegistry = {
       Agent: { class: Agent, prefix: '/agent' },
       Merch: { prefix: '/merch' },
