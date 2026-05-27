@@ -30,4 +30,3 @@ export { buildOntologyPrompt } from './prompt'
 
 // ── Tools ──
 export { createOntologyTools } from './tools'
-export { createMethodTools } from './method-tools'

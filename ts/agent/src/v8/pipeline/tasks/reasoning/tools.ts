@@ -11,6 +11,7 @@ import { createComputeTools } from '../../../engine/tools/compute-tools'
 import { createVectorTools } from '../../../engine/tools/vector-tools'
 import { createFactTools } from '../../../engine/tools/fact-tools'
 import { createCandidateTools } from '../../../engine/tools/candidate-tools'
+import { createMethodTools } from '../../../engine/tools/method-tools'
 
 // ── Reasoning Tools Factory ──
 
@@ -25,6 +26,8 @@ export function createReasoningTools(
 ): Record<string, Tool> {
   // Graph tools (traversal)
   const graphTools = createGraphTools(runtime)
+
+  const methodTools = createMethodTools(runtime)
 
   // Compute tools (OLAP aggregation)
   const computeTools = createComputeTools(runtime)
@@ -45,6 +48,7 @@ export function createReasoningTools(
     ...vectorTools,
     ...factTools,
     ...candidateTools,
+    ...methodTools,
   }
 }
 

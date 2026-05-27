@@ -1,5 +1,5 @@
 import { buildOntology } from "../../../ontology";
-import { RestQueryProvider } from "../../../provider/rest-query";
+import { RestQueryGraphStore } from "../../../provider/rest-query";
 import { paymentAccessBindings } from "./bindings";
 import { typeRegistry } from "./context";
 import "../ontology";
@@ -15,9 +15,9 @@ async function test() {
 		ontology.relations.map((r) => `${r.fromType} --${r.type}--> ${r.toType}`),
 	);
 
-	const provider = new RestQueryProvider(
-		paymentAccessBindings as any,
-		{ typeRegistry } as any,
+	const provider = new RestQueryGraphStore(
+		paymentAccessBindings,
+		{ typeRegistry },
 	);
 
 	const agents = await provider.findNodes({ type: "Agent", limit: 3 });

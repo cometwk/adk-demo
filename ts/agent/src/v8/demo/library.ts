@@ -1,5 +1,5 @@
 import { createInterface } from 'readline'
-import { newPipelineTestContext } from './case/rest/helper'
+import { newPipelineTestContext, useCaseScenarios } from './case/library/helper'
 import { PipelineTask } from '../pipeline'
 
 function readLine(prompt: string): Promise<string> {
@@ -16,21 +16,10 @@ function readLine(prompt: string): Promise<string> {
 }
 
 // 测试用例
-const testCases = {
-  S0: {
-    taskId: 'S0',
-    goal: '康传兵有几个下级代理商, 分别是谁',
-    entryEntities: [],
-  },
-  S1: {
-    taskId: 'S1',
-    goal: '哪些代理商进件的商户, 本月没有发生交易？',
-    entryEntities: [],
-  },
-}
+const { goal, entryEntities } = useCaseScenarios.S1
 
 // 第一步 创建任务和 Session
-const task: PipelineTask = { type: 'reasoning', ...testCases.S1 }
+const task: PipelineTask = { type: 'reasoning', goal, entryEntities }
 const ctx = newPipelineTestContext()
 const session = ctx.createSession(task)
 

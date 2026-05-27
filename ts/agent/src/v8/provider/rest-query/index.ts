@@ -16,11 +16,17 @@ export { SearchParamsSchema } from './http-client'
 export type { SearchParams, TableData } from './http-client'
 
 // API search functions
-export { apiSearch, apiSearchSafe, emptyPaginated, isNotFoundError, resetUnavailablePrefixes } from './api-search'
+export { apiSearch, apiSearchSafe, apiAggregate, apiAggregateSafe, emptyPaginated, isNotFoundError, resetUnavailablePrefixes } from './api-search'
 
 // Helpers
 export {
   filtersToSearchParams,
+  computeFiltersToSearchParams,
+  metricsToParam,
+  computeQueryToAggregateParams,
+  normalizeAggregateRows,
+  ontologyTypeToFieldSchema,
+  ontologyToSourceSchema,
   rawIdOf,
   matchesNeighborFilters,
   neighborsFromNodes,
@@ -28,4 +34,7 @@ export {
 } from './helpers'
 
 // Core class
-export { RestQueryProvider } from './RestQueryProvider'
+export { RestQueryGraphStore } from './react-query-store'
+
+// Compute store
+export { RestQueryComputeStore } from './react-query-compute'

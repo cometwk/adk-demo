@@ -3,6 +3,7 @@ import type { Paginated, NodeData, NeighborData, EdgeSummary } from '../runtime/
 import type { GraphTraversalQuery, GraphQueryResult } from '../query/graph-query'
 import type { ToolResult } from '../runtime/types'
 import type { PolicyContext } from '../../policy/context'
+import { NodeInstanceContainer } from '../../ontology'
 
 // ── Query options ──
 
@@ -28,7 +29,7 @@ export type GetNeighborsOpts = {
 // Simplified: no BaseNode/getBaseNode, pure data DTO approach
 // Added: query() for GraphTraversalQuery execution
 
-export interface GraphStore {
+export interface GraphStore extends NodeInstanceContainer {
   // Single node access
   getNode(id: string): Promise<NodeData | undefined>
 

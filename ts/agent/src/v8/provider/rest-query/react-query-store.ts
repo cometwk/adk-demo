@@ -25,7 +25,7 @@ const DEFAULT_PAGE_LIMIT = 20
 const MAX_LIMIT = 200
 const MAX_WORKING_SET = 500
 
-export class RestQueryProvider implements GraphStore {
+export class RestQueryGraphStore implements GraphStore {
   protected readonly bindings: RestAccessBindingMap
   protected readonly ctx: AccessContext
   protected readonly idGenerator?: (type: RestEntityType, row: Record<string, unknown>) => string

@@ -5,145 +5,11 @@ import type {
 	Paginated,
 } from "../../../engine";
 import type {
-	RestNodeClassRegistry,
-	SearchParams,
+	RestAccessBindingMap,
 } from "../../../provider/rest-query";
+import { resolveAgentsByIds, resolveAgentsByNos, resolveMerchsByIds } from "./bindings-helpers";
 
-// 扩展 AccessContext 包含业务专用方法
-export type PaymentAccessContext = {
-	typeRegistry: RestNodeClassRegistry;
-	rawId: (node: NodeData) => string;
-	toGlobalId: (type: string, rawId: string) => string;
-	apiSearchSafe: <T extends Record<string, unknown>>(
-		prefix: string,
-		query?: SearchParams,
-	) => Promise<Paginated<T>>;
-	fetchOne: (type: string, rawId: string) => Promise<NodeData | undefined>;
-	fetchMany: (type: string, rawIds: string[]) => Promise<NodeData[]>;
-	neighborsFromNodes: (
-		nodes: NodeData[],
-		relation: string,
-		direction: "out" | "in",
-		opts: GetNeighborsOpts,
-		pageInfo?: Paginated<NodeData>["page"],
-	) => Paginated<NeighborData>;
-	emptyNeighbors: (limit: number, offset: number) => Paginated<NeighborData>;
-	// 业务扩展方法
-	agentsByIds: (
-		ctx: PaymentAccessContext,
-		agentIds: string[],
-		relation: string,
-		direction: "out" | "in",
-		opts: GetNeighborsOpts,
-	) => Promise<Paginated<NeighborData>>;
-	agentsByNos: (
-		ctx: PaymentAccessContext,
-		agentNos: string[],
-		relation: string,
-		direction: "out" | "in",
-		opts: GetNeighborsOpts,
-	) => Promise<Paginated<NeighborData>>;
-	merchsByIds: (
-		ctx: PaymentAccessContext,
-		merchIds: string[],
-		relation: string,
-		direction: "out" | "in",
-		opts: GetNeighborsOpts,
-	) => Promise<Paginated<NeighborData>>;
-};
-
-export type PaymentAccessBinding =
-	| {
-			kind: "search";
-			relation: string;
-			fromType: string;
-			toType: string;
-			direction: "out" | "in";
-			searchOn: string;
-			params: (source: NodeData, ctx: PaymentAccessContext) => SearchParams;
-			optional?: boolean;
-	  }
-	| {
-			kind: "custom";
-			relation: string;
-			fromType: string;
-			toType: string;
-			direction: "out" | "in";
-			handler: (
-				source: NodeData,
-				opts: GetNeighborsOpts,
-				ctx: PaymentAccessContext,
-			) => Promise<Paginated<NeighborData>>;
-	  };
-
-export type PaymentAccessBindingMap = Record<string, PaymentAccessBinding>;
-
-const MAX_RESOLVE_LIMIT = 100;
-
-// 业务扩展方法实现
-async function agentsByIdsImpl(
-	ctx: PaymentAccessContext,
-	rawIds: string[],
-	relation: string,
-	direction: "out" | "in",
-	opts: GetNeighborsOpts,
-): Promise<Paginated<NeighborData>> {
-	const unique = [...new Set(rawIds.filter(Boolean))].slice(
-		0,
-		MAX_RESOLVE_LIMIT,
-	);
-	const nodes = await ctx.fetchMany("Agent", unique);
-	return ctx.neighborsFromNodes(nodes, relation, direction, opts);
-}
-
-async function agentsByNosImpl(
-	ctx: PaymentAccessContext,
-	agentNos: string[],
-	relation: string,
-	direction: "out" | "in",
-	opts: GetNeighborsOpts,
-): Promise<Paginated<NeighborData>> {
-	const unique = [...new Set(agentNos.filter(Boolean))].slice(
-		0,
-		MAX_RESOLVE_LIMIT,
-	);
-	const nodes: NodeData[] = [];
-	const prefix = ctx.typeRegistry.Agent?.prefix;
-	if (!prefix) throw new Error('agentsByNos: unknown type "Agent"');
-	for (const no of unique) {
-		const page = await ctx.apiSearchSafe<Record<string, unknown>>(prefix, {
-			"where.agent_no.eq": no,
-			pagesize: 1,
-			page: 0,
-		});
-		const row = page.items[0];
-		if (row) {
-			nodes.push({
-				id: ctx.toGlobalId("Agent", String(row.id)),
-				type: "Agent",
-				properties: row,
-			});
-		}
-	}
-	return ctx.neighborsFromNodes(nodes, relation, direction, opts);
-}
-
-async function merchsByIdsImpl(
-	ctx: PaymentAccessContext,
-	rawIds: string[],
-	relation: string,
-	direction: "out" | "in",
-	opts: GetNeighborsOpts,
-): Promise<Paginated<NeighborData>> {
-	const unique = [...new Set(rawIds.filter(Boolean))].slice(
-		0,
-		MAX_RESOLVE_LIMIT,
-	);
-	const nodes = await ctx.fetchMany("Merch", unique);
-	return ctx.neighborsFromNodes(nodes, relation, direction, opts);
-}
-
-export const paymentAccessBindings: PaymentAccessBindingMap = {
+export const paymentAccessBindings: RestAccessBindingMap = {
 	// Agent -> 直接上级 (Agent:parent:out)
 	"Agent:parent:out": {
 		kind: "custom",
@@ -196,7 +62,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
 				},
 			);
 			const agentIds = closures.items.map((c) => String(c.descendant_id));
-			return agentsByIdsImpl(ctx, agentIds, "descendant_of", "out", opts);
+			return resolveAgentsByIds(ctx, agentIds, "descendant_of", "out", opts);
 		},
 	},
 
@@ -221,7 +87,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
 				},
 			);
 			const agentIds = closures.items.map((c) => String(c.ancestor_id));
-			return agentsByIdsImpl(ctx, agentIds, "ancestor_of", "out", opts);
+			return resolveAgentsByIds(ctx, agentIds, "ancestor_of", "out", opts);
 		},
 	},
 
@@ -244,7 +110,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
 				},
 			);
 			const merchIds = rels.items.map((r) => String(r.obj_id));
-			return merchsByIdsImpl(ctx, merchIds, "binds_merch", "out", opts);
+			return resolveMerchsByIds(ctx, merchIds, "binds_merch", "out", opts);
 		},
 	},
 
@@ -293,7 +159,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
 				},
 			);
 			const agentNos = [...new Set(rels.items.map((r) => String(r.agent_no)))];
-			return agentsByNosImpl(ctx, agentNos, "bound_by", "out", opts);
+			return resolveAgentsByNos(ctx, agentNos, "bound_by", "out", opts);
 		},
 	},
 
@@ -332,7 +198,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
 		direction: "out",
 		handler: async (source, opts, ctx) => {
 			const agentNo = String(source.properties.agent_no ?? "");
-			return agentsByNosImpl(ctx, [agentNo], "submitted_by", "out", opts);
+			return resolveAgentsByNos(ctx, [agentNo], "submitted_by", "out", opts);
 		},
 	},
 
@@ -371,7 +237,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
 		direction: "out",
 		handler: async (source, opts, ctx) => {
 			const agentNo = String(source.properties.agent_no ?? "");
-			return agentsByNosImpl(ctx, [agentNo], "for_agent", "out", opts);
+			return resolveAgentsByNos(ctx, [agentNo], "for_agent", "out", opts);
 		},
 	},
 
@@ -455,7 +321,7 @@ export const paymentAccessBindings: PaymentAccessBindingMap = {
 		direction: "out",
 		handler: async (source, opts, ctx) => {
 			const agentNo = String(source.properties.agent_no ?? "");
-			return agentsByNosImpl(ctx, [agentNo], "for_agent", "out", opts);
+			return resolveAgentsByNos(ctx, [agentNo], "for_agent", "out", opts);
 		},
 	},
 };
