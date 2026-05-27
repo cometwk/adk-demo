@@ -1,5 +1,8 @@
 import type { GetNeighborsOpts, NeighborData, NodeData, Paginated } from '../../engine'
 import type { PropertyFilter } from '../../engine/query/graph-query'
+import type { ComputeFilter, AggregateMetric, ComputeQuery, ComputeRow } from '../../engine/query/compute-query'
+import type { TypeProperty, Ontology } from '../../ontology/schema'
+import type { SourceSchema, FieldSchema } from '../../engine/stores/compute-store'
 import type { SearchParams } from './http-client'
 import type { RestEntityType } from './bindings'
 import { toGlobalId } from '../../engine'
@@ -129,3 +132,102 @@ export function neighborsFromNodes(
 
 // 导出 toGlobalId 以供外部使用（从 engine 模块复用）
 export { toGlobalId }
+
+// ── ComputeQuery → REST Aggregate Params helpers ──
+
+export function computeFiltersToSearchParams(filters: ComputeFilter[]): Record<string, string | number> {
+  const params: Record<string, string | number> = {}
+  for (const f of filters) {
+    if (f.op === 'between') {
+      if (Array.isArray(f.value) && f.value.length === 2) {
+        params[`where.${f.field}.gte`] = f.value[0] as string | number
+        params[`where.${f.field}.lte`] = f.value[1] as string | number
+      }
+      continue
+    }
+    const apiOp = GRAPH_FILTER_TO_API_OP[f.op]
+    if (!apiOp) continue
+    let value = f.value
+    if (f.op === 'in' && Array.isArray(value)) {
+      value = value.join(',')
+    }
+    params[`where.${f.field}.${apiOp}`] = value as string | number
+  }
+  return params
+}
+
+export function metricsToParam(metrics: AggregateMetric[]): string {
+  return metrics
+    .map((m) => `${m.fn}(${m.field}).${m.as ?? `${m.fn}_${m.field}`}`)
+    .join(',')
+}
+
+export function computeQueryToAggregateParams(query: ComputeQuery): SearchParams {
+  const _limit = query.limit ?? DEFAULT_PAGE_LIMIT
+  const _offset = query.offset ?? 0
+  const params: SearchParams = {
+    page: _limit > 0 ? Math.floor(_offset / _limit) : 0,
+    pagesize: _limit,
+  }
+  if (query.filters?.length) {
+    Object.assign(params, computeFiltersToSearchParams(query.filters))
+  }
+  if (query.metrics?.length) {
+    params.metrics = metricsToParam(query.metrics)
+  }
+  if (query.groupBy?.length) {
+    params.group_by = query.groupBy.join(',')
+  }
+  if (query.orderBy?.length) {
+    params.order = query.orderBy.map((o) => `${o.field}.${o.direction}`).join(',')
+  }
+  return params
+}
+
+export function normalizeAggregateRows(
+  rows: Record<string, unknown>[],
+  groupBy: string[] | undefined,
+  metricAliases: string[]
+): ComputeRow[] {
+  if (!groupBy || groupBy.length === 0) {
+    return rows.map((row) => {
+      const result: ComputeRow = {}
+      for (const alias of metricAliases) {
+        result[alias] = row[alias]
+      }
+      return result
+    })
+  }
+  return rows.map((row) => {
+    const result: ComputeRow = {}
+    const group: Record<string, unknown> = {}
+    for (const field of groupBy) {
+      group[field] = row[field]
+    }
+    result.group = group
+    for (const alias of metricAliases) {
+      result[alias] = row[alias]
+    }
+    return result
+  })
+}
+
+export function ontologyTypeToFieldSchema(prop: TypeProperty): FieldSchema {
+  const t = prop.type.toLowerCase()
+  if (t === 'number' || t === 'integer' || t === 'float') {
+    return { name: prop.name, type: 'number', aggregatable: true }
+  }
+  if (t === 'boolean') {
+    return { name: prop.name, type: 'boolean', aggregatable: false }
+  }
+  if (t === 'date' || t === 'datetime' || t === 'timestamp') {
+    return { name: prop.name, type: 'date', aggregatable: false }
+  }
+  return { name: prop.name, type: 'string', aggregatable: false }
+}
+
+export function ontologyToSourceSchema(ontology: Ontology, source: string): SourceSchema {
+  const typeSchema = ontology.types.find((t) => t.name === source)
+  if (!typeSchema) return { fields: [] }
+  return { fields: typeSchema.properties.map(ontologyTypeToFieldSchema) }
+}

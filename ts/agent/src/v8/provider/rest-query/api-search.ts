@@ -69,6 +69,46 @@ export async function apiSearchSafe<T extends Record<string, unknown>>(
   }
 }
 
+export async function apiAggregate<T extends Record<string, unknown>>(
+  prefix: string,
+  query?: SearchParams
+): Promise<Paginated<T>> {
+  const r = (await axios.get(`/admin${prefix}/searchAggregate`, { params: query })) as TableData<T>
+  const limit = r.pagesize || DEFAULT_LIMIT
+  const offset = r.page * limit
+  return {
+    items: r.data,
+    page: {
+      offset,
+      limit,
+      hasMore: r.total > offset + r.data.length,
+      total: r.total,
+    },
+  }
+}
+
+export async function apiAggregateSafe<T extends Record<string, unknown>>(
+  prefix: string,
+  query?: SearchParams
+): Promise<Paginated<T>> {
+  if (unavailablePrefixes.has(prefix)) {
+    const limit = query?.pagesize ?? DEFAULT_LIMIT
+    const offset = (query?.page ?? 0) * limit
+    return emptyPaginated(limit, offset)
+  }
+  try {
+    return await apiAggregate<T>(prefix, query)
+  } catch (err) {
+    if (isNotFoundError(err)) {
+      unavailablePrefixes.add(prefix)
+      const limit = query?.pagesize ?? DEFAULT_LIMIT
+      const offset = (query?.page ?? 0) * limit
+      return emptyPaginated(limit, offset)
+    }
+    throw err
+  }
+}
+
 export async function apiSearchArraySafe<T extends Record<string, unknown>>(
   prefix: string,
   query?: SearchParams
