@@ -1,10 +1,10 @@
 import { buildOntology, type Ontology } from '../../../ontology'
 import { newPipelineContext, PipelineContext } from '../../../pipeline'
 import { InMemoryComputeStore, InMemoryVectorStore } from '../../../provider/in-memory/index'
-import { RestQueryGraphStore } from '../../../provider/rest-query'
+import { RestQueryComputeStore, RestQueryGraphStore } from '../../../provider/rest-query'
 import { RuleRegistry } from '../../../rule'
 import { paymentAccessBindings } from './bindings'
-import { paymentAccessContext } from './context'
+import { paymentAccessContext, typeRegistry } from './context'
 
 // ── Build Test Ontology (Payment Domain) ──
 
@@ -27,11 +27,12 @@ export function buildTestRules(): RuleRegistry {
 // ── Create Test Context ──
 
 export function newPipelineTestContext(): PipelineContext {
-  const graphStore = new RestQueryGraphStore(paymentAccessBindings, paymentAccessContext)
-  const computeStore = new InMemoryComputeStore()
-  const vectorStore = new InMemoryVectorStore()
   const ontology = buildTestOntology()
   const ruleRegistry = buildTestRules()
+
+  const graphStore = new RestQueryGraphStore(paymentAccessBindings, paymentAccessContext)
+  const computeStore = new RestQueryComputeStore(typeRegistry, ontology)
+  const vectorStore = new InMemoryVectorStore()
 
   return newPipelineContext({
     graphStore: graphStore as any,

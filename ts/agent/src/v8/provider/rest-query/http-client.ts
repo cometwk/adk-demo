@@ -74,7 +74,8 @@ axios.interceptors.response.use(
 
 // ── Token 初始化（懒加载 + 防并发重复请求）──
 
-let token: string | null = null
+// let token: string | null = null
+let token: string | null = '123'
 let initPromise: Promise<string> | null = null
 
 // 专用于登录认证的干净实例，不带任何拦截器，从根源杜绝递归死锁

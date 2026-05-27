@@ -7,7 +7,10 @@ import type { ComputeStore } from '../../engine/stores/compute-store'
 import type { VectorStore } from '../../engine/stores/vector-store'
 import { SemanticRuntimeOrchestrator } from '../../engine/runtime/orchestrator'
 import { Workspace } from '../../engine/runtime/workspace'
-import { DEFAULT_RUNTIME_CONFIG, type RuntimeConfig } from '../../engine/runtime/config'
+import {
+  DEFAULT_RUNTIME_CONFIG,
+  type RuntimeConfig,
+} from '../../engine/runtime/config'
 import { OPEN_POLICY, type PolicyContext } from '../../policy/context'
 import { model as defaultModel } from '../../../lib/model'
 import type {
@@ -46,7 +49,8 @@ export class PipelineContext {
 
   constructor(deps: PipelineDeps) {
     this.registry = new InMemoryTaskRegistry(deps.plugins ?? [])
-    this.frontend = deps.frontend ?? new DefaultFrontend(deps.graphStore, deps.ontology)
+    this.frontend =
+      deps.frontend ?? new DefaultFrontend(deps.graphStore, deps.ontology)
     this.graphStore = deps.graphStore
     this.computeStore = deps.computeStore
     this.vectorStore = deps.vectorStore
@@ -67,7 +71,7 @@ export class PipelineContext {
   async runTask(
     type: TaskType,
     task: Omit<PipelineTask, 'type'>,
-    policy: PolicyContext = OPEN_POLICY,
+    policy: PolicyContext = OPEN_POLICY
   ): Promise<PipelineResult> {
     // 1. Create workspace (per-call isolation)
     const workspace = new Workspace()
@@ -97,7 +101,10 @@ export class PipelineContext {
       }
       systemPrompt = plugin.buildPrompt(promptParams)
     } catch (err) {
-      throw new PromptBuildError(type, err instanceof Error ? err : new Error(String(err)))
+      throw new PromptBuildError(
+        type,
+        err instanceof Error ? err : new Error(String(err))
+      )
     }
 
     // 4. Create runtime orchestrator with workspace
@@ -107,7 +114,7 @@ export class PipelineContext {
       this.vectorStore,
       workspace,
       this.config,
-      policy,
+      policy
     )
 
     // 5. Build tools
@@ -129,7 +136,10 @@ export class PipelineContext {
       }
       executeResult = await plugin.execute(executeParams)
     } catch (err) {
-      throw new ExecuteError(type, err instanceof Error ? err : new Error(String(err)))
+      throw new ExecuteError(
+        type,
+        err instanceof Error ? err : new Error(String(err))
+      )
     }
 
     // 7. Critique (if present, non-blocking on failure)
@@ -146,7 +156,8 @@ export class PipelineContext {
           ruleRegistry: this.ruleRegistry,
           ontology: this.ontology,
         }
-        const critiqueResult: CritiqueResult = await plugin.critique(critiqueParams)
+        const critiqueResult: CritiqueResult =
+          await plugin.critique(critiqueParams)
         systemVerdict = critiqueResult.systemVerdict
         reconciliation = critiqueResult.reconciliation
       } catch (err) {
@@ -171,7 +182,7 @@ export class PipelineContext {
    */
   createSession(
     task: import('./types').PipelineTask,
-    policy: import('../../policy/context').PolicyContext = OPEN_POLICY,
+    policy: import('../../policy/context').PolicyContext = OPEN_POLICY
   ): PipelineSession {
     const plugin = this.registry.get(task.type)
     if (!plugin) {
@@ -214,7 +225,7 @@ export class PipelineContext {
    */
   async runAfterClarify(
     query: string,
-    answers: Record<string, string>,
+    answers: Record<string, string>
   ): Promise<PipelineResult> {
     // Re-process with answers context
     const enhancedQuery = `${query}\n\n澄清信息：${Object.entries(answers)
@@ -225,6 +236,26 @@ export class PipelineContext {
       return this.runTask(frontendResult.task.type, frontendResult.task)
     }
     throw new Error('Clarification still needed after providing answers')
+  }
+
+  debugBuildTools(plugin: TaskPlugin, policy: PolicyContext = OPEN_POLICY) {
+    const workspace = new Workspace()
+    const runtime = new SemanticRuntimeOrchestrator(
+      this.graphStore,
+      this.computeStore,
+      this.vectorStore,
+      workspace,
+      this.config,
+      policy
+    )
+
+    const toolParams: ToolParams = {
+      runtime,
+      workspace,
+      policy,
+    }
+    const tools = plugin.buildTools(toolParams)
+    return tools
   }
 }
 

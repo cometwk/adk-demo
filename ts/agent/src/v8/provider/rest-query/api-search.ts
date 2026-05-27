@@ -73,7 +73,7 @@ export async function apiAggregate<T extends Record<string, unknown>>(
   prefix: string,
   query?: SearchParams
 ): Promise<Paginated<T>> {
-  const r = (await axios.get(`/admin${prefix}/searchAggregate`, { params: query })) as TableData<T>
+  const r = (await axios.get(`/admin${prefix}/aggregate`, { params: query })) as TableData<T>
   const limit = r.pagesize || DEFAULT_LIMIT
   const offset = r.page * limit
   return {

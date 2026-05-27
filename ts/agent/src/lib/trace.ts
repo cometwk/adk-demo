@@ -29,6 +29,11 @@ function log(level: LogLevel, label: string, value: unknown) {
   console.log(style(`${label.padEnd(12)} ${format(value)}`))
 }
 
+function info(message?: any, ...optionalParams: any[]) {
+  const formattedParams = optionalParams.map((param) => format(param))
+  console.log(chalk.bold.gray(message), ...formattedParams)
+}
+
 export const trace = {
   system: (x: unknown) => log('system', 'system', x),
 
@@ -57,6 +62,8 @@ export const trace = {
   },
 
   onStep: (step: any) => onStep(step),
+
+  log: (message?: any, ...optionalParams: any[]) => info(message, ...optionalParams),
 }
 
 function onStep(step: any) {

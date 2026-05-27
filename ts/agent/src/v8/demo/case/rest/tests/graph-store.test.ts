@@ -5,7 +5,7 @@ import type { AccessContext, RestAccessBindingMap, RestNodeClassRegistry, Search
 import { RestQueryGraphStore } from '../../../../provider/rest-query'
 import { paymentAccessBindings } from '../bindings'
 import { Agent } from '../ontology'
-import { createAccessContext } from '../context'
+// import { createAccessContext } from '../context'
 import { trace } from '../../../../../lib/trace'
 
 // Mock BaseNode class - minimal implementation for testing
@@ -17,7 +17,7 @@ describe('RestQueryGraphStore', () => {
   let mockTypeRegistry: RestNodeClassRegistry
 
   beforeEach(() => {
-    createAccessContext()
+    // createAccessContext()
     mockTypeRegistry = {
       Agent: { class: Agent, prefix: '/agent' },
       Merch: { prefix: '/merch' },
@@ -78,4 +78,17 @@ describe('RestQueryGraphStore', () => {
       trace.user(r)
     })
   })
+
+//   // "tool_calls": [
+//     {
+//       "index": 0,
+//       "id": "call_986df12b1d1e48d5a988b4c0",
+//       "type": "function",
+//       "function": {
+//           "name": "graph_query",
+//           "arguments": "{\"match\": {\"type\": \"AgentRel\", \"where\": [{\"property\": \"apply\", \"op\": \"eq\", \"value\": 1}, {\"property\": \"agent_type\", \"op\": \"eq\", \"value\": \"MERCH\"}]}, \"traverse\": [{\"relation\": \"for_agent\", \"direction\": \"out\", \"alias\": \"agent\"}, {\"relation\": \"for_merch\", \"direction\": \"out\", \"alias\": \"merch\"}], \"return\": {\"fields\": [\"agent_no\", \"obj_no\", \"obj_name\"], \"limit\": 200}}"
+//       }
+//   }
+// ],
+
 })
