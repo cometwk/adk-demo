@@ -40,11 +40,27 @@ describe('just test tools', () => {
             { property: 'agent_type', op: 'eq', value: 'MERCH' },
           ],
         },
+        /*
+graph_query 的 traverse 默认链式执行：
+  MATCH AgentRel (_start)
+  → step1 for_agent  → alias: agent   (currentAlias 变成 agent)
+  → step2 for_merch  → 从 agent 出发 ❌
+  所有要加上 from: '_start'
+  */
         traverse: [
           { relation: 'for_agent', direction: 'out', alias: 'agent' },
-          { relation: 'for_merch', direction: 'out', alias: 'merch' },
+          {
+            from: '_start',
+            relation: 'for_merch',
+            direction: 'out',
+            alias: 'merch',
+          },
         ],
-        return: { fields: ['agent_no', 'obj_no', 'obj_name'], limit: 200 },
+        return: {
+          alias: '_start',
+          fields: ['agent_no', 'obj_no', 'obj_name'],
+          limit: 200,
+        },
       },
       { toolCallId: 'graph_query', messages: [] }
     )
