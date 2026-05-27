@@ -2,6 +2,7 @@ import { beforeAll, describe, it } from 'vitest'
 import { PipelineContext, reasoningPlugin } from '../../../../pipeline'
 import { newPipelineTestContext } from '../helper'
 import { Tool, ToolSet } from 'ai'
+import { trace } from '../../../../../lib/trace'
 
 describe('just test tools', () => {
   let ctx: PipelineContext
@@ -47,7 +48,7 @@ describe('just test tools', () => {
       },
       { toolCallId: 'graph_query', messages: [] }
     )
-    console.log('graph_query result =================================')
-    console.log(JSON.stringify(r, null, 2))
+
+    trace.log('graph_query result =================================', r)
   })
 })

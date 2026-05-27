@@ -47,6 +47,7 @@ export class PipelineSession {
 
   // Session state (initialized on run)
   private workspace: Workspace | null = null
+  private nodeDataCache: Map<string, import('../../engine/runtime/types').NodeData> | null = null
   private runtime: SemanticRuntimeOrchestrator | null = null
   private plugin: TaskPlugin | null = null
   private systemPrompt: string | null = null
@@ -64,8 +65,9 @@ export class PipelineSession {
    * 执行首次任务，等价于 runTask() 完整流程
    */
   async run(): Promise<PipelineResult> {
-    // 1. Init workspace
+    // 1. Init workspace + session-scoped node cache
     this.workspace = new Workspace()
+    this.nodeDataCache = new Map()
 
     // 2. Get plugin from registry
     // NOTE: Session receives plugin from PipelineContext.createSession
@@ -106,6 +108,7 @@ export class PipelineSession {
       this.workspace,
       this.deps.config ?? DEFAULT_RUNTIME_CONFIG,
       this.policy,
+      this.nodeDataCache,
     )
 
     // 5. Build tools

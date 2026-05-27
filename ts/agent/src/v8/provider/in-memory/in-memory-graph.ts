@@ -13,7 +13,7 @@ import type {
   ToolResult,
 } from '../../engine/runtime/types'
 import { toolErr, toolOk } from '../../engine/runtime/types'
-import type { FindNodesOpts, GetNeighborsOpts, GraphStore } from '../../engine/stores/graph-store'
+import type { FindNodesOpts, GetNeighborsOpts, GraphStore, GraphQueryContext } from '../../engine/stores/graph-store'
 import { BaseNode, NodeInstanceContainer, RelationSchema } from '../../ontology'
 
 const DEFAULT_PAGE_LIMIT = 20
@@ -123,7 +123,11 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
     return paginate(all, offset, limit)
   }
 
-  async getNeighbors(nodeId: string, opts: GetNeighborsOpts = {}): Promise<Paginated<NeighborData>> {
+  async getNeighbors(
+    nodeId: string,
+    opts: GetNeighborsOpts = {},
+    ctx?: GraphQueryContext
+  ): Promise<Paginated<NeighborData>> {
     const { relation, direction = 'both', targetType, where, fields, limit = DEFAULT_PAGE_LIMIT, offset = 0 } = opts
 
     const all: NeighborData[] = []
@@ -150,6 +154,14 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
         entry.properties = projectFields(target.getProperties(), fields)
       }
       all.push(entry)
+
+      if (ctx?.nodeDataCache && entry.properties) {
+        ctx.nodeDataCache.set(targetId, {
+          id: targetId,
+          type: typeName,
+          properties: entry.properties,
+        })
+      }
     }
 
     if (direction === 'out' || direction === 'both') {
@@ -170,7 +182,24 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
       }
     }
 
+    const sourceNode = this.nodes.get(nodeId)
+    if (sourceNode && ctx?.nodeDataCache) {
+      ctx.nodeDataCache.set(nodeId, nodeToData(sourceNode))
+    }
+
     return paginate(all, offset, limit)
+  }
+
+  async getNeighborsBatch(
+    nodeIds: string[],
+    opts: GetNeighborsOpts = {},
+    ctx?: GraphQueryContext
+  ): Promise<Map<string, Paginated<NeighborData>>> {
+    const result = new Map<string, Paginated<NeighborData>>()
+    for (const id of nodeIds) {
+      result.set(id, await this.getNeighbors(id, opts, ctx))
+    }
+    return result
   }
 
   async getEdgeSummary(nodeId: string): Promise<EdgeSummary[]> {
@@ -202,9 +231,14 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
 
   // ── GraphTraversalQuery Execution ──
 
-  async query(query: GraphTraversalQuery, policy: PolicyContext = OPEN_POLICY): Promise<ToolResult<GraphQueryResult>> {
+  async query(
+    query: GraphTraversalQuery,
+    policy: PolicyContext = OPEN_POLICY,
+    ctx?: GraphQueryContext
+  ): Promise<ToolResult<GraphQueryResult>> {
     const workingSets = new Map<string, Set<string>>()
     const startAlias = query.match.alias ?? '_start'
+    const returnFields = query.return.fields
 
     // MATCH phase
     if (!checkTypeAccess(query.match.type, policy)) {
@@ -222,6 +256,7 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
     for (const node of matchPage.items) {
       if (!checkEntityAccess(node.id, policy)) continue
       matchSet.add(node.id)
+      ctx?.nodeDataCache?.set(node.id, node)
     }
     workingSets.set(startAlias, matchSet)
 
@@ -243,16 +278,21 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
 
       const survivors = new Set<string>()
       const targets = new Set<string>()
+      const neighborOpts: GetNeighborsOpts = {
+        relation: step.relation,
+        direction: step.direction ?? 'out',
+        targetType: step.targetType,
+        where: step.where,
+        fields: returnFields,
+        limit: MAX_WORKING_SET,
+        offset: 0,
+      }
+
+      const neighborsMap = await this.getNeighborsBatch(Array.from(fromSet), neighborOpts, ctx)
 
       for (const fromId of fromSet) {
-        const neighbors = await this.getNeighbors(fromId, {
-          relation: step.relation,
-          direction: step.direction ?? 'out',
-          targetType: step.targetType,
-          where: step.where,
-          limit: MAX_WORKING_SET,
-          offset: 0,
-        })
+        const neighbors = neighborsMap.get(fromId)
+        if (!neighbors) continue
 
         let hasMatch = false
         for (const neighbor of neighbors.items) {
@@ -302,14 +342,18 @@ export class InMemoryGraphStore implements GraphStore, NodeInstanceContainer {
         truncated = true
         break
       }
-      const node = this.nodes.get(nodeId)
+      const cached = ctx?.nodeDataCache?.get(nodeId)
+      const node = cached ?? (this.nodes.get(nodeId) ? nodeToData(this.nodes.get(nodeId)!, returnFields) : undefined)
       if (!node) continue
+      if (ctx?.nodeDataCache && !cached) {
+        ctx.nodeDataCache.set(nodeId, node)
+      }
 
-      const props = redactProperties(node.getProperties(), policy)
+      const props = redactProperties(node.properties, policy)
       const projected =
-        query.return.fields && query.return.fields.length > 0 ? projectFields(props, query.return.fields) : props
+        returnFields && returnFields.length > 0 ? projectFields(props, returnFields) : props
 
-      allRows.push({ nodeId, type: node.getAgentTypeName(), properties: projected })
+      allRows.push({ nodeId, type: node.type, properties: projected })
     }
 
     const paged = allRows.slice(offset, offset + limit)

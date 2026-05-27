@@ -7,7 +7,23 @@ import type {
 	RestNodeClassRegistry,
 } from "../context";
 import type { SearchParams } from "../http-client";
+import { neighborsFromNodes } from "../helpers";
+
+vi.mock("../api-search", () => ({
+	apiSearchSafe: vi.fn(),
+	apiSearchArraySafe: vi.fn(),
+	apiSearch: vi.fn(),
+	emptyPaginated: (limit: number, offset: number) => ({
+		items: [],
+		page: { offset, limit, hasMore: false, total: 0 },
+	}),
+	isNotFoundError: () => false,
+}));
+
+import { apiSearchSafe } from "../api-search";
 import { RestQueryGraphStore } from "../react-query-store";
+
+const mockedApiSearchSafe = vi.mocked(apiSearchSafe);
 
 // Mock BaseNode class - minimal implementation for testing
 class MockMerchNode extends BaseNode {
@@ -75,13 +91,27 @@ describe("RestQueryGraphStore", () => {
 				};
 			},
 		);
+		mockedApiSearchSafe.mockImplementation(mockApiSearchSafe);
 
 		mockCtx = {
 			typeRegistry: mockTypeRegistry,
 			fetchOne: mockFetchOne,
+			fetchMany: vi.fn(async (type: string, rawIds: string[]) => {
+				if (type !== "Agent") return [];
+				return rawIds.map((rawId) => ({
+					id: `Agent:${rawId}`,
+					type: "Agent",
+					properties: { id: rawId, agent_no: `NO-${rawId}`, name: `Agent ${rawId}` },
+				}));
+			}) as AccessContext["fetchMany"],
 			apiSearchSafe: mockApiSearchSafe as AccessContext["apiSearchSafe"],
 			rawId: (node: NodeData) => node.id.split(":")[1],
 			toGlobalId: (type: string, rawId: string) => `${type}:${rawId}`,
+			neighborsFromNodes,
+			emptyNeighbors: (limit: number, offset: number) => ({
+				items: [],
+				page: { offset, limit, hasMore: false, total: 0 },
+			}),
 		};
 	});
 
@@ -117,6 +147,95 @@ describe("RestQueryGraphStore", () => {
 			provider = new RestQueryGraphStore(mockBindings, mockCtx);
 			const result = await provider.getBaseNode("Unknown:001");
 			expect(result).toBeUndefined();
+		});
+	});
+
+	describe("getNeighborsBatch", () => {
+		it("should batch search bindings with where.*.in", async () => {
+			provider = new RestQueryGraphStore(mockBindings, mockCtx);
+			const cache = new Map<string, NodeData>([
+				[
+					"Merch:M001",
+					{
+						id: "Merch:M001",
+						type: "Merch",
+						properties: { merch_no: "M001", name: "Test Merch" },
+					},
+				],
+				[
+					"Merch:M002",
+					{
+						id: "Merch:M002",
+						type: "Merch",
+						properties: { merch_no: "M002", name: "Another Merch" },
+					},
+				],
+			]);
+
+			mockedApiSearchSafe.mockImplementation(async (prefix: string, query?: SearchParams) => {
+				if (prefix === "/agent" && query?.["where.merch_no.in"]) {
+					const nos = String(query["where.merch_no.in"]).split(",");
+					return {
+						items: nos.map((no) => ({
+							id: `A-${no}`,
+							agent_no: `NO-${no}`,
+							merch_no: no,
+							name: `Agent for ${no}`,
+						})),
+						page: { offset: 0, limit: 100, hasMore: false, total: nos.length },
+					};
+				}
+				return { items: [], page: { offset: 0, limit: 20, hasMore: false, total: 0 } };
+			});
+
+			const result = await provider.getNeighborsBatch(
+				["Merch:M001", "Merch:M002"],
+				{ relation: "for_agent", direction: "out" },
+				{ nodeDataCache: cache },
+			);
+
+			expect(result.get("Merch:M001")?.items).toHaveLength(1);
+			expect(result.get("Merch:M002")?.items).toHaveLength(1);
+			expect(mockedApiSearchSafe).toHaveBeenCalledWith(
+				"/agent",
+				expect.objectContaining({ "where.merch_no.in": "M001,M002" }),
+			);
+		});
+	});
+
+	describe("query", () => {
+		it("should reuse nodeDataCache in RETURN phase", async () => {
+			provider = new RestQueryGraphStore(mockBindings, mockCtx);
+			const cache = new Map<string, NodeData>();
+			const fetchMany = vi.fn(async () => []);
+			mockCtx.fetchMany = fetchMany as AccessContext["fetchMany"];
+
+			mockedApiSearchSafe.mockImplementation(async (prefix: string) => {
+				if (prefix === "/merch") {
+					return {
+						items: [{ id: "M001", merch_no: "M001", name: "Test Merch", status: "active" }],
+						page: { offset: 0, limit: 500, hasMore: false, total: 1 },
+					};
+				}
+				return { items: [], page: { offset: 0, limit: 20, hasMore: false, total: 0 } };
+			});
+
+			const result = await provider.query(
+				{
+					match: { type: "Merch", where: [{ property: "status", op: "eq", value: "active" }] },
+					return: { fields: ["merch_no", "name"], limit: 10 },
+				},
+				undefined,
+				{ nodeDataCache: cache },
+			);
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.data.rows).toHaveLength(1);
+				expect(result.data.rows[0]?.properties.merch_no).toBe("M001");
+			}
+			expect(fetchMany).not.toHaveBeenCalled();
+			expect(cache.size).toBeGreaterThan(0);
 		});
 	});
 

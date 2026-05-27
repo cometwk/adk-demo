@@ -34,24 +34,21 @@ export async function resolveAgentsByNos(
 		0,
 		MAX_RESOLVE_LIMIT,
 	);
-	const nodes: NodeData[] = [];
+	if (unique.length === 0) {
+		return ctx.emptyNeighbors(opts.limit ?? 20, opts.offset ?? 0);
+	}
 	const prefix = ctx.typeRegistry.Agent?.prefix;
 	if (!prefix) throw new Error('resolveAgentsByNos: unknown type "Agent"');
-	for (const no of unique) {
-		const page = await ctx.apiSearchSafe<Record<string, unknown>>(prefix, {
-			"where.agent_no.eq": no,
-			pagesize: 1,
-			page: 0,
-		});
-		const row = page.items[0];
-		if (row) {
-			nodes.push({
-				id: ctx.toGlobalId("Agent", String(row.id)),
-				type: "Agent",
-				properties: row,
-			});
-		}
-	}
+	const page = await ctx.apiSearchSafe<Record<string, unknown>>(prefix, {
+		"where.agent_no.in": unique.join(","),
+		pagesize: unique.length,
+		page: 0,
+	});
+	const nodes = page.items.map((row) => ({
+		id: ctx.toGlobalId("Agent", String(row.id)),
+		type: "Agent",
+		properties: row,
+	}));
 	return ctx.neighborsFromNodes(nodes, relation, direction, opts);
 }
 

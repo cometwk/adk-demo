@@ -11,6 +11,12 @@ export type CustomHandler = (
   ctx: AccessContext,
 ) => Promise<Paginated<NeighborData>>
 
+export type BatchHandler = (
+  sources: NodeData[],
+  opts: GetNeighborsOpts,
+  ctx: AccessContext,
+) => Promise<Map<string, Paginated<NeighborData>>>
+
 // ── RestAccessBinding ──
 
 export type RestAccessBinding =
@@ -31,6 +37,7 @@ export type RestAccessBinding =
       toType: RestEntityType
       direction: 'out' | 'in'
       handler: CustomHandler
+      batchHandler?: BatchHandler
     }
 
 export type RestAccessBindingMap = Record<string, RestAccessBinding>

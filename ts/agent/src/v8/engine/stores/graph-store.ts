@@ -5,6 +5,13 @@ import type { ToolResult } from '../runtime/types'
 import type { PolicyContext } from '../../policy/context'
 import { NodeInstanceContainer } from '../../ontology'
 
+// ── Session-scoped graph read context ──
+
+export type GraphQueryContext = {
+  /** Session 内 nodeData 缓存，仅 graph_query / query_neighbors 使用 */
+  nodeDataCache?: Map<string, NodeData>
+}
+
 // ── Query options ──
 
 export type FindNodesOpts = {
@@ -37,12 +44,23 @@ export interface GraphStore extends NodeInstanceContainer {
   findNodes(opts: FindNodesOpts): Promise<Paginated<NodeData>>
 
   // Neighbor access
-  getNeighbors(nodeId: string, opts: GetNeighborsOpts): Promise<Paginated<NeighborData>>
+  getNeighbors(nodeId: string, opts: GetNeighborsOpts, ctx?: GraphQueryContext): Promise<Paginated<NeighborData>>
+
+  // Batch neighbor access (TRAVERSE 优化)
+  getNeighborsBatch(
+    nodeIds: string[],
+    opts: GetNeighborsOpts,
+    ctx?: GraphQueryContext
+  ): Promise<Map<string, Paginated<NeighborData>>>
 
   // Edge summary
   getEdgeSummary(nodeId: string): Promise<EdgeSummary[]>
 
   // Traversal query (V8: traversal-only, no aggregate)
   // policy is optional - defaults to OPEN_POLICY if not provided
-  query(query: GraphTraversalQuery, policy?: PolicyContext): Promise<ToolResult<GraphQueryResult>>
+  query(
+    query: GraphTraversalQuery,
+    policy?: PolicyContext,
+    ctx?: GraphQueryContext
+  ): Promise<ToolResult<GraphQueryResult>>
 }

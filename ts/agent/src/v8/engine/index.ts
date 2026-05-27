@@ -20,7 +20,12 @@ export {
 } from './runtime/types'
 
 // Stores (interfaces)
-export { type GraphStore, type FindNodesOpts, type GetNeighborsOpts } from './stores/graph-store'
+export {
+  type GraphStore,
+  type FindNodesOpts,
+  type GetNeighborsOpts,
+  type GraphQueryContext,
+} from './stores/graph-store'
 export { type ComputeStore, type ComputeSource, type SourceSchema, type FieldSchema } from './stores/compute-store'
 export { type VectorStore } from './stores/vector-store'
 

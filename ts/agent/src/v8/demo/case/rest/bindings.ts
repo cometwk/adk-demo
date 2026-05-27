@@ -239,6 +239,35 @@ export const paymentAccessBindings: RestAccessBindingMap = {
 			const agentNo = String(source.properties.agent_no ?? "");
 			return resolveAgentsByNos(ctx, [agentNo], "for_agent", "out", opts);
 		},
+		batchHandler: async (sources, opts, ctx) => {
+			const result = new Map<string, Paginated<NeighborData>>();
+			const limit = opts.limit ?? 20;
+			const offset = opts.offset ?? 0;
+			const agentNos = sources.map((s) => String(s.properties.agent_no ?? "")).filter(Boolean);
+			const page = await resolveAgentsByNos(ctx, agentNos, "for_agent", "out", {
+				...opts,
+				limit: 100,
+				offset: 0,
+			});
+			const agentByNo = new Map<string, NodeData>();
+			for (const item of page.items) {
+				const props = item.properties ?? {};
+				const no = String(props.agent_no ?? "");
+				if (no && !agentByNo.has(no)) {
+					agentByNo.set(no, { id: item.nodeId, type: item.type, properties: props });
+				}
+			}
+			for (const source of sources) {
+				const no = String(source.properties.agent_no ?? "");
+				const agent = no ? agentByNo.get(no) : undefined;
+				if (agent) {
+					result.set(source.id, ctx.neighborsFromNodes([agent], "for_agent", "out", opts));
+				} else {
+					result.set(source.id, ctx.emptyNeighbors(limit, offset));
+				}
+			}
+			return result;
+		},
 	},
 
 	// AgentRel -> Merch (AgentRel:for_merch:out)
@@ -256,6 +285,35 @@ export const paymentAccessBindings: RestAccessBindingMap = {
 			const merch = await ctx.fetchOne("Merch", objId);
 			if (!merch) return ctx.emptyNeighbors(opts.limit ?? 20, opts.offset ?? 0);
 			return ctx.neighborsFromNodes([merch], "for_merch", "out", opts);
+		},
+		batchHandler: async (sources, opts, ctx) => {
+			const result = new Map<string, Paginated<NeighborData>>();
+			const limit = opts.limit ?? 20;
+			const offset = opts.offset ?? 0;
+			const objIds = [
+				...new Set(
+					sources
+						.filter((s) => s.properties.agent_type === "MERCH")
+						.map((s) => String(s.properties.obj_id ?? ""))
+						.filter(Boolean),
+				),
+			];
+			const merchs = objIds.length > 0 ? await ctx.fetchMany("Merch", objIds) : [];
+			const merchById = new Map(merchs.map((m) => [ctx.rawId(m), m]));
+			for (const source of sources) {
+				if (source.properties.agent_type !== "MERCH") {
+					result.set(source.id, ctx.emptyNeighbors(limit, offset));
+					continue;
+				}
+				const objId = String(source.properties.obj_id ?? "");
+				const merch = objId ? merchById.get(objId) : undefined;
+				if (merch) {
+					result.set(source.id, ctx.neighborsFromNodes([merch], "for_merch", "out", opts));
+				} else {
+					result.set(source.id, ctx.emptyNeighbors(limit, offset));
+				}
+			}
+			return result;
 		},
 	},
 

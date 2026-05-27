@@ -1,4 +1,4 @@
-import type { GraphStore, FindNodesOpts, GetNeighborsOpts } from '../stores/graph-store'
+import type { GraphStore, FindNodesOpts, GetNeighborsOpts, GraphQueryContext } from '../stores/graph-store'
 import type { ComputeStore } from '../stores/compute-store'
 import type { VectorStore } from '../stores/vector-store'
 import type { GraphTraversalQuery, GraphQueryResult } from '../query/graph-query'
@@ -46,9 +46,14 @@ export class SemanticRuntimeOrchestrator implements RuntimeOrchestrator {
   private workspace: Workspace
   private config: RuntimeConfig
   readonly policy: PolicyContext
+  private readonly nodeDataCache?: Map<string, NodeData>
 
   get facts(): FactStore {
     return this.workspace.getFacts()
+  }
+
+  private graphCtx(): GraphQueryContext | undefined {
+    return this.nodeDataCache ? { nodeDataCache: this.nodeDataCache } : undefined
   }
 
   constructor(
@@ -58,6 +63,7 @@ export class SemanticRuntimeOrchestrator implements RuntimeOrchestrator {
     workspace: Workspace,
     config: RuntimeConfig = DEFAULT_RUNTIME_CONFIG,
     policy: PolicyContext = OPEN_POLICY,
+    nodeDataCache?: Map<string, NodeData>,
   ) {
     this.graphStore = graphStore
     this.computeStore = computeStore
@@ -65,6 +71,7 @@ export class SemanticRuntimeOrchestrator implements RuntimeOrchestrator {
     this.workspace = workspace
     this.config = config
     this.policy = policy
+    this.nodeDataCache = nodeDataCache
   }
 
   // ── Graph Query ──
@@ -78,7 +85,7 @@ export class SemanticRuntimeOrchestrator implements RuntimeOrchestrator {
 
     // 2. Execute via GraphStore (with policy)
     try {
-      const result = await this.graphStore.query(query, this.policy)
+      const result = await this.graphStore.query(query, this.policy, this.graphCtx())
 
       if (!result.ok) {
         return result
@@ -185,11 +192,26 @@ export class SemanticRuntimeOrchestrator implements RuntimeOrchestrator {
     opts?: GetNeighborsOpts,
   ): Promise<ToolResult<Paginated<NeighborData>>> {
     try {
-      const result = await this.graphStore.getNeighbors(nodeId, opts ?? {})
+      const ctx = this.graphCtx()
+      const result = await this.graphStore.getNeighbors(nodeId, opts ?? {}, ctx)
+      this.cacheNeighborNodes(ctx, result.items)
       return toolOk(result)
     } catch (error) {
       return toolErr('INTERNAL_ERROR', error instanceof Error ? error.message : 'Unknown error', {
         retryable: true,
+      })
+    }
+  }
+
+  private cacheNeighborNodes(ctx: GraphQueryContext | undefined, neighbors: NeighborData[]): void {
+    const cache = ctx?.nodeDataCache
+    if (!cache) return
+    for (const neighbor of neighbors) {
+      if (!neighbor.properties || cache.has(neighbor.nodeId)) continue
+      cache.set(neighbor.nodeId, {
+        id: neighbor.nodeId,
+        type: neighbor.type,
+        properties: neighbor.properties,
       })
     }
   }

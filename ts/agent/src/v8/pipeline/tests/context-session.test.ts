@@ -17,6 +17,7 @@ const mockGraphStore = {
   getNode: vi.fn(),
   findNodes: vi.fn(),
   getNeighbors: vi.fn(),
+  getNeighborsBatch: vi.fn(),
   query: vi.fn(),
 } as any
 

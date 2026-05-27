@@ -12,6 +12,7 @@ const createMockGraphStore = (nodes: Array<{ id: string; type: string; propertie
     page: { offset: 0, limit: opts.limit ?? 20, hasMore: false },
   })),
   getNeighbors: vi.fn(),
+  getNeighborsBatch: vi.fn(),
   query: vi.fn(),
 })
 
