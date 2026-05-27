@@ -1,164 +1,675 @@
-# SearchParams: URL 查询参数与数据库查询映射规范
+# SearchParams：URL 查询参数与数据库查询映射规范
 
-本文档定义了一套将 URL 查询字符串映射为数据库查询的标准约定，旨在为 RESTful API 提供一套灵活、可预测且安全的后端数据查询方案。
+本文档定义了一套将 URL QueryString 映射为数据库查询条件的统一约定，用于构建灵活、可预测、安全的 RESTful API 查询能力。
 
-## 1. 语法概述
+核心目标：
 
-查询字符串由键值对构成，键（key）通过特定结构来定义查询操作。
-
-- **基本结构**: `操作[参数1][参数2]=值`
-- **分隔符**: 使用 `.` 作为键内部的分隔符，例如 `where.name.eq`。
-
----
-
-## 2. 过滤 (`where`)
-
-用于向数据库查询添加 `WHERE` 条件。
-
-### 2.1. 基本过滤 (AND)
-
-默认情况下，所有 `where` 条件将通过 `AND` 连接。
-
-- **语法**: `where.列名.操作符=值`
-- **示例**: 查询状态为 `active` **且** 年龄大于 `20` 的用户。
-  - **URL Query**: `where.age.gt=20&where.status.eq=active`
-  - **SQL (示意)**: `WHERE age > 20 AND status = 'active'`
-
-### 2.2. 模糊搜索 (`q`)
-
-系统提供两种便捷的模糊搜索方式，内部使用 `OR` 和 `LIKE` 连接。
-
-1.  **全局模糊搜索**:
-    - **语法**: `q=搜索词`
-    - **说明**: 后端需预设一个字段列表（如 `['name', 'title']`），��查询会对列表中的所有字段执行 `OR LIKE` 操作。
-    - **示例**: `q=keyword`
-    - **SQL (示意)**: `WHERE (name LIKE '%keyword%' OR title LIKE '%keyword%')`
-
-2.  **指定字段模糊搜索**:
-    - **语法**: `q.列1.列2=搜索词`
-    - **说明**: 对指定的 `列1`, `列2` 执行 `OR LIKE` 操作。
-    - **示例**: `q.name.email=test`
-    - **SQL (示意)**: `WHERE (name LIKE '%test%' OR email LIKE '%test%')`
-
-### 2.3. 操作符列表
-
-当前实现支持以下操作符：
-
-| 操作符 | 描述 | 示例 (URL Query) | SQL (示意) |
-|---|---|---|---|
-| `eq` | 等于 | `where.name.eq=John` | `name = 'John'` |
-| `neq` | 不等于 | `where.name.neq=John` | `name <> 'John'` |
-| `gt` | 大于 | `where.age.gt=20` | `age > 20` |
-| `lt` | 小于 | `where.age.lt=20` | `age < 20` |
-| `gte` | 大于等于 | `where.age.gte=21` | `age >= 21` |
-| `lte` | 小于等于 | `where.age.le=21` | `age <= 21` |
-| `in` | 包含于 (多值用 `,` 分隔) | `where.status.in=active,pending` | `status IN ('active', 'pending')` |
-| `notIn` | 不包含于 (多值用 `,` 分隔) | `where.status.notIn=archived` | `status NOT IN ('archived')` |
-| `like` | LIKE 模糊匹配 | `where.name.like=%john%` | `name LIKE '%john%'` |
-| `likes`| 多个 LIKE (AND) | `where.name.likes=john,doe` | `name LIKE '%john%' AND name LIKE '%doe%'` |
-| `btw` | 在...之间 (用 `,` 分隔) | `where.age.btw=20,30` | `age BETWEEN 20 AND 30` |
-| `null` | 是否为 NULL | `where.deleted_at.null=true` | `deleted_at IS NULL` |
-| | | `where.deleted_at.null=false` | `deleted_at IS NOT NULL` |
-| `time` | UTC时间范围 (格式 `YYYY-MM-DD HH:MM:SS`, 用 `,` 分隔) | `where.created_at.time=2024-01-01 00:00:00,2024-01-31 23:59:59` | `created_at BETWEEN '...' AND '...'` |
-| `date` | 本地日期范围 (格式 `YYYY-MM-DD HH:MM:SS`, 用 `,` 分隔) | `where.created_at.time=2024-01-01 00:00:00,2024-01-31 23:59:59` | `created_at >= '...' AND  <='...'` |
-
-### 2.4. 时间处理
-
-- **URL 查询参数**: 所有时间相关的查询参数（如 `time` 操作符）都应使用 **本地时间** 格式。
-- **后端处理**: 后端在接收到时间参数后，必须将其从本地时间转换为 **UTC 时间**，然后用于数据库查询。数据库中所有时间字段均存储为 UTC 格式。
+* 统一前后端查询协议
+* 减少接口数量
+* 提供可组合的查询能力
+* 保持 URL 可读性
+* 避免后端手写大量查询逻辑
 
 ---
 
-## 3. 字段选择 (`select`)
+# 1. 基础语法
 
-指定返回结果中包含哪些字段。
+查询参数采用：
 
-- **语法**: `select=列1,列2`
-- **示例**: 只返回 `id` 和 `name` 字段。
-  - **URL Query**: `select=id,name`
-  - **SQL (示意)**: `SELECT id, name FROM ...`
+```text
+操作.参数1.参数2=值
+```
 
----
+使用 `.` 作为层级分隔符。
 
-## 4. 排序 (`order`)
+例如：
 
-控制结果的排序。
+```text
+where.name.eq=John
+```
 
-- **语法**: `order=列1.方向,列2.方向`
-  - `方向` 是可选的，可为 `asc` (升序) 或 `desc` (降序)，默认为 `asc`。
-- **示例**: 按 `created_at` 降序，再按 `name` 升序排序。
-  - **URL Query**: `order=created_at.desc,name.asc`
-  - **SQL (示意)**: `ORDER BY created_at DESC, name ASC`
+表示：
 
----
-
-## 5. 分页
-
-通过参数控制返回数据的分页。
-
-- **语法**: `page=页码&pagesize=每页数量`
-- **说明**:
-  - `page` 默认为 `0` 或 `1` (取决于后端实现)，`pagesize` 默认为 `10`。
-  - 后端应限制 `pagesize` 的最大值（如 `500`）以防���用。
-- **示例**: 获取第 2 页，每页 20 条数据。
-  - **URL Query**: `page=2&pagesize=20`
-  - **SQL (示意)**: `LIMIT 20 OFFSET 20`
+```sql
+WHERE name = 'John'
+```
 
 ---
 
-## 6. 关联查询
+# 2. 过滤条件（where）
 
-
-TODO:
-- `取消 # 符号，它在url规则中，有特殊含义 `
-- `~ 符号, user~name`
-
-当前实现对关联查询的支持有限，仅支持对单层关联表的字段进行过滤。
-
-- **语法**: `where.表名#列名.操作符=值`
-- **说明**: 使用 `#` 连接关联表名和列名。后端代码会将其转换为 `表名.列名`。
-- **示例**: 查询关联的 `user_profile` 表中 `city` 为 'Beijing' 的记录。
-  - **URL Query**: `where.user_profile#city.eq=Beijing`
-  - **SQL (示意)**: `... WHERE user_profile.city = 'Beijing'`
-- **注意**: 
-  - 复杂的多层关联（如 `where.othertable.friends.status.eq=enabled`）当前**不被支持**。
-  - 只支持简单的left join 关联查询.
-  - 功能未实现，好像还得先定义关联 on xxx.field = yyy.field 关系才行
-  - 目前需要手工设置 `x.field=y.field`
+用于生成 SQL `WHERE` 条件。
 
 ---
 
-## 7. 未来规划：OR 分组查询
+## 2.1 基础过滤（AND）
 
-> **注意**: 以下为设计规划，当前版本尚未实现。
+默认情况下：
 
-为了支持更复杂的 `(A OR B) AND C` 逻辑，计划引入 `OR` 分组。
+* 所有 `where.*` 条件之间使用 `AND` 连接。
 
-- **语法**: `or[分组号].列名.操作符=值`
-- **说明**:
-  - 同一个分组号内的条件将用 `OR` 连接。
-  - 不同分组号之间、以及 `or` 分组与 `where` 条件之间，将用 `AND` 连接。
-- **示例**: 查询 (`status` 为 `pending` **或** `review_needed`) **且** `age` 大于 60 的用户。
-  - **URL Query**: `or[1].status.eq=pending&or[1].status.eq=review_needed&where.age.gt=60`
-  - **SQL (示意)**: `WHERE (status = 'pending' OR status = 'review_needed') AND age > 60`
+### 语法
+
+```text
+where.字段名.操作符=值
+```
+
+### 示例
+
+```text
+where.age.gt=20
+&where.status.eq=active
+```
+
+对应 SQL：
+
+```sql
+WHERE age > 20
+  AND status = 'active'
+```
 
 ---
 
-## 8. 使用举例
+## 2.2 模糊搜索（q）
+
+`q` 用于快速文本搜索。
+
+内部使用：
+
+```sql
+OR + LIKE
+```
+
+实现。
+
+支持两种模式。
+
+---
+
+### 2.2.1 全局模糊搜索
+
+后端预先定义一组可搜索字段，例如：
 
 ```ts
+['name', 'title']
+```
 
+### 语法
+
+```text
+q=keyword
+```
+
+### 示例
+
+```text
+q=test
+```
+
+对应 SQL：
+
+```sql
+WHERE (
+  name  LIKE '%test%'
+  OR title LIKE '%test%'
+)
+```
+
+---
+
+### 2.2.2 指定字段模糊搜索
+
+### 语法
+
+```text
+q.字段1.字段2=keyword
+```
+
+### 示例
+
+```text
+q.name.email=test
+```
+
+对应 SQL：
+
+```sql
+WHERE (
+  name  LIKE '%test%'
+  OR email LIKE '%test%'
+)
+```
+
+---
+
+# 3. 操作符（Operator）
+
+当前支持以下操作符：
+
+| 操作符     | 含义            | URL 示例                                                          | SQL 示例                                     |
+| ------- | ------------- | --------------------------------------------------------------- | ------------------------------------------ |
+| `eq`    | 等于            | `where.name.eq=John`                                            | `name = 'John'`                            |
+| `neq`   | 不等于           | `where.name.neq=John`                                           | `name <> 'John'`                           |
+| `gt`    | 大于            | `where.age.gt=20`                                               | `age > 20`                                 |
+| `lt`    | 小于            | `where.age.lt=20`                                               | `age < 20`                                 |
+| `gte`   | 大于等于          | `where.age.gte=21`                                              | `age >= 21`                                |
+| `lte`   | 小于等于          | `where.age.lte=21`                                              | `age <= 21`                                |
+| `in`    | IN 查询（`,` 分隔） | `where.status.in=active,pending`                                | `status IN (...)`                          |
+| `notIn` | NOT IN 查询     | `where.status.notIn=archived`                                   | `status NOT IN (...)`                      |
+| `like`  | LIKE 模糊匹配     | `where.name.like=%john%`                                        | `name LIKE '%john%'`                       |
+| `likes` | 多个 LIKE（AND）  | `where.name.likes=john,doe`                                     | `name LIKE '%john%' AND name LIKE '%doe%'` |
+| `btw`   | BETWEEN 区间    | `where.age.btw=20,30`                                           | `age BETWEEN 20 AND 30`                    |
+| `null`  | NULL 判断       | `where.deleted_at.null=true`                                    | `deleted_at IS NULL`                       |
+| `null`  | 非 NULL 判断     | `where.deleted_at.null=false`                                   | `deleted_at IS NOT NULL`                   |
+| `time`  | UTC 时间范围      | `where.created_at.time=2024-01-01 00:00:00,2024-01-31 23:59:59` | `BETWEEN ...`                              |
+| `date`  | 本地日期范围        | `where.created_at.date=2024-01-01,2024-01-31`                   | `>= ... AND <= ...`                        |
+
+---
+
+# 4. 时间处理规则
+
+系统中的数据库时间统一使用：
+
+```text
+UTC
+```
+
+存储。
+
+因此：
+
+## URL 输入
+
+前端传入：
+
+* 本地时间
+* 或本地日期
+
+例如：
+
+```text
+where.created_at.time=2024-01-01 00:00:00,2024-01-31 23:59:59
+```
+
+---
+
+## 后端处理
+
+后端必须：
+
+1. 将本地时间转换为 UTC
+2. 再参与数据库查询
+
+---
+
+## 数据库存储
+
+数据库中的时间字段统一为：
+
+```text
+UTC 时间
+```
+
+---
+
+# 5. 字段选择（select）
+
+控制返回字段。
+
+---
+
+## 语法
+
+```text
+select=字段1,字段2
+```
+
+---
+
+## 示例
+
+```text
+select=id,name
+```
+
+对应 SQL：
+
+```sql
+SELECT id, name
+FROM ...
+```
+
+---
+
+# 6. 排序（order）
+
+控制结果排序。
+
+---
+
+## 语法
+
+```text
+order=字段1.方向,字段2.方向
+```
+
+方向支持：
+
+* `asc`
+* `desc`
+
+默认：
+
+```text
+asc
+```
+
+---
+
+## 示例
+
+```text
+order=created_at.desc,name.asc
+```
+
+对应 SQL：
+
+```sql
+ORDER BY created_at DESC,
+         name ASC
+```
+
+---
+
+# 7. 分页（Pagination）
+
+通过 `page` 与 `pagesize` 控制分页。
+
+---
+
+## 语法
+
+```text
+page=页码
+&pagesize=每页数量
+```
+
+---
+
+## 默认值建议
+
+| 参数         | 默认值       |
+| ---------- | --------- |
+| `page`     | `0` 或 `1` |
+| `pagesize` | `10`      |
+
+---
+
+## 安全限制
+
+后端应限制：
+
+```text
+pagesize 最大值
+```
+
+例如：
+
+```text
+500
+```
+
+避免大查询滥用。
+
+---
+
+## 示例
+
+```text
+page=2&pagesize=20
+```
+
+对应 SQL：
+
+```sql
+LIMIT 20 OFFSET 20
+```
+
+---
+
+# 8. 关联查询（Join Query）
+
+当前仅支持：
+
+```text
+单层 LEFT JOIN 条件过滤
+```
+
+复杂多层关联暂不支持。
+
+---
+
+## 当前语法
+
+```text
+where.表名#字段名.操作符=值
+```
+
+例如：
+
+```text
+where.user_profile#city.eq=Beijing
+```
+
+后端转换为：
+
+```sql
+user_profile.city = 'Beijing'
+```
+
+---
+
+## SQL 示例
+
+```sql
+LEFT JOIN user_profile
+  ON xxx.field = yyy.field
+
+WHERE user_profile.city = 'Beijing'
+```
+
+---
+
+## 当前限制
+
+### 不支持多层关联
+
+例如：
+
+```text
+where.othertable.friends.status.eq=enabled
+```
+
+当前不支持。
+
+---
+
+### 当前实现限制
+
+目前：
+
+* JOIN 关系需要手工定义
+* 需要显式配置：
+
+```text
+x.field = y.field
+```
+
+关系映射
+
+---
+
+## TODO
+
+当前 `#` 存在 URL 语义冲突问题。
+
+后续考虑：
+
+```text
+user~name
+```
+
+替代：
+
+```text
+user#name
+```
+
+---
+
+# 9. OR 分组查询（规划中）
+
+> 当前版本尚未实现。
+
+未来计划支持：
+
+```sql
+(A OR B) AND C
+```
+
+这种复杂逻辑。
+
+---
+
+## 设计语法
+
+```text
+or[分组号].字段名.操作符=值
+```
+
+---
+
+## 规则
+
+### 同组条件
+
+同一个分组内：
+
+```text
+OR
+```
+
+连接。
+
+---
+
+### 不同组之间
+
+不同组之间：
+
+```text
+AND
+```
+
+连接。
+
+同时：
+
+* `or[...]`
+* `where.*`
+
+之间也使用 `AND`
+
+连接。
+
+---
+
+## 示例
+
+```text
+or[1].status.eq=pending
+&or[1].status.eq=review_needed
+&where.age.gt=60
+```
+
+对应 SQL：
+
+```sql
+WHERE (
+  status = 'pending'
+  OR status = 'review_needed'
+)
+AND age > 60
+```
+
+---
+
+# 10. TypeScript 类型定义
+
+```ts
 export type SearchParams = {
-  page?: number // zero-based 当前页
-  pagesize?: number  // 每页记录数
-  select?: string // 字段列表, 比如 `field1, field2`
-  order?: string // 排序, 比如 `name.desc,age`
+  page?: number
+  pagesize?: number
+
+  // Row Query: 返回字段
+  select?: string
+
+  // 排序
+  order?: string
+
+  // Aggregate Query（见 §12；不支持 select）
+  metrics?: string
+  group_by?: string
 } & Record<string, number | string>
+```
 
-// Record<string, number | string> 对应过滤条件，比如
+其中：
 
-{
+```ts
+Record<string, number | string>
+```
+
+用于承载动态过滤条件。
+
+例如：
+
+```ts
+const params: SearchParams = {
   "where.name.eq": "John",
-  "where.age.gt", "21",
+  "where.age.gt": 21,
 }
 ```
+
+---
+
+# 11. 设计特点总结
+
+该查询协议具备以下特点：
+
+| 特性      | 说明                            |
+| ------- | ----------------------------- |
+| RESTful | 完全基于 URL Query                |
+| 可组合     | where/order/select/page 可自由组合 |
+| 双模式     | Row Query 与 Aggregate Query 独立入口 |
+| 易扩展     | 操作符可持续扩展                      |
+| 前后端统一   | Query → SQL 映射明确              |
+| 安全可控    | 可限制字段、分页、操作符                  |
+| ORM 无关  | 可映射到 SQL、ORM、ES、Graph 查询      |
+| 可渐进增强   | 支持未来扩展 OR / JOIN / having     |
+
+---
+
+# 12. 聚合查询（Aggregation）
+
+Aggregate Query 与 Row Query **完全分离**，使用独立的 Go API：
+
+| Row Query | Aggregate Query |
+| --- | --- |
+| `BindQueryString` | `BindAggregateQueryString` |
+| `BindQueryStringWithOptions` | `BindAggregateQueryStringWithOptions` |
+| `BindQueryStringWithPage` | `BindAggregateQueryStringWithPage` |
+| `BindQueryStringWithTable` | `BindAggregateQueryStringWithTable` |
+| `Options` | `AggregateOptions` |
+
+用于 OLAP 风格查询：`count` / `sum` / `avg` / `min` / `max` + `group_by`。
+
+## 12.1 聚合指标（metrics）
+
+```text
+metrics=函数(字段).别名
+```
+
+多个指标用 `,` 分隔。**metrics 始终出现在 SELECT 输出中。**
+
+示例：
+
+```text
+metrics=count(*).total
+metrics=sum(amount).totalAmount
+metrics=count(*).total,sum(amount).amount
+```
+
+对应 SQL：
+
+```sql
+COUNT(*) AS total
+SUM(amount) AS totalAmount
+```
+
+支持函数：`count(*)`、`count(字段)`、`sum`、`avg`、`min`、`max`。
+
+## 12.2 分组（group_by）
+
+```text
+group_by=字段1,字段2
+```
+
+示例：
+
+```text
+group_by=status,city
+```
+
+## 12.3 输出列规则（方案 1：默认全返）
+
+聚合模式 **不支持 `select`**（与 Row Query 的 select 语义不同）：
+
+| 场景 | SELECT 输出 |
+| --- | --- |
+| 仅有 `metrics` | 仅 metrics 别名 |
+| 有 `group_by` | **全部** group_by 维度列 + metrics 别名 |
+
+不需要维度列时，**不传 `group_by`** 即可（全局聚合一行）。
+
+## 12.4 完整示例
+
+URL Query：
+
+```text
+where.status.eq=active
+&metrics=count(*).total,sum(amount).amount
+&group_by=status
+&order=amount.desc
+```
+
+SQL（示意）：
+
+```sql
+SELECT
+  status,
+  COUNT(*) AS total,
+  SUM(amount) AS amount
+FROM orders
+WHERE status = 'active'
+GROUP BY status
+ORDER BY amount DESC
+```
+
+## 12.5 与 Row Query 的关系
+
+| 能力 | Row Query | Aggregate Query |
+| --- | --- | --- |
+| where | ✓ | ✓ |
+| order | ✓ | ✓（可引用 metric alias 或 group_by 字段） |
+| select | ✓ | ✗（不支持；维度由 group_by 全返） |
+| page/pagesize | ✓ | ✓ |
+| metrics | — | ✓ |
+| group_by | — | ✓ |
+| having | — | 未来扩展 |
+
+## 12.6 AggregateOptions 白名单
+
+```go
+type AggregateOptions struct {
+    TableName        string
+    WhereWhitelist   []string
+    GroupByWhitelist []string
+    MetricsWhitelist []string
+    QWhitelist       []string
+}
+```
+
+- `count(*)` 不校验字段白名单
+- 其他聚合字段走 `MetricsWhitelist`
+- `group_by` 字段走 `GroupByWhitelist`
+- 空 whitelist 表示不限制（与 Row Query 一致）
