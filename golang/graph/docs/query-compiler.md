@@ -367,19 +367,22 @@ FOR each item in returnDef.GroupBy:
 核心问题：当 Traversal 中存在物化的 1:N 路径时，1 端的字段聚合可能因 N 端行展开而重复计算。
 
 ```text
-规则：如果 plan.HasFanOut == true
-  → 校验 metrics 中的 alias 是否在 fan-out 路径的"1 端"
+规则：如果 plan.HasFanOut == true，按聚合函数类型分级校验。
 
 示例：
   rel (1) --for_merch--> m (N:1) --has_order_daily--> od (1:N, materialized)
 
-  此时 od 是 1:N 展开端。
+  此时 od 是 fan-out 展开端。
 
-  SUM(od.amount)  → 安全（对 od 的行聚合）
-  SUM(m.deposit)  → 危险！m 的行因 od 的 1:N 展开而重复
+  GROUP BY rel.agent_no + COUNT(od.id)  → 安全（按父端分组，计数 fan-out 行）
+  SUM(od.amount)                        → 安全（对 fan-out 端行聚合）
+  SUM(m.deposit)                        → 危险！m 的行因 od 的 1:N 展开而重复
 
-V1 策略：当 HasFanOut == true 时，只允许对 fan-out 端（最右物化 alias）的字段做聚合。
-V2 策略：自动注入 DISTINCT 或子查询去重。
+V1 策略（基于函数类型的准入制）：
+  - GROUP BY：允许引用任意物化 alias（含 fan-out 父端）
+  - COUNT / MIN / MAX：允许在 fan-out 端 alias 上执行
+  - SUM / AVG：禁止在 fan-out 父端 alias 上执行（非 fan-out 端 alias + sum/avg → 报错）
+V2 策略：自动注入 DISTINCT 或子查询去重，放宽父端 SUM/AVG 限制。
 ```
 
 V1 校验逻辑：
@@ -388,9 +391,10 @@ V1 校验逻辑：
 IF plan.HasFanOut == true:
     找到最后一个 IsFanOut=true 的 step，记其 ToAlias 为 fanOutAlias
     FOR each metric in metrics:
-        IF metric.Alias != fanOutAlias:
+        IF metric.Alias != fanOutAlias AND metric.Func IN ("sum", "avg"):
             → ErrAggOnFanOutParent
-            （V1 禁止对 fan-out 父端字段做聚合）
+            （V1 禁止对 fan-out 父端字段做 SUM/AVG，因行重复导致数值膨胀）
+        // COUNT/MIN/MAX 在 fan-out 端执行，或 GROUP BY 在父端 + COUNT 在 fan-out 端，均允许
 ```
 
 ---
@@ -406,14 +410,12 @@ SQL Compiler 是纯函数，负责将 TraversalPlan + Projection IR 编译为参
 func CompileQuery(
     plan *TraversalPlan,
     projection *QueryProjection,
-    rootPrimaryKey string,
 ) (string, []any, error)
 
 // CompileAggregate 将 TraversalPlan + MetricProjection 编译为 SQL。
 func CompileAggregate(
     plan *TraversalPlan,
     metric *MetricProjection,
-    rootPrimaryKey string,
 ) (string, []any, error)
 ```
 
@@ -445,7 +447,7 @@ func CompileAggregate(
 | EXISTS / NOT EXISTS | TraversalPlan.ExistentialScopes | 共用 |
 | GROUP BY | MetricProjection.GroupByItems | Aggregate |
 | ORDER BY | QueryProjection.OrderByItems | Query |
-| LIMIT / OFFSET | QueryProjection.Limit / Offset | Query |
+| LIMIT / OFFSET | QueryProjection.Limit / Offset + TraversalPlan.RootPrimaryKey | Query |
 
 ### 6.3 SQL Builder 内部结构
 
@@ -768,7 +770,7 @@ OrderByItems = [
 
 SELECT <select_clause>
 FROM (
-    SELECT {plan.RootAlias}.{root_primary_key}
+    SELECT {plan.RootAlias}.{plan.RootPrimaryKey}
     FROM {plan.RootTable} {plan.RootAlias}
     <non_fanout_joins>
     WHERE <root_and_non_fanout_predicates>
@@ -777,23 +779,22 @@ FROM (
     LIMIT ? OFFSET ?
 ) _roots
 INNER JOIN {plan.RootTable} {plan.RootAlias}
-    ON {plan.RootAlias}.{root_primary_key} = _roots.{root_primary_key}
+    ON {plan.RootAlias}.{plan.RootPrimaryKey} = _roots.{plan.RootPrimaryKey}
 <non_fanout_joins_replay>
 <fanout_joins>
 [ORDER BY <outer_order_by>]
 ```
 
-**root_primary_key 的确定**：
+**RootPrimaryKey 来源**：
 
 ```text
-V1 约定：使用 Relation 中引用根表的第一个 ToField 作为 primary_key 候选。
+RootPrimaryKey 由 Graph Traversal Planner 在 Phase 1 从 TableSchemaRegistry 解析，
+固化在 TraversalPlan IR 中（plan.RootPrimaryKey）。
 
-更可靠的方式：在 RelationSchema 或 TableSchema 中显式声明 PrimaryKey 字段。
+TableSchemaRegistry 在服务启动时通过 engine.DBMetas() 自动提取各表主键信息。
+SQL Compiler 直接读取 plan.RootPrimaryKey，不接受调用方传入或覆盖。
 
-V1 方案：在 RelationRegistry 中增加 RootPrimaryKey 配置项，
-或者约定根表的主键字段名（如 "id"）。
-
-推荐：在 CompileQuery 时由调用方传入 rootPrimaryKey 参数。
+V1 约束：仅支持单列主键。Composite PK 表暂不支持 PaginateRootFirst（见 query-planner.md 4.11）。
 ```
 
 具体编译逻辑：
@@ -801,14 +802,13 @@ V1 方案：在 RelationRegistry 中增加 RootPrimaryKey 配置项，
 ```go
 func (b *sqlBuilder) buildRootPaginationFirst(
     projection *QueryProjection,
-    rootPrimaryKey string,
 ) {
     // 第一层：根行资格过滤 + 分页
     // 包含 non-fan-out JOIN、谓词、existential scope，确保 LIMIT 作用于过滤后的根行
     b.buf.WriteString("SELECT ")
     b.buf.WriteString(b.plan.RootAlias)
     b.buf.WriteString(".")
-    b.buf.WriteString(rootPrimaryKey)
+    b.buf.WriteString(b.plan.RootPrimaryKey)
     b.buf.WriteString(" FROM ")
     b.buf.WriteString(b.plan.RootTable)
     b.buf.WriteString(" ")
@@ -979,7 +979,7 @@ args = []any{1, "2026-05-01", "2026-05-31"}
 
 ```json
 {
-  "match": { "type": "AgentRel", "alias": "rel" },
+  "match": { "type": "agent_rel", "alias": "rel" },
   "traverse": [
     { "from": "rel", "relation": "for_merch", "alias": "m", "require": "always" },
     { "from": "m", "relation": "has_order_daily", "alias": "od", "require": "always" }
@@ -1002,7 +1002,7 @@ HasFanOut = true
 Step 1: IsFanOut = true (has_order_daily is one_to_many, materialized)
 ```
 
-**PaginationStrategy = PaginateRootFirst**，假设 rootPrimaryKey = "id"：
+**PaginationStrategy = PaginateRootFirst**，`plan.RootPrimaryKey = "id"`（来自 TableSchemaRegistry）：
 
 **输出**：
 
@@ -1110,7 +1110,7 @@ args = []any{1, 1000, 200, 0}
 | M2 | metric.func 合法 | ErrInvalidAggFunc |
 | M3 | metric.field 非空 | ErrEmptyAggField |
 | M4 | group_by alias 存在且为 Materialize | ErrGroupByExistential |
-| M5 | HasFanOut 时禁止对 fan-out 父端字段做聚合 | ErrAggOnFanOutParent |
+| M5 | HasFanOut 时禁止对 fan-out 父端 alias 做 SUM/AVG | ErrAggOnFanOutParent |
 
 ### 9.3 错误类型
 
@@ -1124,7 +1124,7 @@ var (
     ErrInvalidAggFunc         = errors.New("metric.func must be one of: sum, count, avg, min, max")
     ErrEmptyAggField          = errors.New("metric.field must not be empty")
     ErrGroupByExistential     = errors.New("cannot GROUP BY existential alias (require: exists/none)")
-    ErrAggOnFanOutParent      = errors.New("V1: cannot aggregate on fan-out parent alias; only fan-out endpoint allowed")
+    ErrAggOnFanOutParent      = errors.New("V1: cannot SUM/AVG on fan-out parent alias; use fan-out endpoint or GROUP BY parent + COUNT on fan-out")
 )
 ```
 
@@ -1141,7 +1141,7 @@ func HandlePlan(c echo.Context) error {
         return c.JSON(400, map[string]any{"error": err.Error()})
     }
 
-    plan, err := CompilePlan(&query, RelationRegistry)
+    plan, err := CompilePlan(&query, RelationRegistry, TableSchemaRegistry)
     if err != nil {
         return c.JSON(400, map[string]any{"error": err.Error()})
     }
@@ -1176,8 +1176,7 @@ func HandleQuery(c echo.Context) error {
         return c.JSON(400, map[string]any{"error": err.Error()})
     }
 
-    rootPK := resolveRootPrimaryKey(plan)
-    sql, args, err := CompileQuery(plan, projection, rootPK)
+    sql, args, err := CompileQuery(plan, projection)
     if err != nil {
         return c.JSON(500, map[string]any{"error": err.Error()})
     }
@@ -1212,8 +1211,7 @@ func HandleAggregate(c echo.Context) error {
         return c.JSON(400, map[string]any{"error": err.Error()})
     }
 
-    rootPK := resolveRootPrimaryKey(plan)
-    sql, args, err := CompileAggregate(plan, metric, rootPK)
+    sql, args, err := CompileAggregate(plan, metric)
     if err != nil {
         return c.JSON(500, map[string]any{"error": err.Error()})
     }
@@ -1285,7 +1283,7 @@ V1 信任 DSL 输入的字段名（不做 Table Schema 校验）。V2 可扩展 
 |------|----|----|
 | `in` / `not_in` 参数展开 | 数组直接展开为 `IN (?, ?, ...)` | 大数组自动分批 (IN + OR) |
 | Root Pagination First | 简单子查询包装 | 优化为 CTE / LATERAL JOIN |
-| 聚合安全校验 | 禁止 fan-out 父端聚合 | 自动 DISTINCT / 子查询去重 |
+| 聚合安全校验 | 禁止 fan-out 父端 SUM/AVG；允许 GROUP BY 父端 + COUNT fan-out 端 | 自动 DISTINCT / 子查询去重 |
 | HAVING 子句 | 不支持 | 支持 |
 | 多表聚合 | 单次查询 | 支持 UNION ALL 多段聚合 |
 | Predicate OR 组合 | 不支持（仅 AND） | 支持 |

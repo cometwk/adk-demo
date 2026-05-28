@@ -135,8 +135,12 @@ type TraversalPlan struct {
     // RootAlias 是 match 定义的根别名。
     RootAlias string `json:"root_alias"`
 
-    // RootTable 是 match 定义的根表名。
+    // RootTable 是 match 定义的根表名（snake_case，与数据库表名一致）。
     RootTable string `json:"root_table"`
+
+    // RootPrimaryKey 是根表主键字段名，由 Planner 从 TableSchemaRegistry 解析并固化。
+    // SQL Compiler 在 PaginateRootFirst 策略中直接使用，调用方不可覆盖。
+    RootPrimaryKey string `json:"root_primary_key"`
 
     // RootPredicates 是 match.where 中的谓词列表。
     RootPredicates []*Predicate `json:"root_predicates"`
@@ -408,6 +412,48 @@ type RelationSchema struct {
 }
 ```
 
+### 4.11 TableSchema
+
+```go
+// TableSchema 记录数据库表的元数据，由服务启动时从 engine.DBMetas() 自动提取。
+type TableSchema struct {
+    // TableName 是物理表名（snake_case）。
+    TableName string `json:"table_name"`
+
+    // PrimaryKey 是主键字段名。V1 仅支持单列主键。
+    PrimaryKey string `json:"primary_key"`
+}
+```
+
+**TableSchemaRegistry 初始化**（服务启动时执行一次）：
+
+```go
+func InitTableSchemaRegistry(engine *xorm.Engine) error {
+    tables, err := engine.DBMetas()
+    if err != nil {
+        return err
+    }
+    for _, table := range tables {
+        pkCols := table.PKColumns()
+        if len(pkCols) == 0 {
+            return fmt.Errorf("table %s has no primary key", table.Name)
+        }
+        if len(pkCols) > 1 {
+            return fmt.Errorf("table %s has composite PK, not supported in V1", table.Name)
+        }
+        TableSchemaRegistry[table.Name] = &TableSchema{
+            TableName:  table.Name,
+            PrimaryKey: pkCols[0].Name,
+        }
+    }
+    return nil
+}
+
+var TableSchemaRegistry = map[string]*TableSchema{}
+```
+
+V1 约束：Composite PK 表暂不支持 Root Pagination First，启动时若检测到则报错或跳过（见残余风险）。
+
 ---
 
 ## 5. Planner 编译流程
@@ -449,14 +495,19 @@ type RelationSchema struct {
 步骤：
 1. 校验 match.Type 非空
 2. 校验 match.Alias 非空
-3. 创建 AliasBinding:
+3. 校验 match.Type 在 TableSchemaRegistry 中存在
+   - 不存在则返回错误：ErrUnknownTable
+   - 表名必须与 Registry 中的 snake_case 表名精确匹配
+4. 从 TableSchemaRegistry 查找 RootPrimaryKey
+   - 写入 plan.RootPrimaryKey = schema.PrimaryKey
+5. 创建 AliasBinding:
    - Alias  = match.Alias
    - Table  = match.Type
    - ParentAlias  = ""
    - RelationName = ""
    - ScopeType    = ScopeMaterialize
-4. 转换 match.Where → RootPredicates（附带 Alias 标注）
-5. 将 AliasBinding 加入 aliasBindings map
+6. 转换 match.Where → RootPredicates（附带 Alias 标注）
+7. 将 AliasBinding 加入 aliasBindings map
 ```
 
 ### 5.2 Phase 2: Traverse Step Processing
@@ -492,7 +543,8 @@ type RelationSchema struct {
 6. V1 约束校验：Existential Leaf
    - 如果 fromAlias 的 ScopeType 不是 ScopeMaterialize
    - 则返回错误：ErrTraverseFromExistential
-   - （V1 禁止从 existential alias 继续遍历）
+   - （V1 禁止从 existential alias 继续遍历，导致全称量 ALL 语义不可直接表达）
+   - 临时绕过：Agent 使用双重否定（NOT EXISTS 反例），见 query-dsl.md 7.5
 
 7. 确定 ScopeType
    - require=always   → ScopeMaterialize
@@ -551,29 +603,44 @@ type RelationSchema struct {
       - step.ScopeIndex = -1（不在任何 existential scope 内）
 ```
 
-#### V2 扩展：嵌套 Existential Scope
+#### V2 扩展：嵌套 Existential Scope（Nested Existential Scope）
 
-V2 允许从 existential alias 继续遍历。例如：
+V2 允许从 existential alias 继续遍历，并支持嵌套全称量语义。例如：
 
 ```text
 rel --always--> m --exists--> od --always--> od_detail
+                              ↑ 在 EXISTS scope 内继续 traverse
 ```
 
-此时 `od` 和 `od_detail` 都在同一个 EXISTS scope 内。
+此时 `od` 和 `od_detail` 都在同一个 EXISTS scope 内，`ExistentialScope.ContainedAliases` 可包含多个 alias。
+
+**V2 IR 扩展点**（V1 不实现，接口预留）：
+
+```go
+type ExistentialScope struct {
+    // ... V1 字段 ...
+    // V2: ParentScopeIndex 支持嵌套 scope（-1 表示顶层）
+    ParentScopeIndex int `json:"parent_scope_index"`
+    // V2: Quantifier 标注量词类型
+    Quantifier string `json:"quantifier"` // "exists" | "not_exists" | "all"
+}
+```
+
+V2 全称量（ALL）编译策略：将 `Quantifier=all` 转换为 `NOT EXISTS` 反例子查询（与 V1 双重否定等价，但由 Planner 自动推导，Agent 无需手动构造）。
 
 扩展算法：
 
 ```
-维护 currentScope *ExistentialScope
+维护 scopeStack []*ExistentialScope  // V2: 支持嵌套
 
 对每个 step：
-  a. 如果 step.FromAlias 在某个 existing scope 内：
+  a. 如果 step.FromAlias 在某个 existing scope 内（V2 允许继续 traverse）：
      - currentScope = 该 scope
      - 将 step.ToAlias 加入 currentScope.ContainedAliases
      - step.ScopeIndex = currentScope 的索引
      - step 的 ScopeType 继承 currentScope.Type
   b. 否则如果 step 自身是 existential：
-     - 创建新 scope（同 V1 逻辑）
+     - 创建新 ExistentialScope，压入 scopeStack
      - currentScope = 新 scope
   c. 否则：
      - step.ScopeIndex = -1
@@ -627,6 +694,7 @@ func generatePlanID(query *GraphTraversalQuery) string {
 |------|------|------|--------|
 | V1 | match.type 非空 | Phase 1 | ErrEmptyMatchType |
 | V2 | match.alias 非空 | Phase 1 | ErrEmptyMatchAlias |
+| V10 | match.type 在 TableSchemaRegistry 中存在 | Phase 1 | ErrUnknownTable |
 | V3 | traverse[].from 引用已定义的 alias | Phase 2 | ErrUndefinedAlias |
 | V4 | traverse[].relation 在 Registry 中存在 | Phase 2 | ErrUnknownRelation |
 | V5 | from alias 的表与 relation.from_table 匹配 | Phase 2 | ErrRelationTableMismatch |
@@ -641,6 +709,7 @@ func generatePlanID(query *GraphTraversalQuery) string {
 var (
     ErrEmptyMatchType         = errors.New("match.type must not be empty")
     ErrEmptyMatchAlias        = errors.New("match.alias must not be empty")
+    ErrUnknownTable           = errors.New("match.type not found in table schema registry")
     ErrUndefinedAlias         = errors.New("traverse.from references undefined alias")
     ErrUnknownRelation        = errors.New("traverse.relation not found in registry")
     ErrRelationTableMismatch  = errors.New("traverse.from alias table does not match relation.from_table")
@@ -683,7 +752,8 @@ func (e *PlanError) Error() string {
 // 这是 Graph Traversal Planner 的唯一入口函数。
 func CompilePlan(
     query *GraphTraversalQuery,
-    registry map[string]*RelationSchema,
+    relationRegistry map[string]*RelationSchema,
+    tableRegistry map[string]*TableSchema,
 ) (*TraversalPlan, error)
 ```
 
@@ -692,7 +762,8 @@ func CompilePlan(
 | 参数 | 说明 |
 |------|------|
 | `query` | DSL 解析后的输入，包含 match 和 traverse |
-| `registry` | 全局 Relation Schema Registry |
+| `relationRegistry` | 全局 Relation Schema Registry |
+| `tableRegistry` | 全局 Table Schema Registry（启动时由 `DBMetas()` 填充） |
 
 返回值：
 
@@ -772,7 +843,7 @@ V2 实现：TraversalPlan 通过 JSON 序列化存入 Redis，设置 TTL。
 ```json
 {
   "match": {
-    "type": "AgentRel",
+    "type": "agent_rel",
     "alias": "rel",
     "where": [
       { "field": "apply", "op": "eq", "value": 1 }
@@ -803,14 +874,15 @@ V2 实现：TraversalPlan 通过 JSON 序列化存入 Redis，设置 TTL。
 
 ```text
 RootAlias     = "rel"
-RootTable     = "AgentRel"
+RootTable     = "agent_rel"
+RootPrimaryKey = "id"   // 来自 TableSchemaRegistry["agent_rel"].PrimaryKey
 RootPredicates = [
     {Alias: "rel", Field: "apply", Op: "eq", Value: 1}
 ]
 
 AliasBindings["rel"] = {
     Alias:       "rel",
-    Table:       "AgentRel",
+    Table:       "agent_rel",
     ParentAlias: "",
     RelationName:"",
     ScopeType:   ScopeMaterialize,
@@ -825,7 +897,7 @@ AliasBindings["rel"] = {
 校验：
   ✓ from "rel" 存在于 aliasBindings
   ✓ relation "for_merch" 存在于 registry
-  ✓ "rel" 的 Table("AgentRel") == Relation.FromTable("agent_rel")  ✓
+  ✓ "rel" 的 Table("agent_rel") == Relation.FromTable("agent_rel")  ✓
   ✓ alias "m" 未被使用
   ✓ require "always" 合法
   ✓ "rel" 的 ScopeType == ScopeMaterialize，允许继续遍历
@@ -929,13 +1001,14 @@ plan.HasFanOut = false
 {
   "id": "a3f7c2...（SHA256 哈希）",
   "root_alias": "rel",
-  "root_table": "AgentRel",
+  "root_table": "agent_rel",
+  "root_primary_key": "id",
   "root_predicates": [
     { "alias": "rel", "field": "apply", "op": "eq", "value": 1 }
   ],
   "alias_bindings": {
     "rel": {
-      "alias": "rel", "table": "AgentRel",
+      "alias": "rel", "table": "agent_rel",
       "parent_alias": "", "relation_name": "", "scope_type": 0
     },
     "m": {
@@ -1056,7 +1129,7 @@ Traversal 部分完全复用，无需重新编译。
 
 ```json
 {
-  "match": { "type": "AgentRel", "alias": "rel" },
+  "match": { "type": "agent_rel", "alias": "rel" },
   "traverse": [
     {
       "from": "rel",
@@ -1118,8 +1191,9 @@ LIMIT 200
 
 | 特性 | V1 | V2 |
 |------|----|----|
-| 从 existential alias 继续遍历 | 禁止 | 允许 |
-| 嵌套 existential scope | 不支持 | 支持 |
+| 从 existential alias 继续遍历 | 禁止（Existential Leaf） | 允许（Nested Existential Scope） |
+| 全称量（ALL）语义 | 不可直接表达；Agent 用双重否定（NOT EXISTS 反例）绕过 | `Quantifier=all`，Planner 自动编译 |
+| 嵌套 existential scope | 不支持 | 支持（`ParentScopeIndex` + `ContainedAliases` 多 alias） |
 | OR 谓词组合 | 不支持（仅 AND） | 支持 |
 | Plan 缓存 | 进程内 sync.Map | Redis + TTL |
 | many_to_many relation | 不支持 | 支持 |

@@ -47,7 +47,7 @@ Semantic Graph Runtime 采用 `MATCH → TRaverse → RETURN` 扁平流水线 DS
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `type` | string | **是** | 目标表名，如 `"AgentRel"`、`"merch"` |
+| `type` | string | **是** | 目标表名（snake_case），如 `"agent_rel"`、`"merch"` |
 | `alias` | string | **是** | 全局唯一别名，后续 traverse / return 通过此别名引用 |
 | `where` | array | 否 | 根节点过滤条件 |
 
@@ -55,7 +55,7 @@ Semantic Graph Runtime 采用 `MATCH → TRaverse → RETURN` 扁平流水线 DS
 
 ```json
 {
-  "type": "AgentRel",
+  "type": "agent_rel",
   "alias": "rel",
   "where": [
     { "field": "apply", "op": "eq", "value": 1 }
@@ -367,6 +367,7 @@ var RelationRegistry = map[string]*RelationSchema{
 
 ### 命名规则
 
+- **表名（`match.type`）**：V1 强制使用 **snake_case**，与数据库物理表名完全一致（如 `"agent_rel"`，而非 `"AgentRel"`）。Planner 通过字符串精确匹配校验，不做大小写转换。若未来需要对齐 Go 结构体名（PascalCase），应在 `RelationRegistry` / `TableSchemaRegistry` 中显式配置映射，而非依赖自动转换规则
 - Relation 名称必须 **全局唯一**
 - 禁止同一关系名表示多种语义（如 `for_user` 同时表示 creator 和 updater）
 - 必须拆分为 `agent_creator`、`agent_updater` 等明确语义的名称
@@ -375,12 +376,12 @@ var RelationRegistry = map[string]*RelationSchema{
 
 ## 6. 完整 DSL 示例
 
-### 示例：查找5月无日交易的商户及其 AgentRel
+### 示例：查找5月无日交易的商户及其 agent_rel
 
 ```json
 {
   "match": {
-    "type": "AgentRel",
+    "type": "agent_rel",
     "alias": "rel",
     "where": [
       { "field": "apply", "op": "eq", "value": 1 }
@@ -442,7 +443,7 @@ LIMIT 200 OFFSET 0
 ```json
 {
   "match": {
-    "type": "AgentRel",
+    "type": "agent_rel",
     "alias": "rel",
     "where": [
       { "field": "apply", "op": "eq", "value": 1 }
@@ -518,8 +519,9 @@ GROUP BY rel.agent_no
 
 ### 7.2 Relation 规则
 
+- `match.type` 必须使用 snake_case，与 `TableSchemaRegistry` 和 `RelationRegistry` 中的表名完全一致
 - `traverse[].relation` 必须在 Relation Schema Registry 中存在
-- `traverse[].from` 对应的 alias 所绑定的表，必须与 Relation 的 `from_table` 匹配
+- `traverse[].from` 对应的 alias 所绑定的表，必须与 Relation 的 `from_table` 精确匹配（大小写敏感）
 
 ### 7.3 Cardinality 规则
 
@@ -530,6 +532,66 @@ GROUP BY rel.agent_no
 
 - `return.select` 和 `return.metrics` 互斥，同一请求只能使用其一
 - `return.metrics[].func` 必须为合法聚合函数
+
+### 7.5 V1 语义限制（语义死角）
+
+V1 采用线性管道 DSL，以下查询模式**无法直接表达**。Agent 在构造查询时应知晓这些限制，并采用文档化的绕过方案。
+
+| 限制 | 说明 | V2 扩展 |
+|------|------|---------|
+| **Existential Leaf** | 禁止从 `require: exists/none` 的 alias 继续 `traverse` | 允许嵌套 Existential Scope 内继续遍历 |
+| **全称量（ALL）** | 无法表达"所有子节点都满足条件 X"（如"所有订单都已支付"） | Nested Existential Scope + 全称量化算子 |
+| **分支遍历** | 无法从同一节点沿两条不同 relation 同时展开 | 多 plan 合并或 V2 分支 traverse |
+| **OR 谓词组合** | 同一 `where` 数组内仅 AND 连接 | 显式 `"logic": "or"` 支持 |
+
+#### 全称量（ALL）语义
+
+**不可直接表达的模式**：
+
+```text
+"找出所有订单都已支付的商户"
+  ≡ ∀ order ∈ orders(m): order.status = 'paid'
+```
+
+V1 的 `require: exists` 仅表达存在性（∃），`require: none` 表达不存在性（¬∃），无法表达"全部满足"。
+
+**V1 临时绕过：双重否定**
+
+将全称量转换为"不存在反例"：
+
+```text
+"所有订单都已支付"
+  ≡ NOT EXISTS (一个未支付的订单)
+  ≡ require: none + where: [{ "field": "status", "op": "neq", "value": "paid" }]
+```
+
+DSL 示例（商户 m，检验 5 月所有日订单均已入账）：
+
+```json
+{
+  "match": { "type": "merch", "alias": "m" },
+  "traverse": [
+    {
+      "from": "m",
+      "relation": "has_order_daily",
+      "alias": "od",
+      "require": "none",
+      "where": [
+        { "field": "report_date", "op": "gte", "value": "2026-05-01" },
+        { "field": "report_date", "op": "lte", "value": "2026-05-31" },
+        { "field": "trans_amt", "op": "eq", "value": 0 }
+      ]
+    }
+  ],
+  "return": {
+    "select": [{ "alias": "m", "fields": ["id", "name"] }]
+  }
+}
+```
+
+语义：返回 5 月内**不存在** `trans_amt = 0` 日订单的商户，等价于"5 月所有日订单 trans_amt ≠ 0"。
+
+> V2 将通过 **Nested Existential Scope** 支持从 existential alias 继续遍历，并引入显式全称量化语义，无需 Agent 手动构造双重否定。详见 `query-planner.md` 第 5.3 节 V2 扩展。
 
 ---
 
