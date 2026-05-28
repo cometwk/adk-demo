@@ -479,6 +479,32 @@ LIMIT 200 OFFSET 0
 
 > 注意：Query 与 Aggregate 共享同一个 `match + traverse`，只是 `return` 部分不同。
 
+生成 SQL：
+
+```sql
+SELECT
+  rel.agent_no,
+  SUM(m.deposit_amt) AS total_deposit
+FROM agent_rel rel
+INNER JOIN merch m
+  ON rel.merch_id = m.id
+WHERE rel.apply = ?
+  AND NOT EXISTS (
+    SELECT 1
+    FROM order_daily od
+    WHERE od.merch_id = m.id
+      AND od.report_date >= ?
+      AND od.report_date <= ?
+  )
+GROUP BY rel.agent_no
+```
+
+**关键点**：
+
+- Traversal Tree 与 Query 模式完全一致（`INNER JOIN merch` + `NOT EXISTS order_daily`），只是 `SELECT` 部分换成了聚合表达式
+- `require: none` 的 `od` alias 不出现在 `SELECT` / `GROUP BY` 中，因为它只做存在性判断
+- `GROUP BY` 只包含 `return.group_by` 中声明的维度字段
+
 ---
 
 ## 7. 校验规则
