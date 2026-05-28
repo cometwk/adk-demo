@@ -1085,13 +1085,15 @@ plan.HasFanOut = true
 
 ### 11.3 对下游的影响
 
-SQL Compiler 必须采用 **Root Pagination First** 策略：
+SQL Compiler 必须采用 **Root Pagination First** 策略。内层子查询包含所有 non-fan-out JOIN、谓词和 existential scope，仅 fan-out JOIN 在外层展开：
 
 ```sql
 SELECT ...
 FROM (
     SELECT rel.id
     FROM agent_rel rel
+    INNER JOIN merch m ON rel.merch_id = m.id
+    -- 根谓词、non-fan-out 谓词、EXISTS/NOT EXISTS 均在此处
     LIMIT 200 OFFSET 0
 ) roots
 INNER JOIN agent_rel rel ON rel.id = roots.id

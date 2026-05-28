@@ -746,7 +746,22 @@ OrderByItems = [
 
 #### 7.9.2 PaginateRootFirst（有 fan-out）
 
-当 `plan.HasFanOut == true` 时，采用子查询先对根表分页，再 JOIN 展开。
+当 `plan.HasFanOut == true` 时，采用子查询先对**过滤后的根行**分页，再在外层展开 fan-out JOIN。
+
+**子查询边界规则**（V1 必须遵守）：
+
+| 子句 | 内层子查询（分页前） | 外层查询（分页后） |
+|------|---------------------|-------------------|
+| FROM | 根表 | 根表（通过 `_roots` 重关联） |
+| JOIN | 所有 `ScopeIndex == -1` 且 `IsFanOut == false` 的物化步骤 | 重放上述 non-fan-out JOIN（用于投影）+ 所有 `IsFanOut == true` 的 fan-out JOIN |
+| WHERE | 根谓词 + non-fan-out 步骤谓词 | 无（已在内层完成） |
+| EXISTS / NOT EXISTS | 全部 `ExistentialScopes` | 无（已在内层完成） |
+| ORDER BY | 若排序字段均可由内层 alias 解析，则在内层排序 | 若排序字段引用 fan-out alias，则仅在外层排序 |
+| LIMIT / OFFSET | 是 | 否 |
+
+**关键约束**：内层子查询必须包含所有会改变根行资格（root eligibility）的约束——non-fan-out JOIN、谓词和 existential scope。仅 fan-out JOIN 本身延迟到外层，因为 1:N 展开会放大行数但不改变根行是否入选。
+
+若将 existential 或 non-fan-out 谓词留在外层，内层 `LIMIT N` 会在过滤前取 N 条根行，外层再消除部分行，导致返回的根行数少于请求量，破坏分页保证。
 
 ```text
 生成方式：将整体 SQL 包装为子查询结构
@@ -755,14 +770,17 @@ SELECT <select_clause>
 FROM (
     SELECT {plan.RootAlias}.{root_primary_key}
     FROM {plan.RootTable} {plan.RootAlias}
-    WHERE <root_where_only>
+    <non_fanout_joins>
+    WHERE <root_and_non_fanout_predicates>
+    <all_existential_clauses>
+    [ORDER BY <inner_order_by>]
     LIMIT ? OFFSET ?
 ) _roots
 INNER JOIN {plan.RootTable} {plan.RootAlias}
     ON {plan.RootAlias}.{root_primary_key} = _roots.{root_primary_key}
-<remaining_joins>
-<remaining_where>
-<remaining_exists>
+<non_fanout_joins_replay>
+<fanout_joins>
+[ORDER BY <outer_order_by>]
 ```
 
 **root_primary_key 的确定**：
@@ -785,8 +803,8 @@ func (b *sqlBuilder) buildRootPaginationFirst(
     projection *QueryProjection,
     rootPrimaryKey string,
 ) {
-    // 第一层：根表子查询（分页）
-    // SELECT rel.id FROM agent_rel rel WHERE ... LIMIT ? OFFSET ?
+    // 第一层：根行资格过滤 + 分页
+    // 包含 non-fan-out JOIN、谓词、existential scope，确保 LIMIT 作用于过滤后的根行
     b.buf.WriteString("SELECT ")
     b.buf.WriteString(b.plan.RootAlias)
     b.buf.WriteString(".")
@@ -796,20 +814,29 @@ func (b *sqlBuilder) buildRootPaginationFirst(
     b.buf.WriteString(" ")
     b.buf.WriteString(b.plan.RootAlias)
 
-    // 根谓词
-    if len(b.plan.RootPredicates) > 0 {
-        b.buildRootPredicatesOnly()
+    // non-fan-out JOINs: ScopeIndex == -1 && IsFanOut == false
+    b.buildJoinClausesNonFanOut()
+
+    // 根谓词 + non-fan-out 步骤谓词
+    b.buildWhereClauseNonFanOut()
+
+    // 全部 existential scope（必须在 LIMIT 之前）
+    b.buildExistentialClauses()
+
+    // 若 ORDER BY 字段均来自内层 alias，在此处排序
+    if b.orderByResolvableInInner(projection) {
+        b.buildOrderByClause(projection)
     }
 
     b.buf.WriteString(" LIMIT ? OFFSET ?")
     b.args = append(b.args, projection.Limit, projection.Offset)
 
-    // 第二层：外层查询
+    // 第二层：重关联根表 + 重放 non-fan-out JOIN + 展开 fan-out JOIN
     // SELECT <projection> FROM (...) _roots
     //   JOIN root_table ON root.id = _roots.id
-    //   JOIN ... (remaining joins)
-    //   WHERE ... (remaining predicates)
-    //   AND [NOT] EXISTS (...) (remaining existentials)
+    //   JOIN ... (non-fan-out joins replay)
+    //   JOIN ... (fan-out joins only)
+    //   [ORDER BY ...] (若排序字段引用 fan-out alias)
 }
 ```
 
@@ -984,6 +1011,7 @@ SELECT rel.agent_no, od.trans_amt, od.report_date
 FROM (
     SELECT rel.id
     FROM agent_rel rel
+    INNER JOIN merch m ON rel.merch_id = m.id
     LIMIT ? OFFSET ?
 ) _roots
 INNER JOIN agent_rel rel ON rel.id = _roots.id
@@ -995,8 +1023,70 @@ INNER JOIN order_daily od ON od.merch_id = m.id
 args = []any{200, 0}
 ```
 
-> 注意：子查询中只包含根谓词（此例无），外层不再重复 LIMIT/OFFSET。
-> V1 简化策略：外层查询不追加 LIMIT，因为根表行数已由子查询控制。
+> 注意：内层子查询包含 non-fan-out JOIN（`rel → m`），仅 fan-out JOIN（`m → od`）在外层展开。外层不再重复 LIMIT/OFFSET，根行数已由子查询控制。
+
+### 8.4 Query 模式（HasFanOut + 过滤约束）
+
+在 8.3 基础上增加根谓词和 non-fan-out 步骤谓词，验证这些约束必须在内层子查询中执行。
+
+**DSL**：
+
+```json
+{
+  "match": {
+    "type": "agent_rel",
+    "alias": "rel",
+    "where": [{ "field": "apply", "op": "eq", "value": 1 }]
+  },
+  "traverse": [
+    { "from": "rel", "relation": "for_merch", "alias": "m", "require": "always",
+      "where": [{ "field": "deposit_amt", "op": "gt", "value": 1000 }] },
+    { "from": "m", "relation": "has_order_daily", "alias": "od", "require": "always" }
+  ],
+  "return": {
+    "select": [
+      { "alias": "rel", "fields": ["agent_no"] },
+      { "alias": "od",  "fields": ["trans_amt"] }
+    ],
+    "limit": 200,
+    "offset": 0
+  }
+}
+```
+
+**TraversalPlan 关键信息**：
+
+```text
+HasFanOut = true
+Step 0: for_merch, IsFanOut=false → 内层子查询（含 m.deposit_amt > ? 谓词）
+Step 1: has_order_daily, IsFanOut=true → 外层 fan-out JOIN
+RootPredicates: rel.apply = ?
+```
+
+**输出**：
+
+```sql
+SELECT rel.agent_no, od.trans_amt
+FROM (
+    SELECT rel.id
+    FROM agent_rel rel
+    INNER JOIN merch m ON rel.merch_id = m.id
+    WHERE rel.apply = ?
+      AND m.deposit_amt > ?
+    LIMIT ? OFFSET ?
+) _roots
+INNER JOIN agent_rel rel ON rel.id = _roots.id
+INNER JOIN merch m ON rel.merch_id = m.id
+INNER JOIN order_daily od ON od.merch_id = m.id
+```
+
+```go
+args = []any{1, 1000, 200, 0}
+```
+
+> 若将 `m.deposit_amt > ?` 留在外层，内层会先取 200 条根行，外层再消除不满足条件的商户，返回的根行数将少于 200。
+>
+> 当 TraversalPlan 同时包含 `ExistentialScopes` 时（如 8.1 的 NOT EXISTS），同样必须在内层子查询的 WHERE 中生成，不可延迟到外层。
 
 ---
 

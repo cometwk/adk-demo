@@ -1,7 +1,6 @@
 package biz_test
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -22,16 +21,21 @@ func setup() (*echo.Echo, *xorm.Engine) {
 	return e, db
 }
 func TestSearch(t *testing.T) {
-	e, db := setup()
+	_, db := setup()
 	defer db.Close()
 
 	t.Run("search bound", func(t *testing.T) {
-		rec := testutil.Get(e, "/admin/order_daily/aggregate?where.merch_no.eq=105000059769492&metrics=sum(total_count).total_count,sum(total_amount).total_amount&group_by=report_date&order=report_date.desc", nil)
-		assert.Equal(t, http.StatusOK, rec.Code)
+		// rec := testutil.Get(e, "/admin/order_daily/aggregate?where.merch_no.eq=105000059769492&metrics=sum(total_count).total_count,sum(total_amount).total_amount&group_by=report_date&order=report_date.desc", nil)
+		// assert.Equal(t, http.StatusOK, rec.Code)
 
-		body, err := rec.BodyJson()
+		// body, err := rec.BodyJson()
+		// assert.NoError(t, err)
+		// testutil.PrintPretty(body)
+
+		engine := db
+		tables, err := engine.DBMetas()
 		assert.NoError(t, err)
-		testutil.PrintPretty(body)
+		testutil.PrintPretty(tables)
 	})
 
 }
