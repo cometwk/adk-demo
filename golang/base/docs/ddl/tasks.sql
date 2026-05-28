@@ -1,0 +1,15 @@
+-- DROP TABLE IF EXISTS `tasks`
+CREATE TABLE IF NOT EXISTS `tasks` (
+  `uuid`        VARCHAR(36) PRIMARY KEY NOT NULL COMMENT '主键',
+  `create_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+  `name`        VARCHAR(64) NOT NULL COMMENT '名称',
+  `summary`     VARCHAR(256) NOT NULL COMMENT '摘要',
+  `cron`        VARCHAR(64) NOT NULL COMMENT 'Cron表达式',
+  `type`        SMALLINT NOT NULL COMMENT '类型',
+  `path`        VARCHAR(256) NOT NULL COMMENT '路径',
+  `last_fire`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后执行时间',
+  `nfire`       INT NOT NULL DEFAULT 0 COMMENT '执行次数',
+  `disabled`    BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否禁用',
+  `note`        TEXT COMMENT '备注'
+) COMMENT='任务表';

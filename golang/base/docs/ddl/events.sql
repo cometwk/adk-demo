@@ -1,0 +1,9 @@
+-- DROP TABLE IF EXISTS `events`
+CREATE TABLE IF NOT EXISTS `events` (
+  `uuid`        VARCHAR(36) PRIMARY KEY NOT NULL COMMENT '主键',
+  `create_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `level`       INT NOT NULL COMMENT '级别',
+  `title`       VARCHAR(256) NOT NULL COMMENT '标题',
+  `message`     TEXT NOT NULL COMMENT '消息',
+  `fresh`       BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否新鲜'
+) COMMENT='事件表';

@@ -1,0 +1,14 @@
+# @host = http://api.ymfpay.com
+# @host = http://localhost:5099
+# @host = https://demo.reactgo.cn
+
+
+### @name x1
+GET http://localhost:5099/admin/author/search?pagesize=2&page=1
+
+### @name x2
+GET http://localhost:5099/admin/agent_closure/aggregate?metrics=count(*).total&where.id.eq=2028360156416315392
+# GET http://localhost:5099/admin/agent_closure/aggregate?metrics=count(*).total&where.id.eq=2028360156416315392_2030922944565219328
+
+### @name x3
+GET http://localhost:5099/admin/agent_closure/search
