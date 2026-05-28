@@ -406,12 +406,14 @@ SQL Compiler 是纯函数，负责将 TraversalPlan + Projection IR 编译为参
 func CompileQuery(
     plan *TraversalPlan,
     projection *QueryProjection,
+    rootPrimaryKey string,
 ) (string, []any, error)
 
 // CompileAggregate 将 TraversalPlan + MetricProjection 编译为 SQL。
 func CompileAggregate(
     plan *TraversalPlan,
     metric *MetricProjection,
+    rootPrimaryKey string,
 ) (string, []any, error)
 ```
 
@@ -612,12 +614,31 @@ FOR each step WHERE step.ScopeIndex == -1:
 
 ```go
 func (b *sqlBuilder) expandInOp(field string, values []any) {
+    if len(values) == 0 {
+        // 空 IN 集合：field IN () 是非法 SQL，使用恒假条件替代
+        b.buf.WriteString("1 = 0")
+        return
+    }
     placeholders := make([]string, len(values))
     for i, v := range values {
         placeholders[i] = "?"
         b.args = append(b.args, v)
     }
     b.buf.WriteString(fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ", ")))
+}
+
+func (b *sqlBuilder) expandNotInOp(field string, values []any) {
+    if len(values) == 0 {
+        // 空 NOT IN 集合：field NOT IN () 语义为"不在空集中"，恒为真
+        b.buf.WriteString("1 = 1")
+        return
+    }
+    placeholders := make([]string, len(values))
+    for i, v := range values {
+        placeholders[i] = "?"
+        b.args = append(b.args, v)
+    }
+    b.buf.WriteString(fmt.Sprintf("%s NOT IN (%s)", field, strings.Join(placeholders, ", ")))
 }
 ```
 
@@ -968,7 +989,6 @@ FROM (
 INNER JOIN agent_rel rel ON rel.id = _roots.id
 INNER JOIN merch m ON rel.merch_id = m.id
 INNER JOIN order_daily od ON od.merch_id = m.id
-LIMIT ? OFFSET ?
 ```
 
 ```go
@@ -1025,22 +1045,20 @@ var (
 ### 10.1 POST /graph/plan
 
 ```go
-func HandlePlan(c *gin.Context) {
+func HandlePlan(c echo.Context) error {
     var query GraphTraversalQuery
-    if err := c.BindJSON(&query); err != nil {
-        c.JSON(400, gin.H{"error": err.Error()})
-        return
+    if err := c.Bind(&query); err != nil {
+        return c.JSON(400, map[string]any{"error": err.Error()})
     }
 
     plan, err := CompilePlan(&query, RelationRegistry)
     if err != nil {
-        c.JSON(400, gin.H{"error": err.Error()})
-        return
+        return c.JSON(400, map[string]any{"error": err.Error()})
     }
 
     planCache.Put(plan)
 
-    c.JSON(200, gin.H{
+    return c.JSON(200, map[string]any{
         "plan_token": plan.ID,
         "plan":       plan,
     })
@@ -1050,80 +1068,72 @@ func HandlePlan(c *gin.Context) {
 ### 10.2 POST /graph/query
 
 ```go
-func HandleQuery(c *gin.Context) {
-    planToken := c.Query("plan_token")
+func HandleQuery(c echo.Context) error {
+    planToken := c.QueryParam("plan_token")
 
     plan, ok := planCache.Get(planToken)
     if !ok {
-        c.JSON(404, gin.H{"error": "plan not found or expired"})
-        return
+        return c.JSON(404, map[string]any{"error": "plan not found or expired"})
     }
 
     var returnDef QueryReturnDef
-    if err := c.BindJSON(&returnDef); err != nil {
-        c.JSON(400, gin.H{"error": err.Error()})
-        return
+    if err := c.Bind(&returnDef); err != nil {
+        return c.JSON(400, map[string]any{"error": err.Error()})
     }
 
     projection, err := PlanQuery(plan, &returnDef)
     if err != nil {
-        c.JSON(400, gin.H{"error": err.Error()})
-        return
+        return c.JSON(400, map[string]any{"error": err.Error()})
     }
 
-    sql, args, err := CompileQuery(plan, projection)
+    rootPK := resolveRootPrimaryKey(plan)
+    sql, args, err := CompileQuery(plan, projection, rootPK)
     if err != nil {
-        c.JSON(500, gin.H{"error": err.Error()})
-        return
+        return c.JSON(500, map[string]any{"error": err.Error()})
     }
 
-    var rows []map[string]any
-    if err := engine.SQL(sql, args...).Find(&rows); err != nil {
-        c.JSON(500, gin.H{"error": err.Error()})
-        return
+    rows, err := engine.SQL(sql, args...).QueryInterface()
+    if err != nil {
+        return c.JSON(500, map[string]any{"error": err.Error()})
     }
 
-    c.JSON(200, gin.H{"data": rows})
+    return c.JSON(200, map[string]any{"data": rows})
 }
 ```
 
 ### 10.3 POST /graph/aggregate
 
 ```go
-func HandleAggregate(c *gin.Context) {
-    planToken := c.Query("plan_token")
+func HandleAggregate(c echo.Context) error {
+    planToken := c.QueryParam("plan_token")
 
     plan, ok := planCache.Get(planToken)
     if !ok {
-        c.JSON(404, gin.H{"error": "plan not found or expired"})
-        return
+        return c.JSON(404, map[string]any{"error": "plan not found or expired"})
     }
 
     var returnDef AggregateReturnDef
-    if err := c.BindJSON(&returnDef); err != nil {
-        c.JSON(400, gin.H{"error": err.Error()})
-        return
+    if err := c.Bind(&returnDef); err != nil {
+        return c.JSON(400, map[string]any{"error": err.Error()})
     }
 
     metric, err := PlanAggregate(plan, &returnDef)
     if err != nil {
-        c.JSON(400, gin.H{"error": err.Error()})
-        return
+        return c.JSON(400, map[string]any{"error": err.Error()})
     }
 
-    sql, args, err := CompileAggregate(plan, metric)
+    rootPK := resolveRootPrimaryKey(plan)
+    sql, args, err := CompileAggregate(plan, metric, rootPK)
     if err != nil {
-        c.JSON(500, gin.H{"error": err.Error()})
-        return
+        return c.JSON(500, map[string]any{"error": err.Error()})
     }
 
-    var rows []map[string]any
-    if err := engine.SQL(sql, args...).Find(&rows); err != nil {
-        c.JSON(500, gin.H{"error": err.Error()})
-        return
+    rows, err := engine.SQL(sql, args...).QueryInterface()
+    if err != nil {
+        return c.JSON(500, map[string]any{"error": err.Error()})
     }
 
-    c.JSON(200, gin.H{"data": rows})
+    return c.JSON(200, map[string]any{"data": rows})
 }
 ```
 
@@ -1136,15 +1146,13 @@ func HandleAggregate(c *gin.Context) {
 SQL Compiler 输出原始 SQL + 参数列表，Xorm 只负责执行：
 
 ```go
-sql, args, err := compiler.CompileQuery(plan, projection)
-var rows []map[string]any
-err = engine.SQL(sql, args...).Find(&rows)
+sql, args, err := compiler.CompileQuery(plan, projection, rootPK)
+rows, err := engine.SQL(sql, args...).QueryInterface()
 ```
 
 ```go
-sql, args, err := compiler.CompileAggregate(plan, metric)
-var rows []map[string]any
-err = engine.SQL(sql, args...).Find(&rows)
+sql, args, err := compiler.CompileAggregate(plan, metric, rootPK)
+rows, err := engine.SQL(sql, args...).QueryInterface()
 ```
 
 ### 11.2 为什么不使用 Xorm Builder
@@ -1165,8 +1173,11 @@ err = engine.SQL(sql, args...).Find(&rows)
 ### 12.1 SQL 注入防护
 
 - 所有用户值通过 `?` 占位符传入 args，由数据库驱动参数化绑定
-- 表名、字段名、alias 名来自 TraversalPlan IR（已在 Planner 阶段校验），非用户直接输入
+- 表名来自 DSL `match.type`，经过 Traversal Planner 校验（必须在 RelationRegistry 的 FromTable/ToTable 中存在）；字段名来自 DSL `select.fields` / `where.field` 等，V1 不做字段级校验
 - Relation 名来自 Registry（服务端配置），非用户输入
+- Alias 名在 Planner 阶段校验（全局唯一、已定义），SQL Compiler 直接使用 IR 中的 alias
+
+**V1 安全边界**：V1 假设 DSL API 仅对受信任的内部调用方开放。字段名和表名虽然在 IR 中流转，但本质上来自用户 DSL 输入。V1 不做 Table Schema 校验，因此安全性依赖于 API 访问控制。V2 将引入 Table Schema Registry，在 Planner 阶段对字段名做白名单校验。
 
 ### 12.2 Alias 注入防护
 

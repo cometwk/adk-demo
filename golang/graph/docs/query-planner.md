@@ -633,6 +633,7 @@ func generatePlanID(query *GraphTraversalQuery) string {
 | V6 | traverse[].alias 全局唯一 | Phase 2 | ErrDuplicateAlias |
 | V7 | require 值合法 | Phase 2 | ErrInvalidRequire |
 | V8 | V1：不可从 existential alias 继续遍历 | Phase 2 | ErrTraverseFromExistential |
+| V9 | where 谓词 in/not_in 的 value 必须为非空数组 | Phase 1/2 | ErrEmptyInValues |
 
 ### 6.2 错误类型
 
@@ -646,6 +647,7 @@ var (
     ErrDuplicateAlias         = errors.New("traverse.alias is already defined")
     ErrInvalidRequire         = errors.New("traverse.require must be one of: always, optional, exists, none")
     ErrTraverseFromExistential = errors.New("V1: cannot traverse from an existential alias (exists/none)")
+    ErrEmptyInValues          = errors.New("where predicate 'in'/'not_in' requires a non-empty array")
 )
 ```
 
