@@ -3,6 +3,5 @@ go 1.24.2
 use (
 	lib
 	base
-	// serve
-	demo
+	graph
 )
