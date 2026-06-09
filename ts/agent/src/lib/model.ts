@@ -14,7 +14,7 @@ function createProvider() {
   const X = createOpenAICompatible
 
   const client = X({
-    name: 'mymodel',
+    name: 'normal',
     baseURL: process.env.OPENAI_API_BASE,
     apiKey: process.env.OPENAI_API_KEY,
     // ⭐ 在这里拦截并全局注入自定义 Body 参数
@@ -48,3 +48,9 @@ function createModel() {
 }
 
 export const model = createModel()
+export const tinyModel = createOpenAICompatible({
+  name: 'tiny',
+  baseURL: process.env.OPENAI_API_BASE!,
+  apiKey: process.env.OPENAI_API_KEY!,
+})(process.env.OPENAI_MODEL!)
+

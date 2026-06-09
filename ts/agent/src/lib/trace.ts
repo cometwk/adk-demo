@@ -5,9 +5,9 @@ type LogLevel = 'system' | 'user' | 'assistant' | 'reasoning' | 'tool-call' | 't
 
 const styles: Record<LogLevel, (x: string) => string> = {
   system: chalk.bold.red,
-  user: chalk.bold.gray,
+  user: chalk.bold.green,
   assistant: chalk.bold.white,
-  reasoning: chalk.bold.green,
+  reasoning: chalk.bold.gray,
   content: chalk.white,
   'tool-call': chalk.bold.yellow,
   'tool-result': chalk.bold.blue,

@@ -1,9 +1,8 @@
 // https://github.com/mob999/cube_mcp/blob/main/src/query.ts
 import { Query } from '@cubejs-client/core'
-import { ExecuteQueryInput, OrderDirection } from './types'
 
 export type SortDirection = 'asc' | 'desc' | 'none'
-// export type ResponseFormat = "compact" | "default";
+export type ResponseFormat = 'compact' | 'default'
 export type DateRangeValue = string | [string, string]
 
 export type ExecuteQueryFilter = {
@@ -24,25 +23,23 @@ export type ExecuteQueryTimeDimension = {
   compareDateRange?: DateRangeValue[]
 }
 
-// export type ExecuteQueryArgs = {
-//     entity_name: string;
-//     measures?: string[];
-//     dimensions?: string[];
-//     filters?: ExecuteQueryFilter[];
-//     timeDimensions?: ExecuteQueryTimeDimension[];
-//     segments?: string[];
-//     limit?: number;
-//     rowLimit?: number;
-//     offset?: number;
-//     order?: ExecuteQueryOrder[];
-//     timezone?: string;
-//     renewQuery?: boolean;
-//     ungrouped?: boolean;
-//     // responseFormat?: ResponseFormat;
-//     total?: boolean;
-// };
-
-type ExecuteQueryArgs = ExecuteQueryInput
+export type ExecuteQueryArgs = {
+  entity_name: string
+  measures?: string[]
+  dimensions?: string[]
+  filters?: ExecuteQueryFilter[]
+  timeDimensions?: ExecuteQueryTimeDimension[]
+  segments?: string[]
+  limit?: number
+  rowLimit?: number
+  offset?: number
+  order?: ExecuteQueryOrder[]
+  timezone?: string
+  renewQuery?: boolean
+  ungrouped?: boolean
+  // responseFormat?: ResponseFormat;
+  total?: boolean
+}
 
 // 执行一些细微的转换
 export function buildCubeQuery(args: ExecuteQueryArgs) {
@@ -127,7 +124,7 @@ export function buildCubeQuery(args: ExecuteQueryArgs) {
   if (order.length > 0) {
     // Alternative order format
     const orderRules = order.map(({ member, direction }) => {
-      const normalizedDirection = String(direction).toLowerCase() as OrderDirection
+      const normalizedDirection = String(direction).toLowerCase() as SortDirection
 
       if (!['asc', 'desc', 'none'].includes(normalizedDirection)) {
         throw new Error(`Invalid sort direction: ${direction}`)
