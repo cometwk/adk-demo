@@ -14,9 +14,27 @@ function createProvider() {
   const X = createOpenAICompatible
 
   const client = X({
-    name: 'qwen',
+    name: 'mymodel',
     baseURL: process.env.OPENAI_API_BASE,
     apiKey: process.env.OPENAI_API_KEY,
+    // ⭐ 在这里拦截并全局注入自定义 Body 参数
+    fetch: async (url, options) => {
+      if (options?.body && typeof options.body === 'string') {
+        try {
+          const bodyObj = JSON.parse(options.body)
+
+          // 全局自动注入思考参数
+          bodyObj.enable_thinking = true
+
+          // 重新序列化放回 options
+          options.body = JSON.stringify(bodyObj)
+        } catch (e) {
+          console.error('解析请求体失败:', e)
+        }
+      }
+      // 调用原生 fetch 发送请求
+      return fetch(url, options)
+    },
   })
 
   return client
@@ -24,14 +42,7 @@ function createProvider() {
 export const provider = createProvider()
 
 function createModel() {
-  const MODEL =
-    process.env.OPENAI_MODEL || //
-    'qwen-plus-2025-09-11' ||
-    'qwen3-max-preview' ||
-    'qwen-flash' ||
-    'qwen-plus' ||
-    'gpt-4o-mini'
-
+  const MODEL = process.env.OPENAI_MODEL!
   const model = provider(MODEL)
   return model
 }

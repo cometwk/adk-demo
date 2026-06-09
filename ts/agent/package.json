@@ -10,7 +10,8 @@
     "./runtime/*": "./src/v6/runtime/*.ts"
   },
   "scripts": {
-    "dev": "tsx --env-file=.env ./src/v8/demo/t1.ts",
+    "dev": "tsx --env-file=.env ./src/bi/agent.ts",
+    "1-dev": "tsx --env-file=.env ./src/v8/demo/t1.ts",
     "thinking": "tsx src/lib/check_thinking.ts",
     "hello": "tsx src/lib/hello.ts",
     "rest": "tsx --env-file=.env src/v8/demo/case/rest/demo.ts",
@@ -36,6 +37,7 @@
     "@ai-sdk/openai-compatible": "^2.0.41",
     "@ai-sdk/provider-utils": "^4.0.23",
     "@anthropic-ai/claude-agent-sdk": "^0.3.168",
+    "@cubejs-client/core": "^1.6.56",
     "@voltagent/cli": "^0.1.10",
     "@voltagent/core": "^2.0.9",
     "@voltagent/libsql": "^2.0.2",

@@ -1,53 +1,97 @@
-import '../lib/env'
-import { tool, createSdkMcpServer , query} from "@anthropic-ai/claude-agent-sdk";
-import { z } from "zod";
+import { tool } from 'ai'
+import { z } from 'zod'
+import { cubeApi } from './client'
+import { buildCubeQuery } from './query'
+import { ExecuteQueryInputSchema } from './types'
+import path from 'path'
+import fs from 'fs'
 
-// Define a tool: name, description, input schema, handler
-const getTemperature = tool(
-  "get_temperature",
-  "Get the current temperature at a location",
-  {
-    latitude: z.number().describe("Latitude coordinate"), // .describe() adds a field description Claude sees
-    longitude: z.number().describe("Longitude coordinate")
-  },
-  async (args) => {
-    // args is typed from the schema: { latitude: number; longitude: number }
-    const response = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${args.latitude}&longitude=${args.longitude}&current=temperature_2m&temperature_unit=fahrenheit`
-    );
-    const data: any = await response.json();
+export const execute_query = tool({
+  name: 'execute_query',
+  description: "Execute an Analytical Query. Perform multi-dimensional analysis on one of the entities discovered via 'mcp__bi__discover_entities'.",
+  inputSchema: ExecuteQueryInputSchema,
+  // execute: async (args) => {
+  //   const executeQueryArgs = args
+  //   const { entity_name } = executeQueryArgs
+  //   const query = buildCubeQuery(executeQueryArgs)
+  // }
+  // "Execute an Analytical Query. Perform multi-dimensional analysis on one of the entities discovered via 'mcp__bi__discover_entities'.",
+  // ExecuteQueryInputSchema.shape,
+  execute: async (args) => {
+    const executeQueryArgs = args
+    const { entity_name } = executeQueryArgs
+    const query = buildCubeQuery(executeQueryArgs)
 
-    // Return a content array - Claude sees this as the tool result
+    const resultSet = await cubeApi.load(query)
+    const data = resultSet.rawData() || []
+
+    const is_truncated = data.length > 50
+    const preview_limit = 50
+    const columns = resultSet.tableColumns().map((c: any) => c.key)
+
+    // Save full context to tmp space
+    const timestamp = Date.now()
+    const tmpFilepath = path.join('/tmp', `cube_query_result_${timestamp}.json`)
+    fs.writeFileSync(tmpFilepath, JSON.stringify(data, null, 2), 'utf-8')
+
+    const resultPayload = {
+      entity: entity_name,
+      num_rows: data.length,
+      columns: columns,
+      preview: data.slice(0, preview_limit),
+      is_truncated,
+      result_filepath: tmpFilepath,
+      message: `Successfully executed query. Received ${data.length} rows. Full context saved at: ${tmpFilepath}`,
+    }
+
     return {
-      content: [{ type: "text", text: `Temperature: ${data.current.temperature_2m}°F` }]
-    };
+      content: [{ type: 'text', text: JSON.stringify(resultPayload, null, 2) }],
+    }
   }
-);
+)
 
-// Wrap the tool in an in-process MCP server
-const weatherServer = createSdkMcpServer({
-  name: "weather",
-  version: "1.0.0",
-  tools: [getTemperature]
-});
+// export const discover_entities = tool(
+//   'discover_entities',
+//   'Discover available Data Assets (Entities). ' +
+//     'Use this tool FIRST to understand the schema (Dimensions and Measures) available for querying. ' +
+//     'Returns a catalog of Semantic Entities with descriptions of their fields.',
+//   {},
+//   async (args) => {
+//     const meta = await cubeApi.meta()
+//     const cubes = meta.cubes || []
+//     const entities: Record<string, any> = {}
 
+//     for (const cube of cubes) {
+//       const entityName = cube.name
 
-for await (const message of query({
-  prompt: "What's the temperature in San Francisco?",
-  options: {
-    systemPrompt: "你是天气助手，可以回答关于天气的问题。",
-    mcpServers: { weather: weatherServer },
-    allowedTools: ["mcp__weather__get_temperature"],
+//       const dimensions: Record<string, any> = {}
+//       for (const dim of cube.dimensions || []) {
+//         dimensions[dim.name] = {
+//           type: dim.type,
+//           description: dim.description || '',
+//           title: dim.title || '',
+//         }
+//       }
 
-    strictMcpConfig: true,        // 忽略 .mcp.json / 插件 MCP，只用你传的
-    tools: [],                    // 关掉所有内置工具
-    skills: [],                   // 关掉 skills
-    settingSources: [],           // 不加载 CLAUDE.md 等项目配置
+//       const measures: Record<string, any> = {}
+//       for (const meas of cube.measures || []) {
+//         measures[meas.name] = {
+//           type: meas.type,
+//           description: meas.description || '',
+//           title: meas.title || '',
+//         }
+//       }
 
-  }
-})) {
-  // "result" is the final message after all tool calls complete
-  if (message.type === "result" && message.subtype === "success") {
-    console.log(message.result);
-  }
-}
+//       entities[entityName] = {
+//         title: cube.title || entityName,
+//         description: cube.description || '',
+//         dimensions,
+//         measures,
+//       }
+//     }
+
+//     return {
+//       content: [{ type: 'text', text: JSON.stringify({ entities }, null, 2) }],
+//     }
+//   }
+// )
