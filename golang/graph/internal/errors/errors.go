@@ -60,6 +60,8 @@ var (
 	ErrDuplicateAlias          = errors.New("traverse.alias is already defined")
 	ErrInvalidRequire          = errors.New("traverse.require must be one of: always, optional, exists, none")
 	ErrTraverseFromExistential = errors.New("V1: cannot traverse from an existential alias (exists/none)")
+	ErrCyclicTraversal         = errors.New("cyclic traversal detected: table appears twice in the same path")
+	ErrExistentialInnerNotAlways = errors.New("inner step of existential scope must use require: always")
 	ErrEmptyInValues           = errors.New("where predicate 'in'/'not_in' requires a non-empty array")
 	ErrTraverseStepLimit       = errors.New("traverse step count exceeds limit")
 )

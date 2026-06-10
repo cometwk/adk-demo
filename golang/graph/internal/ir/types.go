@@ -49,6 +49,7 @@ type ExistentialScope struct {
 	Type             ScopeType       `json:"type"`
 	BoundaryAlias    string          `json:"boundary_alias"`
 	ContainedAliases []string        `json:"contained_aliases"`
+	InnerSteps       []*TraversalStep `json:"inner_steps,omitempty"`
 	Correlation      *CorrelationRef `json:"correlation"`
 }
 
