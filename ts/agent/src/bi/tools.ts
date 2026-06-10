@@ -4,6 +4,7 @@ import { cubeApi } from './client'
 import { buildCubeQuery, ExecuteQueryArgs } from './query'
 import path from 'path'
 import fs from 'fs'
+import { trace } from '../lib/trace'
 
 // Tool Definitions
 export const DISCOVER_ENTITIES_TOOL = {
@@ -174,6 +175,10 @@ export const execute_query = tool({
 
     const resultSet = await cubeApi.load(query)
     const data = resultSet.rawData() || []
+
+    const sql = await cubeApi.sql(query)
+    const sqlText = sql.sql()
+    trace.system('\n    ' + sqlText)
 
     const is_truncated = data.length > 50
     const preview_limit = 50

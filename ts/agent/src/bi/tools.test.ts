@@ -10,7 +10,8 @@ describe('just test', () => {
 
   it('meta', async () => {
     const r = await discover_entities.execute!({}, toolOptions)
-    console.log(r)
+    // console.log(r)
+    console.log(r.entities.order_daily)
   })
 
 
