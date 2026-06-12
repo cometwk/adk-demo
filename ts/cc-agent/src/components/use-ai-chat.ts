@@ -11,7 +11,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import type { UIMessage } from "ai";
+import type { UIMessage , SystemModelMessage} from "ai";
 import { isCommand, executeCommand } from "@/lib/engine/commands";
 
 export type PermissionMode = "auto" | "plan" | "default";
@@ -32,10 +32,13 @@ export interface AgentStatus {
 
 export function useAgentChat(options: UseAgentChatOptions = {}) {
   const [input, setInput] = useState("");
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>(options.permissionMode ?? "auto");
-  const [selectedModel, setSelectedModel] = useState("anthropic/claude-sonnet-4-6");
+  const [permissionMode, setPermissionMode] = useState<PermissionMode>(
+    options.permissionMode ?? "auto"
+  );
+  const [selectedModel, setSelectedModel] = useState("deepseek-v4-flash");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [systemMessages, setSystemMessages] = useState<UIMessage[]>([]);
+  const [systemPrompts, setSystemPrompts] = useState<SystemModelMessage[]>([]);
 
   // ── 输入历史 (对标 CC useArrowKeyHistory) ──
   const [inputHistory, setInputHistory] = useState<string[]>([]);
@@ -47,7 +50,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     tokens: 0,
     cost: "$0.000",
     turns: 0,
-    model: "claude-sonnet-4-6",
+    model: "deepseek-v4-flash",
     permissionMode: options.permissionMode ?? "auto",
   });
 
@@ -101,10 +104,29 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     })
       .then((r) => r.json())
       .then((data) => {
+        debugger
         if (data.id && !sessionId) setSessionId(data.id);
+        if (data.systemPrompt) setSystemPrompts(data.systemPrompt);
       })
       .catch(() => {});
   }, [messages, sessionId]);
+
+  const loadSession = useCallback(async (idx?: number) => {
+    const messages = await fetch(`/api/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "load",
+        cwd: cwdRef.current,
+        idx,
+      }),
+    })
+      .then((r) => r.json())
+      .then(({ messages, systemPrompt }: { messages: UIMessage[], systemPrompt: SystemModelMessage[] }) => {
+        return { messages, systemPrompt };
+      });
+    return messages;
+  }, []);
 
   // 同步 permissionMode 到状态
   useEffect(() => {
@@ -112,101 +134,151 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   }, [permissionMode]);
 
   // ── 提交消息 ──
-  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const text = input.trim();
-    if (!text) return;
+  const handleSubmit = useCallback(
+    async (e?: React.FormEvent) => {
+      e?.preventDefault();
+      const text = input.trim();
+      if (!text) return;
 
-    // 记录历史
-    setInputHistory((prev) => {
-      const deduped = prev.filter((h) => h !== text);
-      return [text, ...deduped].slice(0, 50); // 保留 50 条
-    });
-    setHistoryIndex(-1);
+      // 记录历史
+      setInputHistory((prev) => {
+        const deduped = prev.filter((h) => h !== text);
+        return [text, ...deduped].slice(0, 50); // 保留 50 条
+      });
+      setHistoryIndex(-1);
 
-    // 斜杠命令
-    if (isCommand(text)) {
-      const result = await executeCommand(text);
-      if (result.handled) {
-        setInput("");
-        if (result.message) {
-          const sysMsg: UIMessage = {
-            id: `cmd-${Date.now()}`,
-            role: "assistant",
-            parts: [{ type: "text", text: result.message }],
-          };
-          setSystemMessages((prev) => [...prev, sysMsg]);
-        }
-        if (result.action === "clear") {
-          setMessages([]);
-          setSystemMessages([]);
-          setSessionId(null);
-        }
-        if (result.action === "compact") {
-          sendMessage({ text: "[system: compact conversation]" });
-        }
-        if (result.action === "cost") {
-          // /cost → 显示真实状态
-          const sysMsg: UIMessage = {
-            id: `cost-${Date.now()}`,
-            role: "assistant",
-            parts: [{
-              type: "text",
-              text: `**Session Cost**\n\n- **Model**: ${agentStatus.model}\n- **Tokens**: ${agentStatus.tokens.toLocaleString()}\n- **Estimated cost**: ${agentStatus.cost}\n- **Turns**: ${agentStatus.turns}\n- **Permission mode**: ${agentStatus.permissionMode}\n- **Messages**: ${messages.length}`,
-            }],
-          };
-          setSystemMessages((prev) => [...prev, sysMsg]);
-        }
-        if (result.action === "resume") {
-          // /resume → 列出历史会话
-          fetch(`/api/sessions?cwd=${encodeURIComponent(cwdRef.current)}`)
-            .then((r) => r.json())
-            .then((sessions: Array<{ id: string; title: string; updatedAt: string; messageCount: number }>) => {
-              if (sessions.length === 0) {
+      // 斜杠命令
+      if (isCommand(text)) {
+        const result = await executeCommand(text);
+        if (result.handled) {
+          setInput("");
+          if (result.message) {
+            const sysMsg: UIMessage = {
+              id: `cmd-${Date.now()}`,
+              role: "assistant",
+              parts: [{ type: "text", text: result.message }],
+            };
+            setSystemMessages((prev) => [...prev, sysMsg]);
+          }
+          if (result.action === "clear") {
+            setMessages([]);
+            setSystemMessages([]);
+            setSessionId(null);
+          }
+          if (result.action === "compact") {
+            sendMessage({ text: "[system: compact conversation]" });
+          }
+          if (result.action === "cost") {
+            // /cost → 显示真实状态
+            const sysMsg: UIMessage = {
+              id: `cost-${Date.now()}`,
+              role: "assistant",
+              parts: [
+                {
+                  type: "text",
+                  text: `**Session Cost**\n\n- **Model**: ${
+                    agentStatus.model
+                  }\n- **Tokens**: ${agentStatus.tokens.toLocaleString()}\n- **Estimated cost**: ${
+                    agentStatus.cost
+                  }\n- **Turns**: ${
+                    agentStatus.turns
+                  }\n- **Permission mode**: ${
+                    agentStatus.permissionMode
+                  }\n- **Messages**: ${messages.length}`,
+                },
+              ],
+            };
+            setSystemMessages((prev) => [...prev, sysMsg]);
+          }
+          if (result.action === "resume") {
+            const idx = result.data?.idx as number || -1
+            if (idx !== -1) {
+              const { messages, systemPrompt } = await loadSession(idx - 1);
+              setMessages(messages);
+              setSystemPrompts(systemPrompt);
+              return;
+            }
+
+            // /resume → 列出历史会话
+            fetch(`/api/sessions?cwd=${encodeURIComponent(cwdRef.current)}`)
+              .then((r) => r.json())
+              .then(
+                (
+                  sessions: Array<{
+                    id: string;
+                    title: string;
+                    updatedAt: string;
+                    messageCount: number;
+                  }>
+                ) => {
+                  if (sessions.length === 0) {
+                    const sysMsg: UIMessage = {
+                      id: `resume-${Date.now()}`,
+                      role: "assistant",
+                      parts: [
+                        { type: "text", text: "No saved sessions found." },
+                      ],
+                    };
+                    setSystemMessages((prev) => [...prev, sysMsg]);
+                  } else {
+                    const list = sessions
+                      .slice(0, 10)
+                      .map(
+                        (s, i) =>
+                          `${i + 1}. **${s.title}** — ${
+                            s.messageCount
+                          } messages, ${new Date(
+                            s.updatedAt
+                          ).toLocaleDateString()}`
+                      )
+                      .join("\n");
+                    const sysMsg: UIMessage = {
+                      id: `resume-${Date.now()}`,
+                      role: "assistant",
+                      parts: [
+                        {
+                          type: "text",
+                          text: `**Saved Sessions**\n\n${list}\n\n*Type the session number to resume (coming soon)*`,
+                        },
+                      ],
+                    };
+                    setSystemMessages((prev) => [...prev, sysMsg]);
+                  }
+                }
+              )
+              .catch(() => {});
+          }
+          // /diff → 显示文件修改
+          if (result.action === ("diff" as string)) {
+            fetch("/api/diff")
+              .then((r) => r.json())
+              .then((data: { summary: string; count: number }) => {
                 const sysMsg: UIMessage = {
-                  id: `resume-${Date.now()}`,
+                  id: `diff-${Date.now()}`,
                   role: "assistant",
-                  parts: [{ type: "text", text: "No saved sessions found." }],
+                  parts: [
+                    {
+                      type: "text",
+                      text: `**File Changes (${data.count})**\n\n\`\`\`\n${data.summary}\n\`\`\``,
+                    },
+                  ],
                 };
                 setSystemMessages((prev) => [...prev, sysMsg]);
-              } else {
-                const list = sessions.slice(0, 10).map((s, i) =>
-                  `${i + 1}. **${s.title}** — ${s.messageCount} messages, ${new Date(s.updatedAt).toLocaleDateString()}`
-                ).join("\n");
-                const sysMsg: UIMessage = {
-                  id: `resume-${Date.now()}`,
-                  role: "assistant",
-                  parts: [{ type: "text", text: `**Saved Sessions**\n\n${list}\n\n*Type the session number to resume (coming soon)*` }],
-                };
-                setSystemMessages((prev) => [...prev, sysMsg]);
-              }
-            })
-            .catch(() => {});
+              })
+              .catch(() => {});
+          }
+          if (result.data?.permissionMode) {
+            setPermissionMode(result.data.permissionMode as PermissionMode);
+          }
+          return;
         }
-        // /diff → 显示文件修改
-        if (result.action === ("diff" as string)) {
-          fetch("/api/diff")
-            .then((r) => r.json())
-            .then((data: { summary: string; count: number }) => {
-              const sysMsg: UIMessage = {
-                id: `diff-${Date.now()}`,
-                role: "assistant",
-                parts: [{ type: "text", text: `**File Changes (${data.count})**\n\n\`\`\`\n${data.summary}\n\`\`\`` }],
-              };
-              setSystemMessages((prev) => [...prev, sysMsg]);
-            })
-            .catch(() => {});
-        }
-        if (result.data?.permissionMode) {
-          setPermissionMode(result.data.permissionMode as PermissionMode);
-        }
-        return;
       }
-    }
 
-    sendMessage({ text });
-    setInput("");
-  }, [input, sendMessage, setMessages]);
+      sendMessage({ text });
+      setInput("");
+    },
+    [input, sendMessage, setMessages]
+  );
 
   // ── 键盘事件 (历史 + 快捷键) ──
   const handleKeyDown = useCallback(
@@ -268,5 +340,6 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     agentStatus,
     sessionId,
     setMessages,
+    systemPrompts,
   };
 }

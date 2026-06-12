@@ -22,6 +22,7 @@ export default function Home() {
     setSelectedModel,
     handleOptionClick,
     agentStatus,
+    systemPrompts,
   } = useAgentChat({
     cwd: process.env.NEXT_PUBLIC_CWD || "",
     permissionMode: "auto",
@@ -41,6 +42,7 @@ export default function Home() {
       <div className="h-screen">
         <ChatPanel
           messages={messages}
+          systemPrompts={systemPrompts}
           input={input}
           isLoading={isLoading}
           onInputChange={setInput}

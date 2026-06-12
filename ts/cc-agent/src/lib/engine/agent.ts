@@ -49,6 +49,8 @@ export interface AgentConfig {
   budget?: Partial<BudgetConfig>;
   /** Extended thinking 预算 (对标 CC thinkingConfig) */
   thinkingBudget?: number;
+  /** 扩展上下文 */
+  extra?: Record<string, any>;
 }
 
 export interface HandleMessageParams {
@@ -91,6 +93,7 @@ export async function handleMessage({
     permissionRules: [],
     getState: () => appState,
     setState: (fn) => { appState = fn(appState); },
+    extra: config.extra,
   };
 
   // ── Phase 0: Auto Compact (对标 autoCompact) ──

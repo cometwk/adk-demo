@@ -13,7 +13,8 @@
  */
 import * as fs from "fs/promises";
 import * as path from "path";
-import type { UIMessage } from "ai";
+import type { SystemModelMessage, UIMessage } from "ai";
+import { buildSystemPrompt } from "./context";
 
 export interface SessionMetadata {
   id: string;
@@ -27,6 +28,8 @@ export interface SessionMetadata {
 export interface Session {
   metadata: SessionMetadata;
   messages: UIMessage[];
+  /** 保存时的系统提示词快照, 用于调试 (运行时由 agent 每轮重新构建) */
+  systemPrompt?: SystemModelMessage[];
 }
 
 function getSessionsDir(cwd: string): string {
@@ -49,17 +52,31 @@ function extractTitle(messages: UIMessage[]): string {
   return text.slice(0, 50) || "Untitled session";
 }
 
+function getLastUserMessage(messages: UIMessage[]): string {
+  return (
+    [...messages]
+      .reverse()
+      .find((m) => m.role === "user")
+      ?.parts.filter((p) => p.type === "text")
+      .map((p) => ("text" in p ? p.text : ""))
+      .join(" ") ?? ""
+  );
+}
+
 /** 保存会话到磁盘 */
 export async function saveSession(
   cwd: string,
   messages: UIMessage[],
   sessionId?: string
-): Promise<string> {
+): Promise<Session | null> {
   const dir = getSessionsDir(cwd);
   await fs.mkdir(dir, { recursive: true });
 
   const id = sessionId ?? generateId();
   const now = new Date().toISOString();
+
+  const userMessage = getLastUserMessage(messages);
+  const systemPrompt = await buildSystemPrompt(cwd, userMessage);
 
   const session: Session = {
     metadata: {
@@ -71,11 +88,12 @@ export async function saveSession(
       cwd,
     },
     messages,
+    systemPrompt,
   };
 
   const filePath = path.join(dir, `${id}.json`);
   await fs.writeFile(filePath, JSON.stringify(session, null, 2), "utf-8");
-  return id;
+  return session;
 }
 
 /** 列出所有会话 (最新在前) */
@@ -117,4 +135,10 @@ export async function loadSession(
   } catch {
     return null;
   }
+}
+
+export async function loadSessionByIndex(cwd: string, idx: number): Promise<Session | null> {
+  const sessions = await listSessions(cwd);
+  if (idx < 0 || idx >= sessions.length) return null;
+  return loadSession(cwd, sessions[idx].id);
 }

@@ -3,21 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --webpack",
+    "x-dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.35",
+    "@ai-sdk/openai": "^3.0.63",
+    "@ai-sdk/openai-compatible": "^2.0.47",
     "@ai-sdk/react": "^3.0.143",
     "@base-ui/react": "^1.3.0",
+    "@cubejs-client/core": "^1.6.56",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@openrouter/ai-sdk-provider": "^2.1.1",
-    "ai": "^6.0.67",
+    "ai": "^6.0.199",
+    "chalk": "^5.6.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "diff": "^8.0.4",
+    "dotenv": "^17.4.2",
     "lucide-react": "^1.7.0",
     "next": "^16.1.6",
     "react": "^19.0.0",
@@ -36,7 +42,9 @@
     "@types/react-dom": "^19.0.0",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.8.0"
+    "tsx": "4.19.2",
+    "typescript": "^5.8.0",
+    "vitest": "4.1.5"
   },
   "packageManager": "pnpm@10.11.0"
 }

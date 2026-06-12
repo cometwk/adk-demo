@@ -12,9 +12,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ChevronDown, Zap, Brain, Sparkles } from "lucide-react";
 
 const MODELS = [
-  { id: "anthropic/claude-sonnet-4-6", label: "Sonnet 4.6", icon: Brain, desc: "Balanced (default)", speed: "fast" },
-  { id: "anthropic/claude-haiku-4-5", label: "Haiku 4.5", icon: Zap, desc: "Fast & cheap", speed: "fastest" },
-  { id: "anthropic/claude-opus-4-6", label: "Opus 4.6", icon: Sparkles, desc: "Most capable", speed: "slow" },
+  // { id: "anthropic/claude-sonnet-4-6", label: "Sonnet 4.6", icon: Brain, desc: "Balanced (default)", speed: "fast" },
+  // { id: "anthropic/claude-haiku-4-5", label: "Haiku 4.5", icon: Zap, desc: "Fast & cheap", speed: "fastest" },
+  // { id: "anthropic/claude-opus-4-6", label: "Opus 4.6", icon: Sparkles, desc: "Most capable", speed: "slow" },
+  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash", icon: Brain, desc: "Balanced (default)", speed: "fast" },
+  { id: "minimax-m3", label: "Minimax M3", icon: Sparkles, desc: "Most capable", speed: "slow" },
+  { id: "doubao-seed-2.0-pro", label: "Doubao Seed 2.0 Pro", icon: Zap, desc: "Fast & cheap", speed: "fastest" },
 ] as const;
 
 interface ModelPickerProps {

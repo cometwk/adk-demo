@@ -59,9 +59,10 @@ register("cost", "Show token usage and cost", () => ({
   // message 由调用方根据 agentStatus 填入
 }));
 
-register("resume", "Resume a previous session", () => ({
+register("resume", "Resume a previous session", (args) => ({
   handled: true,
   action: "resume",
+  data: { idx: args.trim() !== "" ? parseInt(args) : -1 },
 }));
 
 register("plan", "Enter plan mode (read-only tools)", () => ({

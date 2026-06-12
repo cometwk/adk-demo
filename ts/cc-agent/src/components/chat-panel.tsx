@@ -10,7 +10,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import type { UIMessage } from "ai";
+import type { SystemModelMessage, UIMessage } from "ai";
 import { isToolUIPart } from "ai";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -25,9 +25,11 @@ import { getCommandNames } from "@/lib/engine/commands";
 import {
   Terminal, Loader2, Square, ChevronRight, CornerDownLeft,
 } from "lucide-react";
+import { Button } from "./ui/button";
 
 interface ChatPanelProps {
   messages: UIMessage[];
+  systemPrompts: SystemModelMessage[];
   input: string;
   isLoading: boolean;
   onInputChange: (value: string) => void;
@@ -218,6 +220,7 @@ function MessageBubble({
   onOptionClick?: (answer: string) => void;
 }) {
   const isUser = message.role === "user";
+  // console.log("message=\n", JSON.stringify(message, null, 2))
 
   if (isUser) {
     const text = message.parts.filter((p) => p.type === "text").map((p) => ("text" in p ? p.text : "")).join("\n");
@@ -285,6 +288,28 @@ function PartRenderer({ part, onOptionClick }: { part: UIMessage["parts"][number
   }
 
   return null;
+}
+
+// 类thinking，折叠
+function RenderSystemPrompts({ systemPrompts }: { systemPrompts: SystemModelMessage[] }) {
+  if (systemPrompts.length === 0) return null;
+
+  return (
+    <details className="text-xs">
+      <summary className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none py-1">
+        <span className="text-purple-400">💭 System Prompts</span>
+        <span className="text-muted-foreground/50 ml-2">({systemPrompts.length})</span>
+      </summary>
+      <div className="pl-4 border-l-2 border-purple-800 mt-1 text-muted-foreground text-[11px] whitespace-pre-wrap">
+        {systemPrompts.map((prompt, i) => (
+          <div key={`system-prompt-${i}`}>
+            {i > 0 && <Separator className="my-3 bg-purple-800/40" />}
+            <SimpleMarkdown text={prompt.content} />
+          </div>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 // ── 斜杠命令补全 Popover ──
@@ -378,6 +403,7 @@ function StreamingIndicator() {
 
 export function ChatPanel({
   messages,
+  systemPrompts,
   input,
   isLoading,
   onInputChange,
@@ -497,6 +523,9 @@ export function ChatPanel({
         <Terminal className="w-4 h-4 text-primary" />
         <span className="text-sm font-bold text-foreground">vercel-claude-code</span>
         <Badge variant="secondary" className="text-[9px] h-4">v0.2</Badge>
+        <Button variant="outline" size="xs" onClick={() => {
+          console.log("systemPrompts=\n", JSON.stringify(systemPrompts, null, 2));
+        }}>系统提示快照</Button>
       </div>
 
       {/* Messages */}
@@ -521,6 +550,7 @@ export function ChatPanel({
           {messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} onOptionClick={onOptionClick} />
           ))}
+          <RenderSystemPrompts systemPrompts={systemPrompts} />
           {isLoading && <StreamingIndicator />}
         </div>
       </div>

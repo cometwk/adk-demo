@@ -4,6 +4,7 @@
  * Round 3: 集成权限检查
  */
 import type { PermissionMode, PermissionRule } from "../engine/permissions";
+import type { Tool } from "ai";
 
 /** 工具执行上下文 — 对标 ToolUseContext */
 export interface ToolContext {
@@ -23,6 +24,8 @@ export interface ToolContext {
   getState: () => AppState;
   /** 更新应用状态 */
   setState: (fn: (prev: AppState) => AppState) => void;
+  /** 扩展上下文 */
+  extra?: ToolExtra<any>
 }
 
 /** 应用状态 — 对标 AppState */
@@ -50,4 +53,9 @@ export function createInitialState(cwd: string): AppState {
     startedAt: Date.now(),
     permissionDenials: [],
   };
+}
+
+/** 扩展上下文 */
+export type ToolExtra<T extends ToolExtra<any>> = Record<string, any> & {
+  createTools?: (extra: T) => Record<string, Tool>;
 }

@@ -5,7 +5,11 @@
  * 解决循环依赖: agent-tool 接收 subTools 参数而非 import assembleTools
  */
 import { createBashTool } from "./bash-tool";
-import { createFileReadTool, createFileEditTool, createFileWriteTool } from "./file-tools";
+import {
+  createFileReadTool,
+  createFileEditTool,
+  createFileWriteTool,
+} from "./file-tools";
 import { createGlobTool, createGrepTool } from "./search-tools";
 import { createAgentTool } from "./agent-tool";
 import { createWebFetchTool } from "./web-tool";
@@ -43,9 +47,21 @@ export function assembleTools(ctx: ToolContext) {
     web_search: createWebSearchTool(),
   };
 
-  return {
+  // 公共
+  const defaultTools = {
     ...baseTools,
     agent: createAgentTool(ctx.cwd, baseTools),
     ask_user: createAskUserTool(),
   };
+  const tools = {
+    ...defaultTools,
+  }
+
+  // 扩展工具
+  const extra = ctx.extra
+  const extraTools = extra?.createTools?.(extra) || {}
+  return {
+    ...tools,
+    ...extraTools,
+  }
 }

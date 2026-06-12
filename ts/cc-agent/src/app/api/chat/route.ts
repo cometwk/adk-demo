@@ -17,6 +17,7 @@ import {
 } from "@/lib/engine/agent";
 import { compactMessages } from "@/lib/engine/compact";
 import type { UIMessage } from "ai";
+import { createExtra } from "@/bi/extra";
 
 export const maxDuration = 300;
 
@@ -61,6 +62,8 @@ export async function POST(req: NextRequest) {
           permissionMode: permissionMode ?? "auto",
           model: model,
           maxSteps: 25,
+          //
+          extra: createExtra(),
         },
         budgetTracker: tracker,
       });
