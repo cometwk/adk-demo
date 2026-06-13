@@ -5,6 +5,7 @@
  */
 import type { PermissionMode, PermissionRule } from "../engine/permissions";
 import type { Tool } from "ai";
+import { Skill } from "../engine/skills";
 
 /** 工具执行上下文 — 对标 ToolUseContext */
 export interface ToolContext {
@@ -26,6 +27,8 @@ export interface ToolContext {
   setState: (fn: (prev: AppState) => AppState) => void;
   /** 扩展上下文 */
   extra?: ToolExtra<any>
+  /** 技能列表 */
+  skills: Skill[];
 }
 
 /** 应用状态 — 对标 AppState */

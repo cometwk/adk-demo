@@ -15,6 +15,7 @@ import type { UIMessage , SystemModelMessage} from "ai";
 import { isCommand, executeCommand } from "@/lib/engine/commands";
 
 export type PermissionMode = "auto" | "plan" | "default";
+const AGENT_MODEL ='deepseek-v4-flash'
 
 interface UseAgentChatOptions {
   cwd?: string;
@@ -35,7 +36,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(
     options.permissionMode ?? "auto"
   );
-  const [selectedModel, setSelectedModel] = useState("deepseek-v4-flash");
+  const [selectedModel, setSelectedModel] = useState(AGENT_MODEL);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [systemMessages, setSystemMessages] = useState<UIMessage[]>([]);
   const [systemPrompts, setSystemPrompts] = useState<SystemModelMessage[]>([]);
@@ -50,7 +51,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     tokens: 0,
     cost: "$0.000",
     turns: 0,
-    model: "deepseek-v4-flash",
+    model: AGENT_MODEL,
     permissionMode: options.permissionMode ?? "auto",
   });
 

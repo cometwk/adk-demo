@@ -16,6 +16,7 @@ import { createWebFetchTool } from "./web-tool";
 import { createWebSearchTool } from "./web-search-tool";
 import { createAskUserTool } from "./ask-user-tool";
 import type { ToolContext } from "./types";
+import { createSkillsTool } from "./skills-tool";
 
 export type { ToolContext, AppState } from "./types";
 export { createInitialState } from "./types";
@@ -52,6 +53,7 @@ export function assembleTools(ctx: ToolContext) {
     ...baseTools,
     agent: createAgentTool(ctx.cwd, baseTools),
     ask_user: createAskUserTool(),
+    read_skill: createSkillsTool(ctx),
   };
   const tools = {
     ...defaultTools,

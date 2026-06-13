@@ -39,6 +39,7 @@ import {
   type BudgetConfig,
   DEFAULT_BUDGET,
 } from "./token-budget";
+import { loadAllSkills } from "./skills";
 
 export interface AgentConfig {
   cwd: string;
@@ -84,6 +85,7 @@ export async function handleMessage({
   let wasCompacted = false;
 
   // Tool context (对标 ToolUseContext)
+  const skills = await loadAllSkills(cwd);
   const toolCtx: ToolContext = {
     cwd,
     abortController: new AbortController(),
@@ -94,6 +96,7 @@ export async function handleMessage({
     getState: () => appState,
     setState: (fn) => { appState = fn(appState); },
     extra: config.extra,
+    skills,
   };
 
   // ── Phase 0: Auto Compact (对标 autoCompact) ──
