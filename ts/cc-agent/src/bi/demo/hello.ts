@@ -3,6 +3,8 @@ import { z } from "zod";
 import { generateStructured, getModelInstance, MODELS } from "@/lib/llm";
 import { generateText } from "ai";
 
+// 订单数最多的商户是哪个？
+
 const inputSchema = z.object({
   name: z.string().describe("用户的全名"),
   age: z.number().describe("用户的年龄"),
