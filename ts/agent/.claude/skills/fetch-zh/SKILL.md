@@ -96,6 +96,13 @@ agent-browser open <url>
 * markdown body
 * 阅读模式正文
 
+**图片处理**：提取页面中所有正文图片的 URL，包括 `<img>` 标签的 `src` 属性和 CSS 背景图。图片是文章内容的重要组成部分，丢失图片会严重降低翻译质量。在提取时，使用 WebFetch 的 prompt 中明确要求保留所有图片引用：
+
+```text
+Extract the full article content. IMPORTANT: Preserve ALL image URLs — include every
+img tag or image reference as markdown image syntax ![alt](url).
+```
+
 避免提取：
 
 * 导航栏
@@ -107,7 +114,7 @@ agent-browser open <url>
 目标：
 
 ```text
-获得文章正文
+获得文章正文（含图片链接）
 ```
 
 如果网页不是文章页面，则提取主要可读内容。
@@ -126,6 +133,7 @@ agent-browser open <url>
 * 表格
 * 代码块
 * 引用
+* **图片**：以 Markdown 图片语法 `![描述](图片URL)` 保留，图片应插入到原文中对应的位置。图片的 alt 文本翻译为中文，URL 保持原样不修改。
 
 删除：
 
@@ -146,7 +154,7 @@ agent-browser open <url>
 * 保留 Markdown 格式
 * 保留代码块原文
 * 保留链接 URL
-* 保留图片 URL
+* 保留图片 URL——图片必须以 `![中文描述](原始URL)` 格式保留在翻译后的 Markdown 中，且位于原文对应位置，不可省略或移至文末
 * 技术术语优先采用通用中文译法
 * 人名、库名、项目名保持原文
 
@@ -180,7 +188,13 @@ fmt.Println("hello")
 
 ### Step 6: Save File
 
-保存到当前工作目录：
+在 Markdown 文件顶部，添加原文来源链接：
+
+```markdown
+> 原文链接：https://example.com/article
+```
+
+然后保存到当前工作目录：
 
 ```text
 ./<filename>.md
@@ -252,6 +266,8 @@ Translation failed, original content saved
 * 保留代码块
 * 保留链接
 * 保留表格
+* 保留图片链接（`![描述](URL)` 格式，位于原文对应位置）
+* 在文件顶部记录原文链接（`> 原文链接：<URL>`）
 
 禁止：
 
