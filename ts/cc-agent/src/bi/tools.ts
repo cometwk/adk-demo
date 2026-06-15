@@ -8,20 +8,10 @@ import { trace } from "./utils/trace"
 import { Extra } from "./extra"
 
 // Tool Definitions
-export const DISCOVER_ENTITIES_TOOL = {
-  name: "discover_entities",
-  description:
-    "Discover available Data Assets (Entities). Use this tool FIRST to understand the schema (Dimensions and Measures) available for querying. Returns a catalog of Semantic Entities with descriptions of their fields.",
-  inputSchema: {
-    type: "object",
-    properties: {},
-  },
-}
-
 export const EXECUTE_QUERY_TOOL = {
   name: "execute_query",
   description:
-    "Execute an Analytical Query. Perform multi-dimensional analysis on one of the entities discovered via 'discover_entities'.",
+    "Execute an Analytical Query. Perform multi-dimensional analysis on one of the entities discovered via 'search_entities' or 'get_entity_schema'.",
   inputSchema: {
     type: "object",
     properties: {
@@ -176,7 +166,7 @@ export const EXECUTE_QUERY_TOOL = {
 export const execute_query = (ctx: Extra) => {
   return tool({
     description:
-      "Execute an Analytical Query. Perform multi-dimensional analysis on one of the entities discovered via 'discover_entities'.",
+      "Execute an Analytical Query. Perform multi-dimensional analysis on one of the entities discovered via 'search_entities' or 'get_entity_schema'.",
     inputSchema: jsonSchema(EXECUTE_QUERY_TOOL.inputSchema),
     execute: async (args0) => {
       const args = args0 as ExecuteQueryArgs
@@ -211,20 +201,86 @@ export const execute_query = (ctx: Extra) => {
   })
 }
 
-export const discover_entities = (ctx: Extra) => {
+export const search_entities = (ctx: Extra) => {
   return tool({
     description:
-      "Discover available Data Assets (Entities). " +
-      "Use this tool FIRST to understand the schema (Dimensions and Measures) available for querying. " +
-      "Returns a catalog of Semantic Entities with descriptions of their fields.",
-    inputSchema: z.object({}),
-    execute: async () => {
+      "Search for Data Assets (Entities) by keyword. " +
+      "Returns matching entities with brief info (name, title, description). " +
+      "Use this to discover which entities are relevant to your analysis question. " +
+      "Then use 'get_entity_schema' to get the full field details for specific entities.",
+    inputSchema: z.object({
+      keyword: z
+        .string()
+        .describe(
+          "Search keyword to filter entities. Matches against entity name, title, and description " +
+            "(e.g., '交易', '分润', '商户', 'order', 'profit')."
+        ),
+    }),
+    execute: async ({ keyword }) => {
       const meta = await ctx.cubeApi.meta()
       const cubes = meta.cubes || []
-      const entities: Record<string, any> = {}
 
-      for (const cube of cubes) {
-        const entityName = cube.name
+      const kw = keyword.toLowerCase()
+      const matched = cubes.filter((cube) => {
+        const haystack = [cube.name, cube.title, cube.description]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+        return haystack.includes(kw)
+      })
+
+      const results = matched.map((cube) => ({
+        name: cube.name,
+        title: cube.title || cube.name,
+        description: (cube.description || "").slice(0, 120),
+        num_dimensions: (cube.dimensions || []).length,
+        num_measures: (cube.measures || []).length,
+      }))
+
+      // 轻量目录：所有实体的 name + title，方便 LLM 发现其他实体
+      const catalog = cubes.map((cube) => ({
+        name: cube.name,
+        title: ((cube.title || cube.name || "") + (" " + cube.description || "")).slice(0, 120),
+      }))
+
+      return {
+        matched: results,
+        all_entity_names: catalog,
+        hint:
+          results.length === 0
+            ? `No entities matched '${keyword}'. Use all_entity_names to find the right entity, then call get_entity_schema.`
+            : `Matched ${results.length} entity(ies). Call get_entity_schema with entity_names to get field details.`,
+      }
+    },
+  })
+}
+
+export const get_entity_schema = (ctx: Extra) => {
+  return tool({
+    description:
+      "Get the full schema (Dimensions and Measures) for specific entities. " +
+      "Use after 'search_entities' to confirm available fields before querying. " +
+      "Only returns schema for the requested entities, not all entities.",
+    inputSchema: z.object({
+      entity_names: z
+        .array(z.string())
+        .describe(
+          "List of entity names to get schema for (e.g., ['order_daily', 'profit_daily'])."
+        ),
+    }),
+    execute: async ({ entity_names }) => {
+      const meta = await ctx.cubeApi.meta()
+      const cubes = meta.cubes || []
+
+      const entities: Record<string, any> = {}
+      const not_found: string[] = []
+
+      for (const name of entity_names) {
+        const cube = cubes.find((c) => c.name === name)
+        if (!cube) {
+          not_found.push(name)
+          continue
+        }
 
         const dimensions: Record<string, any> = {}
         for (const dim of cube.dimensions || []) {
@@ -244,15 +300,25 @@ export const discover_entities = (ctx: Extra) => {
           }
         }
 
-        entities[entityName] = {
-          title: cube.title || entityName,
+        entities[cube.name] = {
+          title: cube.title || cube.name,
           description: cube.description || "",
           dimensions,
           measures,
         }
       }
 
-      return { entities }
+      const result: Record<string, any> = { entities }
+      if (not_found.length > 0) {
+        const available = cubes.map((c) => c.name)
+        result.not_found = not_found
+        result.available_entity_names = available
+        result.hint = `Entities not found: ${not_found.join(
+          ", "
+        )}. Check available_entity_names for valid names.`
+      }
+
+      return result
     },
   })
 }

@@ -1,7 +1,7 @@
 import { ToolContext } from "@/lib/tools"
 import { ToolExtra } from "@/lib/tools/types"
 import cube from "@cubejs-client/core"
-import { discover_entities, execute_query } from "./tools"
+import { search_entities, get_entity_schema, execute_query } from "./tools"
 import { tool, type Tool } from "ai"
 
 export const cubeApi = cube("token", { apiUrl: "http://localhost:4000/cubejs-api/v1" })
@@ -16,7 +16,8 @@ export function createExtra(): Extra {
     createTools: (extra: Extra) => {
       return {
         execute_query: execute_query(extra),
-        discover_entities: discover_entities(extra),
+        search_entities: search_entities(extra),
+        get_entity_schema: get_entity_schema(extra),
       }
     },
   }
