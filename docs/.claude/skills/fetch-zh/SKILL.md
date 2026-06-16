@@ -2,11 +2,13 @@
 name: fetch-zh
 description: Fetch a webpage, translate it to Simplified Chinese Markdown, and save it locally.
 tools:
-  - agent-browser
   - write_file
 ---
 
 # Translate Webpage To Chinese
+
+MUST use the agent-browser skill to open and read webpages.
+Do not use direct fetch tools.
 
 ## Description
 
@@ -31,19 +33,6 @@ yyyymmdd-<unix_seconds>-<2-3-word-summary>.md
 ```text
 20260606-1749182736-agent-tools.md
 ```
-
-Tool Selection Rules
-
-MUST use agent-browser to fetch and read webpages.
-
-DO NOT use:
-
-- WebFetch
-- Fetch
-- URL reader
-- Any other webpage retrieval tool
-
-All webpage access must go through agent-browser.
 
 ---
 
