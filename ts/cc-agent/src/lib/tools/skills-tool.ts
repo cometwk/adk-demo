@@ -6,7 +6,8 @@ import { ToolContext } from "./types"
 
 export function createSkillsTool(ctx: ToolContext) {
   if (ctx.skills.length === 0) {
-    throw new Error("No skills found")
+    console.error("No skills found")
+    // throw new Error("No skills found")
   }
    
   return tool({

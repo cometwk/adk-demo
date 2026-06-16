@@ -178,7 +178,8 @@ export const execute_query = (ctx: Extra) => {
 
       const sql = await ctx.cubeApi.sql(query)
       const sqlText = sql.sql()
-      trace.system("\n    " + sqlText)
+      trace.system("sql=\n    " + sqlText)
+      trace.log("data=\n", data)
 
       const is_truncated = data.length > 50
       const preview_limit = 50

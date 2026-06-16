@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { search_entities, get_entity_schema, execute_query } from './tools'
 import { createExtra } from './extra'
+import { trace } from './utils/trace'
 
 const toolOptions = { toolCallId: 'test', messages: [] }
 
@@ -10,6 +11,13 @@ describe('BI tools', () => {
   })
 
   const ctx = createExtra()
+
+
+  it('just test: 1', async () => {
+    const r = await get_entity_schema(ctx).execute!({ entity_names: ['inactive_merch'] }, toolOptions)
+    trace.log("x", r)
+
+  })
 
   it('search_entities by keyword', async () => {
     const r = await search_entities(ctx).execute!({ keyword: 'order' }, toolOptions)
