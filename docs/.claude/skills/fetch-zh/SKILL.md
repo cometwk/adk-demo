@@ -1,6 +1,6 @@
 ---
 name: fetch-zh
-description: Translate a webpage into Chinese Markdown and save locally.
+description: Fetch a webpage, translate it to Simplified Chinese Markdown, and save it locally.
 tools:
   - agent-browser
   - write_file
@@ -14,16 +14,16 @@ tools:
 
 自动完成以下流程：
 
-1. 使用 agent-browser 打开网页
+1. 使用 agent-browser skill 打开网页
 2. 获取网页主要内容（HTML 或可读正文）
 3. 翻译为简体中文
 4. 转换为 Markdown
 5. 保存到当前工作目录
 
-输出文件名格式：
+输出文件名：
 
 ```text
-yyyymmdd-<timestamp_seconds>-{2到3个英文单词的摘要}.md
+yyyymmdd-<unix_seconds>-<2-3-word-summary>.md
 ```
 
 例如：
@@ -36,15 +36,14 @@ yyyymmdd-<timestamp_seconds>-{2到3个英文单词的摘要}.md
 
 ## When To Use
 
-当用户提出以下需求时使用本 Skill：
+适用于：
 
 * 翻译网页
-* 将英文博客翻译成中文
-* 保存网页为中文 Markdown
+* 英文博客转中文
+* URL → Markdown
 * 阅读并归档网页内容
-* URL → 中文 Markdown
 
-示例：
+例如：
 
 ```text
 翻译这个网页：
@@ -52,58 +51,26 @@ https://example.com/article
 ```
 
 ```text
-把这篇博客保存成中文 markdown
-```
-
----
-
-## Input
-
-用户必须提供：
-
-```text
-URL
-```
-
-例如：
-
-```text
-https://example.com/article
+保存成中文 markdown
 ```
 
 ---
 
 ## Workflow
 
-### Step 1: Open Page
+### 1. Fetch Page
 
-使用 agent-browser 打开网页：
+使用 `agent-browser` 打开 URL，并等待页面加载完成。
 
-```bash
-agent-browser open <url>
-```
+### 2. Extract Main Content
 
-等待页面完全加载。
-
----
-
-### Step 2: Extract Content
-
-优先获取：
+优先提取：
 
 * article
 * main
-* markdown body
-* 阅读模式正文
+* reader mode content
 
-**图片处理**：提取页面中所有正文图片的 URL，包括 `<img>` 标签的 `src` 属性和 CSS 背景图。图片是文章内容的重要组成部分，丢失图片会严重降低翻译质量。在提取时，使用 WebFetch 的 prompt 中明确要求保留所有图片引用：
-
-```text
-Extract the full article content. IMPORTANT: Preserve ALL image URLs — include every
-img tag or image reference as markdown image syntax ![alt](url).
-```
-
-避免提取：
+忽略：
 
 * 导航栏
 * Footer
@@ -111,19 +78,9 @@ img tag or image reference as markdown image syntax ![alt](url).
 * 评论区
 * 推荐阅读
 
-目标：
+如果不是文章页面，则提取主要可读内容。
 
-```text
-获得文章正文（含图片链接）
-```
-
-如果网页不是文章页面，则提取主要可读内容。
-
----
-
-### Step 3: Convert To Markdown
-
-将正文转换为 Markdown：
+### 3. Convert To Markdown
 
 保留：
 
@@ -131,126 +88,69 @@ img tag or image reference as markdown image syntax ![alt](url).
 * 段落
 * 列表
 * 表格
-* 代码块
 * 引用
-* **图片**：以 Markdown 图片语法 `![描述](图片URL)` 保留，图片应插入到原文中对应的位置。图片的 alt 文本翻译为中文，URL 保持原样不修改。
+* 代码块
+* 图片
 
-删除：
+图片必须保留在原文位置：
 
-* 广告
-* 导航菜单
-* Cookie Banner
-* 无关页面元素
+```markdown
+![alt](image-url)
+```
 
----
+### 4. Translate
 
-### Step 4: Translate
-
-翻译为简体中文。
-
-要求：
+翻译为简体中文，同时：
 
 * 保持原文结构
 * 保留 Markdown 格式
 * 保留代码块原文
 * 保留链接 URL
-* 保留图片 URL——图片必须以 `![中文描述](原始URL)` 格式保留在翻译后的 Markdown 中，且位于原文对应位置，不可省略或移至文末
-* 技术术语优先采用通用中文译法
-* 人名、库名、项目名保持原文
+* 保留图片 URL
+* 技术术语使用常见中文译法
+* 人名、项目名、库名保持原文
 
-代码块禁止翻译：
+禁止翻译代码块内容。
 
-````markdown
-```go
-fmt.Println("hello")
-```
-````
+### 5. Save
 
-应原样保留。
-
----
-
-### Step 5: Generate Filename
-
-生成文件名：
-
-```text
-<yyyymmdd>-<unix_seconds>-<2 or 3 words digest>.md
-```
-
-示例：
-
-```text
-20260606-1749182736-agent-tools.md
-```
-
----
-
-### Step 6: Save File
-
-在 Markdown 文件顶部，添加原文来源链接：
+在文件顶部添加：
 
 ```markdown
-> 原文链接：https://example.com/article
+> 原文链接：<URL>
 ```
 
-然后保存到当前工作目录：
+保存为：
 
 ```text
-./<filename>.md
-```
-
-例如：
-
-```text
-./20260606-1749182736-agent-tools.md
+./<generated-filename>.md
 ```
 
 ---
 
 ## Output
 
-完成后返回：
+成功：
 
 ```text
 ✅ Translation completed
 
 Source:
-https://example.com/article
+<URL>
 
 Output:
-./20260606-1749182736-agent-tools.md
+./<filename>.md
 ```
 
----
-
-## Error Handling
-
-### Page Load Failed
-
-返回：
+失败：
 
 ```text
 Failed to open URL
 ```
 
-### Content Not Found
-
-尝试：
-
-1. snapshot
-2. reread page
-3. extract body
-
-若仍失败：
-
 ```text
 Unable to extract readable content
 ```
-
-### Translation Failed
-
-保留原始 Markdown 并保存：
 
 ```text
 Translation failed, original content saved
@@ -262,16 +162,14 @@ Translation failed, original content saved
 
 必须：
 
+* 保留完整内容，不得摘要
 * 保留 Markdown 结构
-* 保留代码块
-* 保留链接
-* 保留表格
-* 保留图片链接（`![描述](URL)` 格式，位于原文对应位置）
-* 在文件顶部记录原文链接（`> 原文链接：<URL>`）
+* 保留代码块、链接、表格
+* 保留所有图片引用及其原始 URL
+* 文件顶部记录原文链接
 
 禁止：
 
-* 总结替代全文翻译
 * 删除技术内容
 * 修改代码
 * 编造缺失内容
