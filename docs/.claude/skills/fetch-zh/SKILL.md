@@ -130,7 +130,9 @@ https://example.com/article
 在文件顶部添加：
 
 ```markdown
-> 原文链接：<URL>
+> 原文：[原文标题](<URL>)
+> 作者：xxx
+> 发布日期：yyyy-mm-dd
 ```
 
 保存为：
