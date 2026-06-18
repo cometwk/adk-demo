@@ -12,5 +12,6 @@
   "license": "ISC",
   "packageManager": "pnpm@10.17.1",
   "dependencies": {
+    "@viteval/internal": "^0.5.9"
   }
 }
