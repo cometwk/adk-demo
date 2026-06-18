@@ -15,6 +15,7 @@
     "@viteval/internal": "workspace:*",
     "compute-cosine-similarity": "^1.1.0",
     "js-levenshtein": "^1.1.6",
-    "linear-sum-assignment": "^1.0.9"
+    "linear-sum-assignment": "^1.0.9",
+    "mustache": "^4.2.0"
   }
 }
