@@ -1,17 +1,20 @@
 {
-  "name": "@xui/eval",
+  "name": "@xui/lib",
   "version": "1.0.0",
   "description": "",
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest --typecheck"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.17.1",
   "dependencies": {
-    "@viteval/internal": "^0.5.9"
+    "@viteval/internal": "workspace:*",
+    "compute-cosine-similarity": "^1.1.0",
+    "js-levenshtein": "^1.1.6",
+    "linear-sum-assignment": "^1.0.9"
   }
 }

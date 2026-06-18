@@ -2,4 +2,5 @@ packages:
   - "agent"
   - "cc-agent"
   - "packages/eval"
+  - "packages/internal"
 
