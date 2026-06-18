@@ -1,0 +1,45 @@
+{
+  "name": "agent-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Next generation LLM evaluation framework powered by Vitest.",
+  "scripts": {
+    "build": "nx run-many -t build --parallel --projects=packages/*",
+    "build:website": "nx run-many -t build --parallel --p website",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt --check .",
+    "format:fix": "oxfmt --write .",
+    "check": "pnpm lint && pnpm format",
+    "dev": "nx run-many -t dev --parallel --projects=packages/*",
+    "dev:website": "nx dev website",
+    "fix": "pnpm lint:fix && pnpm format:fix",
+    "gen": "nx generate",
+    "nuke": "nuka-code",
+    "publish": "pnpm run build && pnpm changeset publish",
+    "sp": "syncpack",
+    "test": "nx run-many -t test --parallel --projects=packages/*",
+    "types": "nx run-many -t types --parallel",
+    "validate": "CI=true nx run-many -t check,types,test,build --parallel --projects=packages/*",
+    "types:packages": "nx run-many -t types --parallel --projects=packages/*",
+    "types:examples": "nx run-many -t types --parallel --projects=examples/*",
+    "version": "pnpm changeset version && pnpm install --no-frozen-lockfile"
+  },
+  "devDependencies": {
+    "tsx": "4.19.2",
+    "typescript": "^5.8.0",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "4.1.5"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "^2.0.51",
+    "ai": "^6.0.207",
+    "dotenv": "^17.4.2",
+    "zod": "^4.4.3"
+  }
+}

@@ -1,4 +1,5 @@
 packages:
   - "agent"
-  - "chatbot-main"
   - "cc-agent"
+  - "packages/eval"
+

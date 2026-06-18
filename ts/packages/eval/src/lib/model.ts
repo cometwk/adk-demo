@@ -1,4 +1,3 @@
-import './env'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 // import { createOpenAI } from '@ai-sdk/openai'
 
