@@ -2,9 +2,17 @@
   "name": "@xui/lib",
   "version": "1.0.0",
   "description": "",
-  "type": "module",
-  "main": "index.js",
+  "main": "dist/index.mjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    }
+  },
   "scripts": {
+    "build": "tsdown",
     "test": "vitest --typecheck"
   },
   "keywords": [],
@@ -12,10 +20,13 @@
   "license": "ISC",
   "packageManager": "pnpm@10.17.1",
   "dependencies": {
-    "@viteval/internal": "workspace:*",
+    "@viteval/internal": "workspace:@xui/internal@*",
     "compute-cosine-similarity": "^1.1.0",
     "js-levenshtein": "^1.1.6",
     "linear-sum-assignment": "^1.0.9",
     "mustache": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/mustache": "^4.2.6"
   }
 }

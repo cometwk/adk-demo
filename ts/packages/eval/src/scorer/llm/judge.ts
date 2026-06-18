@@ -1,8 +1,8 @@
 import type { LanguageModel } from 'ai';
-import { generateObject } from 'ai';
 import Mustache from 'mustache';
 import { z } from 'zod';
 import { requireModel } from '#/model/client';
+import { generateStructured as generateObject } from '#/lib';
 
 /**
  * Configuration for an LLM-as-judge evaluation.
@@ -72,11 +72,11 @@ export async function runJudge(
           .describe('The selected choice.'),
       });
 
-  const { object } = await generateObject({
+  const object = await generateObject({
     model,
     prompt: `${renderedPrompt}\n\n${systemSuffix}`,
     schema,
-    temperature: 0,
+    // temperature: 0,
   });
 
   const score = config.choiceScores[object.choice];

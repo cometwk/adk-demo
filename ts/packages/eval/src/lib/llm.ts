@@ -9,11 +9,11 @@
  */
 // import { createAnthropic } from "@ai-sdk/anthropic";
 // import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { createOpenAICompatible as createOpenAI } from "@ai-sdk/openai-compatible";
+import { createOpenAICompatible as createOpenAI } from '@ai-sdk/openai-compatible';
 // import { createOpenAI } from "@ai-sdk/openai";
-import { generateText, Output } from "ai";
-import type { ModelMessage } from "ai";
-import { z } from "zod";
+import { generateText, Output } from 'ai';
+import type { LanguageModel, ModelMessage } from 'ai';
+import { z } from 'zod';
 
 // ── Provider 懒初始化 ──
 
@@ -23,7 +23,7 @@ let _openai: ReturnType<typeof createOpenAI> | null = null;
 
 function getApiKey(): string {
   const key = process.env.OPENROUTER_API_KEY;
-  if (!key) throw new Error("OPENROUTER_API_KEY is required");
+  if (!key) throw new Error('OPENROUTER_API_KEY is required');
   return key;
 }
 
@@ -46,19 +46,19 @@ function getApiKey(): string {
 
 function getOpenAI() {
   if (!process.env.OPENAI_BASE_URL || !process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_BASE_URL and OPENAI_API_KEY must be set");
+    throw new Error('OPENAI_BASE_URL and OPENAI_API_KEY must be set');
   }
   if (
     !process.env.AGENT_MODEL ||
     !process.env.FAST_MODEL ||
     !process.env.STRUCTURED_MODEL
   ) {
-    throw new Error("AGENT_MODEL, FAST_MODEL, STRUCTURED_MODEL must be set");
+    throw new Error('AGENT_MODEL, FAST_MODEL, STRUCTURED_MODEL must be set');
   }
 
   if (!_openai) {
     _openai = createOpenAI({
-      name: "openai-compatible",
+      name: 'openai-compatible',
       baseURL: process.env.OPENAI_BASE_URL!,
       apiKey: process.env.OPENAI_API_KEY!,
       // ⭐ 在这里拦截并全局注入自定义 Body 参数
@@ -89,8 +89,13 @@ function getOpenAI() {
  *   "claude-xxx" (无斜杠) → anthropic provider (structured output)
  *   "anthropic/xxx" 等     → openrouter provider (tool calling)
  */
-export function getModelInstance(model: string) {
-  return getOpenAI()(model);
+export function getModelInstance(model?: string): LanguageModel {
+  if (!model) {
+    if (!process.env.OPENAI_MODEL) {
+      throw new Error('OPENAI_MODEL must be set');
+    }
+  }
+  return getOpenAI()(model || process.env.OPENAI_MODEL!);
   // if (model.startsWith("claude-") && !model.includes("/")) {
   //   return getAnthropic()(model);
   // }
@@ -111,18 +116,18 @@ export const MODELS = {
 
 // ── Prompt Caching ──
 
-export type SystemModelMessage = Extract<ModelMessage, { role: "system" }>;
+export type SystemModelMessage = Extract<ModelMessage, { role: 'system' }>;
 
 export function cachedSystemMessage(
   text: string,
   cache = false
 ): SystemModelMessage {
   return {
-    role: "system" as const,
+    role: 'system' as const,
     content: text,
     ...(cache && {
       providerOptions: {
-        anthropic: { cacheControl: { type: "ephemeral" as const } },
+        anthropic: { cacheControl: { type: 'ephemeral' as const } },
       },
     }),
   };
@@ -133,14 +138,14 @@ export function cachedSystemMessage(
 function isRetryable(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const msg = err.message.toLowerCase();
-  if (msg.includes("429") || msg.includes("rate limit")) return false;
+  if (msg.includes('429') || msg.includes('rate limit')) return false;
   return (
-    msg.includes("timeout") ||
-    msg.includes("econnreset") ||
-    msg.includes("fetch failed") ||
-    msg.includes("500") ||
-    msg.includes("502") ||
-    msg.includes("503")
+    msg.includes('timeout') ||
+    msg.includes('econnreset') ||
+    msg.includes('fetch failed') ||
+    msg.includes('500') ||
+    msg.includes('502') ||
+    msg.includes('503')
   );
 }
 
@@ -149,7 +154,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // ── 结构化生成 ──
 
 interface StructuredOptions<T> {
-  model: string;
+  model: LanguageModel;
   system?: string;
   systemMessages?: SystemModelMessage[];
   prompt: string;
@@ -161,7 +166,10 @@ interface StructuredOptions<T> {
 export async function generateStructured<T>(
   opts: StructuredOptions<T>
 ): Promise<T> {
-  const model = getModelInstance(opts.model);
+  let model = opts.model;
+  if (typeof model === 'string') {
+    model = getModelInstance(model);
+  }
   const system = opts.systemMessages ?? opts.system;
   let lastError: unknown;
 
@@ -183,7 +191,7 @@ export async function generateStructured<T>(
       //   }),
       // });
       if (output === undefined)
-        throw new Error("generateStructured: undefined output");
+        throw new Error('generateStructured: undefined output');
       return output;
     } catch (err) {
       lastError = err;
@@ -208,11 +216,11 @@ export async function generateStructureOutput<T>({
   let output: T | null = null;
   const extractTool = {
     inputSchema: schema,
-    description: "",
+    description: '',
     execute: async (data: T) => {
       const parsed = schema.safeParse(data);
       if (!parsed.success) {
-        console.error("Invalid data:", parsed.error);
+        console.error('Invalid data:', parsed.error);
         return null;
       }
       output = data;
@@ -221,8 +229,8 @@ export async function generateStructureOutput<T>({
   };
 
   let messages = [
-    { role: "system", content: "generate structured data by extract tool" },
-    { role: "user", content: prompt },
+    { role: 'system', content: 'generate structured data by extract tool' },
+    { role: 'user', content: prompt },
   ];
   const r = await generateText({
     model: model,
@@ -232,7 +240,7 @@ export async function generateStructureOutput<T>({
     messages: messages as ModelMessage[],
   });
   if (!output) {
-    throw new Error("Failed to generate structured data");
+    throw new Error('Failed to generate structured data');
   }
   return output;
 }

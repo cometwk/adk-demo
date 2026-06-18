@@ -3,4 +3,6 @@ packages:
   - "cc-agent"
   - "packages/eval"
   - "packages/internal"
+  - "demo"
+
 

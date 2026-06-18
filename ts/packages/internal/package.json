@@ -1,5 +1,5 @@
 {
-  "name": "@viteval/internal",
+  "name": "@xui/internal",
   "version": "1.0.0-rc.0",
   "description": "Viteval internal - shared utilities for the Viteval ecosystem",
   "homepage": "https://github.com/viteval/viteval#readme",
@@ -25,10 +25,5 @@
     "types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^25.5.0",
-    "tsdown": "^0.21.7",
-    "type-fest": "^5.5.0",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.2"
   }
 }
