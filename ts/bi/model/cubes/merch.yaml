@@ -1,0 +1,111 @@
+cubes:
+  - name: merch
+    description: 商户
+    sql_table: merch
+    data_source: default
+
+    joins:
+      - name: order_daily
+        sql: "{CUBE}.merch_no = {order_daily.merch_no}"
+        relationship: one_to_many
+
+    dimensions:
+      - name: id
+        description: 分布式雪花ID
+        sql: id
+        type: number
+        primary_key: true
+
+      - name: merch_no
+        description: 商户编号
+        sql: merch_no
+        type: string
+
+      - name: rate
+        description: 费率，十万分比率
+        sql: rate
+        type: number
+
+      - name: name
+        description: 商户名称
+        sql: name
+        type: string
+
+      - name: contact_name
+        description: 联系人姓名
+        sql: contact_name
+        type: string
+
+      - name: contact_phone
+        description: 联系人手机号
+        sql: contact_phone
+        type: string
+
+      - name: address
+        description: 商户地址
+        sql: address
+        type: string
+
+      - name: apply_date
+        description: 进件日期
+        sql: apply_date
+        type: time
+
+      - name: chan_merch_id
+        description: 当前机构商户
+        sql: chan_merch_id
+        type: number
+
+      - name: chan_merch_no
+        description: 机构商户编号
+        sql: chan_merch_no
+        type: string
+
+      - name: chan_merch_name
+        description: 机构商户名称
+        sql: chan_merch_name
+        type: string
+
+      - name: api_key
+        description: 商户API密钥
+        sql: api_key
+        type: string
+
+      - name: remark
+        description: 备注
+        sql: remark
+        type: string
+
+      - name: apply_info
+        description: 请求参数
+        sql: apply_info
+        type: string
+
+      - name: disabled
+        description: 是否禁用
+        sql: disabled
+        type: boolean
+
+      - name: created_at
+        sql: created_at
+        type: time
+
+      - name: updated_at
+        sql: updated_at
+        type: time
+
+    measures:
+      - name: count
+        type: count
+
+      - name: total_rate
+        description: 费率合计
+        sql: rate
+        type: sum
+
+      - name: avg_rate
+        description: 费率平均值
+        sql: rate
+        type: avg
+
+    pre_aggregations: []

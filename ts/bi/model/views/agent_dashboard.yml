@@ -1,0 +1,33 @@
+views:
+  - name: agent_dashboard
+    description: 代理商看板，查看自己名下的分润与商户表现
+    cubes:
+      - join_path: profit_daily
+        includes:
+          - stat_date
+          - agent_no
+          - agent_type
+          - total_trade_amt
+          - total_net_profit
+          - total_own_net_profit
+          - own_profit_ratio
+          - net_profit_rate
+          - refund_rate
+
+      - join_path: profit_daily.agent
+        prefix: true
+        includes:
+          - name
+          - agent_no
+
+      - join_path: merch
+        includes:
+          - name
+          - merch_no
+          - count
+
+      - join_path: merch.order_daily
+        prefix: true
+        includes:
+          - total_amount
+          - total_count

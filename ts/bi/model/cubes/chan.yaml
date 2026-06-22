@@ -1,0 +1,66 @@
+cubes:
+  - name: chan
+    description: 通道
+    sql_table: chan
+    data_source: default
+
+    joins:
+      - name: order_daily
+        sql: "{CUBE}.chan_no = {order_daily.chan_no}"
+        relationship: one_to_many
+
+    dimensions:
+      - name: id
+        description: 分布式雪花ID
+        sql: id
+        type: number
+        primary_key: true
+
+      - name: chan_no
+        description: 通道编号
+        sql: chan_no
+        type: string
+
+      - name: chan_type
+        description: "通道类型（如 mock: 沙箱, ccb: 建行）"
+        sql: chan_type
+        type: string
+
+      - name: rate
+        description: 通道费率，十万分比率
+        sql: rate
+        type: number
+
+      - name: name
+        description: 通道名称
+        sql: name
+        type: string
+
+      - name: remark
+        description: 备注
+        sql: remark
+        type: string
+
+      - name: disabled
+        description: 是否禁用
+        sql: disabled
+        type: boolean
+
+      - name: created_at
+        sql: created_at
+        type: time
+
+      - name: updated_at
+        sql: updated_at
+        type: time
+
+    measures:
+      - name: count
+        type: count
+
+      - name: avg_rate
+        description: 通道费率平均值
+        sql: rate
+        type: avg
+
+    pre_aggregations: []

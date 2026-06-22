@@ -1,0 +1,34 @@
+views:
+  - name: management_dashboard
+    description: 管理层看板，核心 KPI 总览
+    cubes:
+      - join_path: order_daily
+        includes:
+          - report_date
+          - total_count
+          - total_amount
+
+      - join_path: profit_daily
+        includes:
+          - stat_date
+          - total_trade_amt
+          - total_net_profit
+          - net_profit_rate
+          - refund_impact_rate
+
+      - join_path: apply
+        includes:
+          - created_at
+          - success_rate
+          - name: count
+            alias: apply_count
+
+      - join_path: merch
+        includes:
+          - name: count
+            alias: merch_count
+
+      - join_path: agent
+        includes:
+          - name: count
+            alias: agent_count

@@ -1,0 +1,28 @@
+views:
+  - name: transaction_overview
+    description: 交易总览视图，组合交易、商户、通道、代理维度
+    cubes:
+      - join_path: order_daily
+        includes:
+          - report_date
+          - total_count
+          - total_amount
+          - count
+
+      - join_path: order_daily.merch
+        prefix: true
+        includes:
+          - name
+          - merch_no
+          - rate
+          - apply_date
+          - disabled
+
+      - join_path: order_daily.merch.agent_rel
+        prefix: true
+        includes:
+          - agent_no
+          - obj_name
+          - agent_type
+          - rate
+          - apply

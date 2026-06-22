@@ -1,0 +1,29 @@
+views:
+  - name: apply_overview
+    description: 进件分析视图，组合进件申请与代理、商户维度
+    cubes:
+      - join_path: apply
+        includes:
+          - created_at
+          - status
+          - status_name
+          - success_rate
+          - success_count
+          - fail_count
+          - notify_success_rate
+          - notify_success_count
+          - notify_total_count
+          - count
+
+      - join_path: apply.agent
+        prefix: true
+        includes:
+          - name
+          - agent_no
+
+      - join_path: apply.merch
+        prefix: true
+        includes:
+          - name
+          - merch_no
+          - rate

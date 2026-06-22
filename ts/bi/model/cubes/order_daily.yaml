@@ -1,0 +1,91 @@
+cubes:
+  - name: order_daily
+    description: 商户日报统计(导入)
+    sql_table: order_daily
+    data_source: default
+
+    joins:
+      - name: merch
+        sql: "{CUBE}.merch_no = {merch.merch_no}"
+        relationship: many_to_one
+
+    dimensions:
+      - name: id
+        description: 分布式雪花ID
+        sql: CAST({CUBE}.id AS CHAR)
+        type: string
+        primary_key: true
+
+      - name: report_date
+        description: 结算日期
+        sql: report_date
+        type: time
+
+      - name: merch_id
+        description: 商户ID
+        sql: merch_id
+        type: number
+
+      - name: merch_no
+        description: 商户编号
+        sql: merch_no
+        type: string
+
+      - name: merch_name
+        description: 商户名称
+        sql: merch_name
+        type: string
+
+      - name: chan_id
+        description: 通道ID
+        sql: chan_id
+        type: number
+
+      - name: chan_no
+        description: 通道编号
+        sql: chan_no
+        type: string
+
+      - name: chan_merch_no
+        description: 通道机构商户号
+        sql: chan_merch_no
+        type: string
+
+      - name: created_at
+        description: 要求在代码中设置，避免差异
+        sql: created_at
+        type: time
+
+      - name: updated_at
+        sql: updated_at
+        type: time
+
+    measures:
+      - name: count
+        description: 有交易的天数
+        type: count
+
+      - name: total_count
+        description: 总订单数合计
+        sql: total_count
+        type: sum
+
+      - name: total_amount
+        description: 总交易额合计(分)
+        sql: total_amount
+        type: sum
+
+      - name: over_1000_count
+        description: 大额订单数
+        sql: total_amount
+        type: count
+        filters:
+          - sql: "{CUBE}.total_amount > 100000"
+
+      - name: over_1000_percentage
+        description: 大额订单占比
+        sql: "1.0 * {over_1000_count} / {count}"
+        type: number
+        format: percent
+
+    pre_aggregations: []

@@ -1,0 +1,188 @@
+cubes:
+  - name: profit_daily
+    description: 代理商日分润统计
+    sql_table: profit_daily
+    data_source: default
+
+    joins:
+      - name: agent
+        sql: "{CUBE}.agent_no = {agent.agent_no}"
+        relationship: many_to_one
+
+    dimensions:
+      - name: id
+        description: 分布式雪花ID
+        sql: id
+        type: number
+        primary_key: true
+
+      - name: stat_date
+        description: 统计日期（本地日）
+        sql: stat_date
+        type: time
+
+      - name: agent_no
+        description: 代理商编号
+        sql: agent_no
+        type: string
+
+      - name: agent_type
+        description: "代理类型: MERCH / CHAN"
+        sql: agent_type
+        type: string
+
+      - name: agent_type_name
+        description: 代理类型名称
+        sql: >
+          CASE {CUBE}.agent_type
+            WHEN 'MERCH' THEN '商户代理'
+            WHEN 'CHAN' THEN '通道代理'
+            ELSE '未知'
+          END
+        type: string
+
+      - name: rate
+        description: 分润比例，十万分比率
+        sql: rate
+        type: number
+
+      - name: status
+        description: "结算状态: 0=未结算, 1=审批中, 2=已审批/已结算"
+        sql: status
+        type: number
+
+      - name: status_name
+        description: 结算状态名称
+        sql: >
+          CASE {CUBE}.status
+            WHEN 0 THEN '未结算'
+            WHEN 1 THEN '审批中'
+            WHEN 2 THEN '已结算'
+            ELSE '未知'
+          END
+        type: string
+
+      - name: profit_settle_id
+        description: 关联的结算记录ID
+        sql: profit_settle_id
+        type: number
+
+      - name: created_at
+        sql: created_at
+        type: time
+
+      - name: updated_at
+        sql: updated_at
+        type: time
+
+    measures:
+      - name: count
+        type: count
+
+      - name: total_trade_amt
+        description: 当日交易总金额合计(分)
+        sql: total_trade_amt
+        type: sum
+
+      - name: total_order_cnt
+        description: 当日成功订单数合计
+        sql: order_cnt
+        type: sum
+
+      - name: total_profit
+        description: 当日分润总收入合计(分)
+        sql: total_profit
+        type: sum
+
+      - name: total_refund_amt
+        description: 当日退款总金额合计(分)
+        sql: total_refund_amt
+        type: sum
+
+      - name: total_refund_cnt
+        description: 当日退款笔数合计
+        sql: refund_cnt
+        type: sum
+
+      - name: total_refund_deduct
+        description: 当日退款需扣除的分润合计(分)
+        sql: total_refund_deduct
+        type: sum
+
+      - name: total_net_profit
+        description: 当日净分润合计(分)
+        sql: net_profit
+        type: sum
+
+      - name: total_own_trade_amt
+        description: 自己进件商户的交易金额合计(分)
+        sql: own_trade_amt
+        type: sum
+
+      - name: total_own_order_cnt
+        description: 自己进件商户的订单数合计
+        sql: own_order_cnt
+        type: sum
+
+      - name: total_own_profit
+        description: 自己进件商户的分润收入合计(分)
+        sql: own_profit
+        type: sum
+
+      - name: total_own_refund_amt
+        description: 自己进件商户的退款金额合计(分)
+        sql: own_refund_amt
+        type: sum
+
+      - name: total_own_refund_cnt
+        description: 自己进件商户的退款笔数合计
+        sql: own_refund_cnt
+        type: sum
+
+      - name: total_own_refund_deduct
+        description: 自己进件商户的退款扣除分润合计(分)
+        sql: own_refund_deduct
+        type: sum
+
+      - name: total_own_net_profit
+        description: 自己进件商户的净分润合计(分)
+        sql: own_net_profit
+        type: sum
+
+      - name: avg_rate
+        description: 分润比例平均值
+        sql: rate
+        type: avg
+
+      # 计算型度量
+      - name: net_profit_rate
+        description: 净分润率 = 净分润 / 交易总金额
+        sql: "1.0 * SUM({CUBE}.net_profit) / NULLIF(SUM({CUBE}.total_trade_amt), 0)"
+        type: number
+        format: percent
+
+      - name: refund_impact_rate
+        description: 退款对分润的影响 = 退款扣除分润 / 分润总收入
+        sql: "1.0 * SUM({CUBE}.total_refund_deduct) / NULLIF(SUM({CUBE}.total_profit), 0)"
+        type: number
+        format: percent
+
+      - name: own_profit_ratio
+        description: 自进件分润占比 = 自进件净分润 / 净分润
+        sql: "1.0 * SUM({CUBE}.own_net_profit) / NULLIF(SUM({CUBE}.net_profit), 0)"
+        type: number
+        format: percent
+
+      - name: refund_rate
+        description: 退款率 = 退款笔数 / 订单数
+        sql: "1.0 * SUM({CUBE}.refund_cnt) / NULLIF(SUM({CUBE}.order_cnt), 0)"
+        type: number
+        format: percent
+
+      - name: refund_amount_ratio
+        description: 退款金额占比 = 退款总金额 / 交易总金额
+        sql: "1.0 * SUM({CUBE}.total_refund_amt) / NULLIF(SUM({CUBE}.total_trade_amt), 0)"
+        type: number
+        format: percent
+
+    pre_aggregations: []

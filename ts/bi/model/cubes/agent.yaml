@@ -1,0 +1,98 @@
+cubes:
+  - name: agent
+    description: 代理
+    sql_table: agent
+    data_source: default
+
+    joins:
+      - name: agent_closure
+        sql: "{CUBE}.id = {agent_closure.descendant_id}"
+        relationship: one_to_many
+
+      - name: agent_rel
+        sql: "{CUBE}.agent_no = {agent_rel.agent_no}"
+        relationship: one_to_many
+
+      - name: apply
+        sql: "{CUBE}.agent_no = {apply.agent_no}"
+        relationship: one_to_many
+
+      - name: profit_daily
+        sql: "{CUBE}.agent_no = {profit_daily.agent_no}"
+        relationship: one_to_many
+
+    dimensions:
+      - name: id
+        description: 分布式雪花ID
+        sql: id
+        type: number
+        primary_key: true
+
+      - name: agent_no
+        description: 代理商编号
+        sql: agent_no
+        type: string
+
+      - name: name
+        description: 代理商名称
+        sql: name
+        type: string
+
+      - name: contact_name
+        description: 联系人姓名
+        sql: contact_name
+        type: string
+
+      - name: contact_phone
+        description: 联系人手机号
+        sql: contact_phone
+        type: string
+
+      - name: disabled
+        description: 是否禁用
+        sql: disabled
+        type: boolean
+
+      - name: rate
+        description: 备注费率（十万分比，用于助记代理商的成本）
+        sql: rate
+        type: number
+
+      - name: notify
+        description: "是否发送进件通知（0: 不发送, 1: 发送）"
+        sql: notify
+        type: boolean
+
+      - name: created_at
+        sql: created_at
+        type: time
+
+      - name: updated_at
+        sql: updated_at
+        type: time
+
+      - name: parent_id
+        description: 直接父节点（仅辅助）
+        sql: parent_id
+        type: number
+
+      - name: sort
+        description: 同级排序
+        sql: sort
+        type: number
+
+    measures:
+      - name: count
+        type: count
+
+      - name: total_rate
+        description: 备注费率合计
+        sql: rate
+        type: sum
+
+      - name: avg_rate
+        description: 备注费率平均值
+        sql: rate
+        type: avg
+
+    pre_aggregations: []

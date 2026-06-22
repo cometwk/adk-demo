@@ -1,0 +1,35 @@
+views:
+  - name: operations_dashboard
+    description: 运营看板，进件审批、异常预警、健康度
+    cubes:
+      - join_path: apply
+        includes:
+          - created_at
+          - status
+          - status_name
+          - success_rate
+          - success_count
+          - fail_count
+          - name: count
+            alias: apply_count
+
+      - join_path: apply.agent
+        prefix: true
+        includes:
+          - name
+          - agent_no
+
+      - join_path: profit_daily
+        includes:
+          - stat_date
+          - agent_no
+          - refund_rate
+          - refund_amount_ratio
+
+      - join_path: merch
+        includes:
+          - name
+          - merch_no
+          - disabled
+          - name: count
+            alias: merch_count

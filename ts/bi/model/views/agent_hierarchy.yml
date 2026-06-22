@@ -1,0 +1,24 @@
+views:
+  - name: agent_hierarchy
+    description: 代理商层级分析视图，组合层级关系与代理、分润维度
+    cubes:
+      - join_path: agent_closure
+        includes:
+          - depth
+          - hierarchy_level
+          - count
+
+      - join_path: agent_closure.agent
+        prefix: true
+        includes:
+          - name
+          - agent_no
+          - parent_id
+          - disabled
+
+      - join_path: agent_closure.agent.profit_daily
+        prefix: true
+        includes:
+          - stat_date
+          - total_trade_amt
+          - total_net_profit

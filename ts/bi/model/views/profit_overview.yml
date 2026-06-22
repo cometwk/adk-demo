@@ -1,0 +1,29 @@
+views:
+  - name: profit_overview
+    description: 分润总览视图，组合分润统计与代理维度
+    cubes:
+      - join_path: profit_daily
+        includes:
+          - stat_date
+          - agent_type
+          - agent_type_name
+          - status_name
+          - total_trade_amt
+          - total_profit
+          - total_net_profit
+          - total_own_net_profit
+          - total_refund_amt
+          - total_refund_deduct
+          - net_profit_rate
+          - refund_impact_rate
+          - own_profit_ratio
+          - refund_rate
+          - refund_amount_ratio
+          - count
+
+      - join_path: profit_daily.agent
+        prefix: true
+        includes:
+          - name
+          - agent_no
+          - disabled

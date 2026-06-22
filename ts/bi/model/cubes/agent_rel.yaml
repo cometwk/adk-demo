@@ -1,0 +1,100 @@
+cubes:
+  - name: agent_rel
+    description: 代理关系
+    sql_table: agent_rel
+    data_source: default
+
+    joins:
+      - name: agent
+        sql: "{CUBE}.agent_no = {agent.agent_no}"
+        relationship: many_to_one
+
+      - name: merch
+        sql: "{CUBE}.obj_no = {merch.merch_no} AND {CUBE}.agent_type = 'MERCH'"
+        relationship: many_to_one
+
+    dimensions:
+      - name: id
+        description: 分布式雪花ID
+        sql: id
+        type: number
+        primary_key: true
+
+      - name: agent_no
+        description: 代理商编号
+        sql: agent_no
+        type: string
+
+      - name: agent_type
+        description: "代理类型: MERCH or CHAN"
+        sql: agent_type
+        type: string
+
+      - name: agent_id
+        description: 代理商ID
+        sql: agent_id
+        type: number
+
+      - name: obj_no
+        description: "对象编号: 商户编号或通道编号"
+        sql: obj_no
+        type: string
+
+      - name: obj_name
+        description: "对象名称: 商户名称或通道名称"
+        sql: obj_name
+        type: string
+
+      - name: obj_id
+        description: "对象ID: 商户ID或通道ID"
+        sql: obj_id
+        type: number
+
+      - name: rate
+        description: 分润比例，十万分比率，只有该字段参与分润计算
+        sql: rate
+        type: number
+
+      - name: mode
+        description: "分润模式: 1: 收益占比模式PERCENT,单位是百分比 or 2: 固定模式FIXED, 单位是十万分比"
+        sql: mode
+        type: number
+
+      - name: rate_value
+        description: 用户设置的值，不参与计算，每次设置后根据mode计算后写入rate字段
+        sql: rate_value
+        type: number
+
+      - name: apply
+        description: "进件人标志：0: 不是，1: 是"
+        sql: apply
+        type: boolean
+
+      - name: created_at
+        sql: created_at
+        type: time
+
+      - name: updated_at
+        sql: updated_at
+        type: time
+
+    measures:
+      - name: count
+        type: count
+
+      - name: total_rate
+        description: 分润比例合计
+        sql: rate
+        type: sum
+
+      - name: avg_rate
+        description: 分润比例平均值
+        sql: rate
+        type: avg
+
+      - name: total_rate_value
+        description: 用户设置值合计
+        sql: rate_value
+        type: sum
+
+    pre_aggregations: []

@@ -1,0 +1,243 @@
+cubes:
+  - name: apply
+    description: 代理商商户进件申请主表
+    sql_table: apply
+    data_source: default
+
+    joins:
+      - name: agent
+        sql: "{CUBE}.agent_no = {agent.agent_no}"
+        relationship: many_to_one
+
+      - name: merch
+        sql: "{CUBE}.merch_no = {merch.merch_no}"
+        relationship: many_to_one
+
+    dimensions:
+      - name: id
+        description: 分布式雪花ID，只是前端使用
+        sql: id
+        type: number
+        primary_key: true
+
+      - name: agent_no
+        description: 代理商编号
+        sql: agent_no
+        type: string
+
+      - name: saas_no
+        description: 服务商编号
+        sql: saas_no
+        type: string
+
+      - name: out_apply_no
+        description: 服务商申请号，服务商内唯一
+        sql: out_apply_no
+        type: string
+
+      - name: apply_no
+        description: 平台进件单号
+        sql: apply_no
+        type: string
+
+      - name: rate
+        description: 签约费率，十万分比率
+        sql: rate
+        type: number
+
+      - name: branch_id
+        description: 网点ID
+        sql: branch_id
+        type: string
+
+      - name: userid
+        description: 用户ID
+        sql: userid
+        type: string
+
+      - name: remark
+        description: 备注
+        sql: remark
+        type: string
+
+      - name: status
+        description: "申请状态:0-INIT, 1-PENDING, 2-SUCCESS, 3-FAIL"
+        sql: status
+        type: number
+
+      - name: status_name
+        description: 申请状态名称
+        sql: >
+          CASE {CUBE}.status
+            WHEN 0 THEN '初始化'
+            WHEN 1 THEN '审核中'
+            WHEN 2 THEN '成功'
+            WHEN 3 THEN '失败'
+            ELSE '未知'
+          END
+        type: string
+
+      - name: status_reason
+        description: 造成申请状态的原因说明
+        sql: status_reason
+        type: string
+
+      - name: query_count
+        description: 已查询次数
+        sql: query_count
+        type: number
+
+      - name: next_query_time
+        description: 下次查询时间
+        sql: next_query_time
+        type: time
+
+      - name: notify
+        description: "通知状态: 1-PENDING, 2-SUCCESS, 3-FAIL"
+        sql: notify
+        type: number
+
+      - name: notify_status_name
+        description: 通知状态名称
+        sql: >
+          CASE {CUBE}.notify
+            WHEN 1 THEN '待通知'
+            WHEN 2 THEN '通知成功'
+            WHEN 3 THEN '通知失败'
+            ELSE '未知'
+          END
+        type: string
+
+      - name: notify_reason
+        description: 造成通知状态的原因说明
+        sql: notify_reason
+        type: string
+
+      - name: notify_count
+        description: 已重试次数
+        sql: notify_count
+        type: number
+
+      - name: next_notify_time
+        description: 下次通知时间
+        sql: next_notify_time
+        type: time
+
+      - name: notify_url
+        description: 商户异步通知URL
+        sql: notify_url
+        type: string
+
+      - name: merch_name
+        description: 商户名称，申请时录入
+        sql: merch_name
+        type: string
+
+      - name: merch_id
+        description: 商户ID
+        sql: merch_id
+        type: number
+
+      - name: merch_no
+        description: 商户编号，申请成功后的关联商户编号
+        sql: merch_no
+        type: string
+
+      - name: chan_merch_id
+        description: 机构商户ID，申请成功后分配
+        sql: chan_merch_id
+        type: number
+
+      - name: chan_merch_no
+        description: 机构商户号
+        sql: chan_merch_no
+        type: string
+
+      - name: chan_merch_name
+        description: 机构商户名称
+        sql: chan_merch_name
+        type: string
+
+      - name: contact_name
+        description: 联系人姓名
+        sql: contact_name
+        type: string
+
+      - name: contact_phone
+        description: 联系人手机号
+        sql: contact_phone
+        type: string
+
+      - name: req_params
+        description: 请求参数
+        sql: req_params
+        type: string
+
+      - name: disabled
+        description: 是否禁用
+        sql: disabled
+        type: boolean
+
+      - name: created_at
+        sql: created_at
+        type: time
+
+      - name: updated_at
+        sql: updated_at
+        type: time
+
+    measures:
+      - name: count
+        type: count
+
+      - name: total_rate
+        description: 签约费率合计
+        sql: rate
+        type: sum
+
+      - name: avg_rate
+        description: 签约费率平均值
+        sql: rate
+        type: avg
+
+      - name: success_count
+        description: 进件成功数量
+        sql: status
+        type: count
+        filters:
+          - sql: "{CUBE}.status = 2"
+
+      - name: fail_count
+        description: 进件失败数量
+        sql: status
+        type: count
+        filters:
+          - sql: "{CUBE}.status = 3"
+
+      - name: success_rate
+        description: 进件成功率
+        sql: "1.0 * {success_count} / NULLIF({count}, 0)"
+        type: number
+        format: percent
+
+      - name: notify_success_count
+        description: 通知成功数量（仅 status >= 2 的记录）
+        sql: notify
+        type: count
+        filters:
+          - sql: "{CUBE}.status >= 2 AND {CUBE}.notify = 2"
+
+      - name: notify_total_count
+        description: 通知总数（仅 status >= 2 的记录）
+        sql: notify
+        type: count
+        filters:
+          - sql: "{CUBE}.status >= 2"
+
+      - name: notify_success_rate
+        description: 通知成功率
+        sql: "1.0 * {notify_success_count} / NULLIF({notify_total_count}, 0)"
+        type: number
+        format: percent
+
+    pre_aggregations: []

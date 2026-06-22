@@ -1,0 +1,49 @@
+cubes:
+  - name: agent_closure
+    description: 代理商层级关系
+    sql_table: agent_closure
+    data_source: default
+
+    joins:
+      - name: agent
+        sql: "{CUBE}.descendant_id = {agent.id}"
+        relationship: many_to_one
+
+    dimensions:
+      - name: ancestor_id
+        sql: ancestor_id
+        type: number
+        primary_key: true
+
+      - name: descendant_id
+        sql: descendant_id
+        type: number
+        primary_key: true
+
+      - name: depth
+        sql: depth
+        type: number
+
+      - name: hierarchy_level
+        description: 代理商业绝对层级深度（从根节点算起）
+        sql: >
+          (SELECT ac.depth FROM agent_closure ac
+           INNER JOIN agent a ON a.id = ac.ancestor_id
+           WHERE ac.descendant_id = {CUBE}.descendant_id
+             AND a.parent_id = 0
+           LIMIT 1)
+        type: number
+
+    measures:
+      - name: count
+        type: count
+
+      - name: total_depth
+        sql: depth
+        type: sum
+
+      - name: avg_depth
+        sql: depth
+        type: avg
+
+    pre_aggregations: []
