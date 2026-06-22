@@ -19,7 +19,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, Check, X, HelpCircle, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, HelpCircle, Loader2, X } from "lucide-react";
 import { DiffView } from "./diff-view";
 import { PermissionDialog } from "./permission-dialog";
 
@@ -53,7 +53,15 @@ const TOOL_COLORS: Record<string, string> = {
 
 // ── Bash 渲染 (对标 BashToolResultMessage) ──
 
-function BashToolRender({ input, output, onOptionClick }: { input: Record<string, unknown>; output: Record<string, unknown> | null; onOptionClick?: (answer: string) => void }) {
+function BashToolRender({
+  input,
+  output,
+  onOptionClick,
+}: {
+  input: Record<string, unknown>;
+  output: Record<string, unknown> | null;
+  onOptionClick?: (answer: string) => void;
+}) {
   const command = String(input.command ?? "");
 
   // 权限确认 (default 模式返回 needs_permission)
@@ -80,27 +88,22 @@ function BashToolRender({ input, output, onOptionClick }: { input: Record<string
   return (
     <div className="space-y-1">
       {/* 命令行 (对标 CC 的命令高亮) */}
-      <div className="font-mono text-[11px] text-yellow-300 bg-gray-900 px-2 py-1 rounded">
-        $ {command}
-      </div>
+      <div className="font-mono text-[11px] text-yellow-300 bg-gray-900 px-2 py-1 rounded">$ {command}</div>
       {/* stdout */}
       {stdout && (
         <pre className="text-[11px] text-gray-300 bg-gray-900/50 px-2 py-1 rounded overflow-auto max-h-64 whitespace-pre-wrap">
-          {stdout.slice(0, 3000)}{stdout.length > 3000 ? "\n...[truncated]" : ""}
+          {stdout.slice(0, 3000)}
+          {stdout.length > 3000 ? "\n...[truncated]" : ""}
         </pre>
       )}
       {/* stderr */}
       {stderr && (
-        <pre className="text-[11px] text-red-400 bg-red-950/30 px-2 py-1 rounded overflow-auto max-h-32 whitespace-pre-wrap">
-          {stderr.slice(0, 1000)}
-        </pre>
+        <pre className="text-[11px] text-red-400 bg-red-950/30 px-2 py-1 rounded overflow-auto max-h-32 whitespace-pre-wrap">{stderr.slice(0, 1000)}</pre>
       )}
       {/* error */}
       {error && <div className="text-[11px] text-red-400">{error}</div>}
       {/* exit code badge */}
-      {exitCode !== null && exitCode !== 0 && (
-        <span className="text-[10px] text-red-400">exit code: {exitCode}</span>
-      )}
+      {exitCode !== null && exitCode !== 0 && <span className="text-[10px] text-red-400">exit code: {exitCode}</span>}
     </div>
   );
 }
@@ -123,7 +126,8 @@ function FileReadRender({ input, output }: { input: Record<string, unknown>; out
       </div>
       {content && (
         <pre className="text-[11px] text-gray-400 bg-gray-900/50 px-2 py-1 rounded overflow-auto max-h-48 font-mono whitespace-pre-wrap">
-          {content.slice(0, 2000)}{content.length > 2000 ? "\n..." : ""}
+          {content.slice(0, 2000)}
+          {content.length > 2000 ? "\n..." : ""}
         </pre>
       )}
     </div>
@@ -167,9 +171,7 @@ function FileWriteRender({ input, output }: { input: Record<string, unknown>; ou
 
 function GrepRender({ input, output }: { input: Record<string, unknown>; output: Record<string, unknown> | null }) {
   const pattern = String(input.pattern ?? "");
-  const matches = output && Array.isArray((output as Record<string, unknown>).matches)
-    ? (output as Record<string, unknown>).matches as string[]
-    : [];
+  const matches = output && Array.isArray((output as Record<string, unknown>).matches) ? ((output as Record<string, unknown>).matches as string[]) : [];
   const count = output ? Number((output as Record<string, unknown>).count ?? 0) : 0;
 
   return (
@@ -192,9 +194,7 @@ function GrepRender({ input, output }: { input: Record<string, unknown>; output:
 
 function GlobRender({ input, output }: { input: Record<string, unknown>; output: Record<string, unknown> | null }) {
   const pattern = String(input.pattern ?? "");
-  const files = output && Array.isArray((output as Record<string, unknown>).files)
-    ? (output as Record<string, unknown>).files as string[]
-    : [];
+  const files = output && Array.isArray((output as Record<string, unknown>).files) ? ((output as Record<string, unknown>).files as string[]) : [];
 
   return (
     <div className="space-y-1">
@@ -205,7 +205,9 @@ function GlobRender({ input, output }: { input: Record<string, unknown>; output:
       {files.length > 0 && (
         <div className="text-[10px] text-gray-400 bg-gray-900/50 px-2 py-1 rounded max-h-32 overflow-auto font-mono">
           {files.slice(0, 15).map((f, i) => (
-            <div key={i} className="text-blue-400">{f}</div>
+            <div key={i} className="text-blue-400">
+              {f}
+            </div>
           ))}
           {files.length > 15 && <div className="text-gray-600">...+{files.length - 15} more</div>}
         </div>
@@ -230,9 +232,7 @@ function AgentRender({ input, output }: { input: Record<string, unknown>; output
         {status === "error" && <span className="text-red-400 ml-2">failed</span>}
       </div>
       {result && (
-        <pre className="text-[10px] text-gray-400 bg-gray-900/50 px-2 py-1 rounded overflow-auto max-h-40 whitespace-pre-wrap">
-          {result.slice(0, 1500)}
-        </pre>
+        <pre className="text-[10px] text-gray-400 bg-gray-900/50 px-2 py-1 rounded overflow-auto max-h-40 whitespace-pre-wrap">{result.slice(0, 1500)}</pre>
       )}
     </div>
   );
@@ -253,11 +253,14 @@ function WebFetchRender({ input, output }: { input: Record<string, unknown>; out
     <div className="space-y-1">
       <div className="text-[11px] flex justify-between">
         <span className="text-orange-300 font-mono truncate max-w-[80%]">{url}</span>
-        <span className="text-gray-500 shrink-0">{(bytes / 1024).toFixed(1)}KB {durationMs}ms</span>
+        <span className="text-gray-500 shrink-0">
+          {(bytes / 1024).toFixed(1)}KB {durationMs}ms
+        </span>
       </div>
       {content && (
         <pre className="text-[10px] text-gray-400 bg-gray-900/50 px-2 py-1 rounded overflow-auto max-h-40 whitespace-pre-wrap">
-          {content.slice(0, 1500)}{content.length > 1500 ? "\n..." : ""}
+          {content.slice(0, 1500)}
+          {content.length > 1500 ? "\n..." : ""}
         </pre>
       )}
     </div>
@@ -275,13 +278,16 @@ interface AskUserQuestion {
 
 // ── WebSearch 渲染 ──
 
-interface SearchResultItem { title: string; url: string; snippet: string }
+interface SearchResultItem {
+  title: string;
+  url: string;
+  snippet: string;
+}
 
 function WebSearchRender({ input, output }: { input: Record<string, unknown>; output: Record<string, unknown> | null }) {
   const query = String(input.query ?? "");
-  const results = output && Array.isArray((output as Record<string, unknown>).results)
-    ? (output as Record<string, unknown>).results as SearchResultItem[]
-    : [];
+  const results =
+    output && Array.isArray((output as Record<string, unknown>).results) ? ((output as Record<string, unknown>).results as SearchResultItem[]) : [];
   const error = output ? String((output as Record<string, unknown>).error ?? "") : "";
   const durationMs = output ? Number((output as Record<string, unknown>).durationMs ?? 0) : 0;
 
@@ -291,7 +297,9 @@ function WebSearchRender({ input, output }: { input: Record<string, unknown>; ou
     <div className="space-y-1.5">
       <div className="text-[11px] flex justify-between">
         <span className="text-teal-300">"{query}"</span>
-        <span className="text-muted-foreground">{results.length} results · {durationMs}ms</span>
+        <span className="text-muted-foreground">
+          {results.length} results · {durationMs}ms
+        </span>
       </div>
       {results.map((r, i) => (
         <div key={i} className="text-[11px] space-y-0.5">
@@ -306,22 +314,14 @@ function WebSearchRender({ input, output }: { input: Record<string, unknown>; ou
 
 // ── AskUser 渲染 ──
 
-function AskUserRender({
-  output,
-  onOptionClick,
-}: {
-  output: Record<string, unknown>;
-  onOptionClick?: (answer: string) => void;
-}) {
+function AskUserRender({ output, onOptionClick }: { output: Record<string, unknown>; onOptionClick?: (answer: string) => void }) {
   const questions = (output.questions ?? []) as AskUserQuestion[];
 
   return (
     <div className="space-y-3">
       {questions.map((q, qi) => (
         <div key={qi} className="space-y-1.5">
-          {q.header && (
-            <span className="text-[10px] bg-indigo-800 text-indigo-200 px-1.5 py-0.5 rounded">{q.header}</span>
-          )}
+          {q.header && <span className="text-[10px] bg-indigo-800 text-indigo-200 px-1.5 py-0.5 rounded">{q.header}</span>}
           <div className="text-[11px] text-indigo-200 font-medium">{q.question}</div>
           <div className="space-y-1">
             {q.options.map((opt, oi) => (
@@ -332,15 +332,11 @@ function AskUserRender({
                 className="w-full text-left px-2 py-1.5 bg-gray-800 border border-gray-700 rounded cursor-pointer hover:border-indigo-500 hover:bg-indigo-950 transition-colors group"
               >
                 <div className="text-[11px] text-gray-200 group-hover:text-indigo-200">{opt.label}</div>
-                {opt.description && (
-                  <div className="text-[10px] text-gray-500 mt-0.5">{opt.description}</div>
-                )}
+                {opt.description && <div className="text-[10px] text-gray-500 mt-0.5">{opt.description}</div>}
               </button>
             ))}
           </div>
-          <div className="text-[10px] text-gray-600 italic">
-            Click an option or type a custom response
-          </div>
+          <div className="text-[10px] text-gray-600 italic">Click an option or type a custom response</div>
         </div>
       ))}
     </div>
@@ -349,11 +345,19 @@ function AskUserRender({
 
 // ── 通用 Fallback ──
 
-function FallbackRender({ output }: { output: unknown }) {
+function FallbackRender({ input, output }: { input: Record<string, unknown>; output: unknown }) {
   return (
-    <pre className="text-[10px] text-gray-500 bg-gray-900/50 px-2 py-1 rounded overflow-auto max-h-32 whitespace-pre-wrap">
-      {typeof output === "string" ? output : JSON.stringify(output, null, 2).slice(0, 1000)}
-    </pre>
+    <div>
+      <pre className="text-[10px] text-gray-500 bg-gray-900/50 px-2 py-1 rounded overflow-auto max-h-32 whitespace-pre-wrap">
+        {typeof input === "string" ? input : JSON.stringify(input, null, 2)}
+      </pre>
+
+      <div className="border-t border-border my-1" />
+
+      <pre className="text-[10px] text-gray-500 bg-gray-900/50 px-2 py-1 rounded overflow-auto max-h-32 whitespace-pre-wrap">
+        {typeof output === "string" ? output : JSON.stringify(output, null, 2).slice(0, 1000)}
+      </pre>
+    </div>
   );
 }
 
@@ -396,9 +400,7 @@ export function ToolCallRenderer({ toolName, input, output, isComplete, onOption
         </CollapsibleTrigger>
         <CollapsibleContent>
           {isComplete && output != null && (
-            <div className="px-2.5 py-1.5 border-t border-border">
-              {renderToolOutput(name, input ?? {}, output as Record<string, unknown>, onOptionClick)}
-            </div>
+            <div className="px-2.5 py-1.5 border-t border-border">{renderToolOutput(name, input ?? {}, output as Record<string, unknown>, onOptionClick)}</div>
           )}
         </CollapsibleContent>
       </Card>
@@ -410,37 +412,58 @@ export function ToolCallRenderer({ toolName, input, output, isComplete, onOption
 function getTitleHint(name: string, input: Record<string, unknown> | null): string {
   if (!input) return "";
   switch (name) {
-    case "bash": return String(input.command ?? "").slice(0, 50);
+    case "bash":
+      return String(input.command ?? "").slice(0, 50);
     case "file_read":
     case "file_edit":
     case "file_write": {
       const p = String(input.file_path ?? "");
       return p.split("/").pop() ?? p;
     }
-    case "glob": return String(input.pattern ?? "");
-    case "grep": return String(input.pattern ?? "");
-    case "agent": return String(input.description ?? "");
+    case "glob":
+      return String(input.pattern ?? "");
+    case "grep":
+      return String(input.pattern ?? "");
+    case "agent":
+      return String(input.description ?? "");
     case "web_fetch": {
-      try { return new URL(String(input.url ?? "")).hostname; } catch { return ""; }
+      try {
+        return new URL(String(input.url ?? "")).hostname;
+      } catch {
+        return "";
+      }
     }
-    case "web_search": return String(input.query ?? "").slice(0, 40);
-    default: return "";
+    case "web_search":
+      return String(input.query ?? "").slice(0, 40);
+    default:
+      return "";
   }
 }
 
 /** 按工具名路由到渲染器 */
 function renderToolOutput(name: string, input: Record<string, unknown>, output: Record<string, unknown>, onOptionClick?: (answer: string) => void) {
   switch (name) {
-    case "bash": return <BashToolRender input={input} output={output} onOptionClick={onOptionClick} />;
-    case "file_read": return <FileReadRender input={input} output={output} />;
-    case "file_edit": return <FileEditRender input={input} output={output} />;
-    case "file_write": return <FileWriteRender input={input} output={output} />;
-    case "grep": return <GrepRender input={input} output={output} />;
-    case "glob": return <GlobRender input={input} output={output} />;
-    case "agent": return <AgentRender input={input} output={output} />;
-    case "web_fetch": return <WebFetchRender input={input} output={output} />;
-    case "web_search": return <WebSearchRender input={input} output={output} />;
-    case "ask_user": return <AskUserRender output={output} onOptionClick={onOptionClick} />;
-    default: return <FallbackRender output={output} />;
+    case "bash":
+      return <BashToolRender input={input} output={output} onOptionClick={onOptionClick} />;
+    case "file_read":
+      return <FileReadRender input={input} output={output} />;
+    case "file_edit":
+      return <FileEditRender input={input} output={output} />;
+    case "file_write":
+      return <FileWriteRender input={input} output={output} />;
+    case "grep":
+      return <GrepRender input={input} output={output} />;
+    case "glob":
+      return <GlobRender input={input} output={output} />;
+    case "agent":
+      return <AgentRender input={input} output={output} />;
+    case "web_fetch":
+      return <WebFetchRender input={input} output={output} />;
+    case "web_search":
+      return <WebSearchRender input={input} output={output} />;
+    case "ask_user":
+      return <AskUserRender output={output} onOptionClick={onOptionClick} />;
+    default:
+      return <FallbackRender input={input} output={output} />;
   }
 }
